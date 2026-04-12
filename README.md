@@ -12,8 +12,8 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/v/memtrace?style=flat-square&color=00D4B8&label=npm" alt="npm version" /></a>
   <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/dm/memtrace?style=flat-square&color=0A1628&label=downloads" alt="npm downloads" /></a>
-  <a href="https://github.com/syncable-dev/memtrace/stargazers"><img src="https://img.shields.io/github/stars/syncable-dev/memtrace?style=flat-square&color=00D4B8" alt="GitHub stars" /></a>
-  <a href="https://github.com/syncable-dev/memtrace/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-0A1628?style=flat-square" alt="license" /></a>
+  <a href="https://github.com/syncable-dev/memtrace-public/stargazers"><img src="https://img.shields.io/github/stars/syncable-dev/memtrace-public?style=flat-square&color=00D4B8" alt="GitHub stars" /></a>
+  <a href="https://github.com/syncable-dev/memtrace-public/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Proprietary%20EULA-0A1628?style=flat-square" alt="license" /></a>
   <a href="https://memtrace.dev"><img src="https://img.shields.io/badge/docs-memtrace.dev-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
 
@@ -21,7 +21,7 @@
   <a href="#quick-start">Quick Start</a> ·
   <a href="#skills">Skills</a> ·
   <a href="#mcp-tools">MCP Tools</a> ·
-  <a href="#evolution-engine">Evolution Engine</a> ·
+  <a href="#benchmarks">Benchmarks</a> ·
   <a href="#claude-code-setup">Claude Code</a> ·
   <a href="#claude-desktop-setup">Claude Desktop</a>
 </p>
@@ -152,6 +152,47 @@ The temporal analysis engine implements **six distinct scoring algorithms** — 
 
 Uses **Structural Significance Budgeting (SSB)** to select the minimum set of changes covering ≥80% of total significance — surfaces what matters without drowning you in noise.
 
+## Benchmarks
+
+Memtrace is purpose-built to defeat traditional memory systems by natively indexing via AST parsers rather than relying on noisy semantic chunking. All benchmarks run on the same machine against complex, real-world codebases.
+
+### Search Accuracy — 1,000 Multi-Hop Queries
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
+  <img alt="Search accuracy: Memtrace 83.5% vs Vector RAG 25.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
+</picture>
+
+### Token Context Reduction
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
+  <img alt="Token usage: Memtrace 284K vs Vector RAG 2.4M — 88.2% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
+</picture>
+
+### Indexing Speed — 1,500 Files
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/indexing-speed.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/indexing-speed.svg"/>
+  <img alt="Indexing: Memtrace 1.5s vs Graphiti 6h vs Mem0 31m" src="assets/benchmarks/indexing-speed.svg" width="720"/>
+</picture>
+
+<details>
+<summary><strong>Why the difference?</strong></summary>
+
+<br/>
+
+**AST vs. LLM-based ingestion** — General-purpose memory engines (Mem0, Graphiti) use LLM API calls to *guess* code relationships, costing ~$25+ per medium repository and taking minutes to hours. Memtrace compiles native AST parsers via Tree-sitter, resolving deterministic symbol references in seconds for $0.
+
+**Graph traversal vs. vector similarity** — Vector RAG retrieves chunks by cosine similarity, returning noisy context that floods the agent's context window. Memtrace traverses the knowledge graph along explicit `CALLS`, `IMPLEMENTS`, `IMPORTS` edges — returning only the exact subgraph the agent needs.
+
+**Structural integrity** — Memtrace links AST constructs (`(Interface)←[:IMPLEMENTS]-(Class)`) with deterministic precision. No fuzzy semantic nodes, no hallucinated relationships.
+
+</details>
+
 ## Claude Code Setup
 
 `npm install -g memtrace` handles everything. For manual setup:
@@ -233,10 +274,10 @@ Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Sw
 
 - [Documentation](https://memtrace.dev)
 - [npm Package](https://www.npmjs.com/package/memtrace)
-- [Report an Issue](https://github.com/syncable-dev/memtrace/issues)
+- [Report an Issue](https://github.com/syncable-dev/memtrace-public/issues)
 
 ---
 
 <p align="center">
-  <sub>Built by <a href="https://syncable.dev">Syncable</a> · Licensed under <a href="LICENSE">FSL-1.1-MIT</a></sub>
+  <sub>Built by <a href="https://syncable.dev">Syncable</a> · <a href="LICENSE">Proprietary EULA</a> · Free to use</sub>
 </p>

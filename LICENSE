@@ -1,0 +1,147 @@
+MEMTRACE END USER LICENSE AGREEMENT (EULA)
+
+Version 1.0 — Effective April 13, 2026
+
+Copyright (c) 2026 Syncable Dev. All rights reserved.
+
+This End User License Agreement ("Agreement") is a legal agreement between
+you ("User") and Syncable Dev ("Licensor") for the Memtrace software,
+including any associated binaries, skills, documentation, and updates
+(collectively, the "Software").
+
+By installing, copying, or otherwise using the Software, you agree to be
+bound by the terms of this Agreement. If you do not agree, do not install
+or use the Software.
+
+
+1. GRANT OF LICENSE
+
+   Subject to the terms of this Agreement, Licensor grants you a
+   non-exclusive, non-transferable, revocable, worldwide license to:
+
+   (a) Download, install, and use the Software in binary form for your
+       own personal or internal business purposes;
+
+   (b) Use the Software to index, analyze, and query codebases you own
+       or have authorization to access;
+
+   (c) Use the bundled AI agent skills with compatible AI tools
+       (e.g., Claude Code, Claude Desktop).
+
+
+2. RESTRICTIONS
+
+   You may NOT:
+
+   (a) Reverse engineer, decompile, disassemble, or otherwise attempt to
+       derive the source code of the Software;
+
+   (b) Modify, adapt, translate, or create derivative works based on
+       the Software;
+
+   (c) Redistribute, sublicense, rent, lease, lend, sell, or otherwise
+       transfer the Software or any rights therein to any third party;
+
+   (d) Remove, alter, or obscure any proprietary notices, labels, or
+       marks on the Software;
+
+   (e) Use the Software to build a competing product or service;
+
+   (f) Use the Software in any manner that violates applicable laws or
+       regulations.
+
+
+3. INTELLECTUAL PROPERTY
+
+   The Software is licensed, not sold. Licensor retains all right, title,
+   and interest in and to the Software, including all intellectual property
+   rights. No rights are granted to you other than those expressly set
+   forth in this Agreement.
+
+
+4. AI AGENT SKILLS
+
+   The AI agent skills included with the Software (installed to
+   ~/.claude/skills/) are provided as part of the Software and are subject
+   to the same terms. You may use them with compatible AI tools but may not
+   extract, redistribute, or repurpose them independently of the Software.
+
+
+5. DATA AND PRIVACY
+
+   (a) The Software processes source code locally on your machine. No
+       source code is transmitted to Licensor's servers unless you
+       explicitly configure an external service connection.
+
+   (b) The Software may collect anonymous usage telemetry (e.g., command
+       frequency, error rates) to improve the product. You may opt out
+       of telemetry via configuration.
+
+   (c) The knowledge graph and all indexed data remain on your local
+       machine under your control.
+
+
+6. THIRD-PARTY COMPONENTS
+
+   The Software may include or depend on third-party open source
+   components, each governed by its own license. A list of such components
+   and their licenses is available at https://memtrace.dev/third-party
+   or in the THIRD-PARTY-NOTICES file distributed with the Software,
+   where applicable.
+
+
+7. DISCLAIMER OF WARRANTIES
+
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+   LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE,
+   UNINTERRUPTED, OR FREE OF HARMFUL COMPONENTS.
+
+
+8. LIMITATION OF LIABILITY
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
+   LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL,
+   OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, DATA, OR GOODWILL, ARISING
+   OUT OF OR IN CONNECTION WITH YOUR USE OF THE SOFTWARE, EVEN IF LICENSOR
+   HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+   LICENSOR'S TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE AMOUNT YOU
+   PAID FOR THE SOFTWARE (IF ANY) IN THE TWELVE (12) MONTHS PRECEDING
+   THE CLAIM.
+
+
+9. TERMINATION
+
+   (a) This Agreement is effective until terminated. Your rights under
+       this Agreement will terminate automatically if you fail to comply
+       with any of its terms.
+
+   (b) Upon termination, you must cease all use of the Software and
+       destroy all copies in your possession.
+
+   (c) Sections 2, 3, 7, 8, and 10 shall survive termination.
+
+
+10. GOVERNING LAW
+
+    This Agreement shall be governed by and construed in accordance with
+    the laws of the jurisdiction in which Licensor is established, without
+    regard to its conflict of laws provisions.
+
+
+11. ENTIRE AGREEMENT
+
+    This Agreement constitutes the entire agreement between you and
+    Licensor regarding the Software and supersedes all prior agreements,
+    understandings, and communications, whether written or oral.
+
+
+12. CONTACT
+
+    For questions about this license, contact: axth@syncable.dev
+
+---
+
+Syncable Dev — https://syncable.dev

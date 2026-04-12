@@ -1,91 +1,86 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Memtrace" width="120" height="120" />
+  <img src="assets/logo.svg" alt="Memtrace" width="100" height="100" />
 </p>
 
 <h1 align="center">Memtrace</h1>
 
 <p align="center">
-  <strong>Code intelligence graph for AI agents</strong><br/>
-  Structural search · Relationship analysis · Temporal evolution · Architectural understanding
+  <strong>The persistent memory layer for coding agents.</strong><br/>
+  A bi-temporal, episodic, structural knowledge graph — built from AST, not guesswork.
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/v/memtrace?style=flat-square&color=00D4B8&label=npm" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/dm/memtrace?style=flat-square&color=0A1628&label=downloads" alt="npm downloads" /></a>
-  <a href="https://github.com/syncable-dev/memtrace-public/stargazers"><img src="https://img.shields.io/github/stars/syncable-dev/memtrace-public?style=flat-square&color=00D4B8" alt="GitHub stars" /></a>
   <a href="https://github.com/syncable-dev/memtrace-public/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Proprietary%20EULA-0A1628?style=flat-square" alt="license" /></a>
   <a href="https://memtrace.dev"><img src="https://img.shields.io/badge/docs-memtrace.dev-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
 
-<p align="center">
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#skills">Skills</a> ·
-  <a href="#mcp-tools">MCP Tools</a> ·
-  <a href="#benchmarks">Benchmarks</a> ·
-  <a href="#claude-code-setup">Claude Code</a> ·
-  <a href="#claude-desktop-setup">Claude Desktop</a>
-</p>
+---
+
+Memtrace gives coding agents something they've never had: **structural memory**. Not vector similarity. Not semantic chunking. A real knowledge graph compiled from your codebase's AST — where every function, class, interface, and API endpoint exists as a node with deterministic, typed relationships.
+
+Index once. Every agent query after that resolves through graph traversal — callers, callees, implementations, imports, blast radius, temporal evolution — in milliseconds, with zero token waste.
+
+```bash
+npm install -g memtrace    # binary + 12 skills + MCP server — one command
+memtrace start             # launches the graph database
+memtrace index .           # indexes your codebase in seconds
+```
+
+That's it. Claude picks up the skills and MCP tools automatically.
 
 ---
 
-Memtrace is an MCP server that builds a **persistent knowledge graph** from your codebase. It parses source files, resolves cross-file relationships, detects API endpoints, runs community detection, and embeds all symbols for semantic search — then exposes 25+ tools via the [Model Context Protocol](https://modelcontextprotocol.io) so AI agents can explore, analyze, and reason about your code structurally.
+## Why Memtrace Exists
 
-## Quick Start
+Every coding agent today operates with amnesia. Ask it about your codebase and it re-reads files, re-chunks text, re-embeds tokens — every single time. The context window fills up with noise. The agent hallucinates relationships that don't exist.
 
-```bash
-# Install (binary + skills + MCP server — all in one)
-npm install -g memtrace
+Memtrace eliminates this entirely. It compiles your codebase into a **persistent bi-temporal knowledge graph** where:
 
-# Start the graph database
-memtrace start
+- **Symbols are nodes** — functions, classes, interfaces, types, endpoints
+- **Relationships are edges** — `CALLS`, `IMPLEMENTS`, `IMPORTS`, `EXPORTS`, `CONTAINS`
+- **Time is a first-class dimension** — every node carries its full version history, so agents can reason about *what changed* and *when*, not just *what exists*
+- **Community structure is detected** — Louvain algorithm identifies architectural modules automatically
+- **Semantic search is hybrid** — BM25 + vector embeddings with Reciprocal Rank Fusion, on top of the graph
 
-# Index your project
-memtrace index /path/to/your/project
-```
+The agent doesn't search your code. It *traverses* it.
 
-That's it. The installer handles everything:
+## Benchmarks
 
-| Step | What happens |
-|------|-------------|
-| **Binary** | Platform-specific native binary installed via npm |
-| **Skills** | 12 AI agent skills written to `~/.claude/skills/` and plugin cache |
-| **Plugin** | `memtrace-skills@memtrace` enabled in `~/.claude/settings.json` |
-| **Marketplace** | GitHub marketplace registered for auto-updates |
-| **MCP Server** | `memtrace mcp` registered in `mcpServers` |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
+  <img alt="Search accuracy: Memtrace 83.5% vs Vector RAG 25.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
+</picture>
 
-> **Zero configuration required** — just install and start exploring your codebase with Claude.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
+  <img alt="Token usage: Memtrace 284K vs Vector RAG 2.4M — 88.2% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
+</picture>
 
-## Skills
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/indexing-speed.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/indexing-speed.svg"/>
+  <img alt="Indexing: Memtrace 1.5s vs Graphiti 6h vs Mem0 31m" src="assets/benchmarks/indexing-speed.svg" width="720"/>
+</picture>
 
-Memtrace ships with **12 skills** that teach Claude _how_ to use the knowledge graph. Skills fire automatically based on what you ask.
+<details>
+<summary><strong>What makes the difference</strong></summary>
 
-### Command Skills
+<br/>
 
-| Skill | Triggers when you say... |
-|:------|:------------------------|
-| `memtrace-index` | _"index this project"_, _"set up code intelligence"_, _"parse this codebase"_ |
-| `memtrace-search` | _"find this function"_, _"where is X defined"_, _"search for authentication logic"_ |
-| `memtrace-relationships` | _"who calls this"_, _"what does this function call"_, _"show class hierarchy"_ |
-| `memtrace-evolution` | _"what changed this week"_, _"how did this evolve"_, _"what's different since Monday"_ |
-| `memtrace-impact` | _"what will break if I change this"_, _"blast radius"_, _"risk assessment"_ |
-| `memtrace-quality` | _"find dead code"_, _"complexity hotspots"_, _"code smells"_ |
-| `memtrace-graph` | _"show me the architecture"_, _"find bottlenecks"_, _"most important functions"_ |
-| `memtrace-api-topology` | _"list API endpoints"_, _"service dependencies"_, _"who calls this API"_ |
+**AST compilation, not LLM ingestion.** General-purpose memory engines call LLMs to *guess* code relationships — $25+ per repo, minutes to hours. Memtrace compiles native Tree-sitter parsers and resolves deterministic symbol references in seconds, for $0.
 
-### Workflow Skills
+**Graph traversal, not vector similarity.** Vector RAG retrieves chunks by cosine distance, flooding the context window with noise. Memtrace walks explicit `CALLS → IMPLEMENTS → IMPORTS` edges and returns only the subgraph the agent needs.
 
-Multi-step orchestrations that chain tools together with decision logic:
+**Structural integrity, not fuzzy nodes.** `(Interface)←[:IMPLEMENTS]-(Class)` is a fact, not an approximation. Agents get deterministic context they can reason over without hallucinating.
 
-| Skill | Triggers when you say... |
-|:------|:------------------------|
-| `memtrace-codebase-exploration` | _"explore this codebase"_, _"I'm new to this project"_, _"give me an overview"_ |
-| `memtrace-change-impact-analysis` | _"what will break if I refactor this"_, _"pre-change risk assessment"_ |
-| `memtrace-incident-investigation` | _"something broke"_, _"root cause analysis"_, _"what went wrong"_ |
-| `memtrace-refactoring-guide` | _"help me refactor"_, _"reduce complexity"_, _"clean up tech debt"_ |
+</details>
 
-## MCP Tools
+## 25+ MCP Tools
 
-25+ tools exposed via the Model Context Protocol:
+Memtrace exposes a full structural toolkit via the [Model Context Protocol](https://modelcontextprotocol.io):
 
 <table>
 <tr>
@@ -113,7 +108,7 @@ Multi-step orchestrations that chain tools together with decision logic:
 <td width="50%" valign="top">
 
 **Temporal Analysis**
-- `get_evolution` — 6 scoring modes (see below)
+- `get_evolution` — 6 scoring modes (compound, impact, novel, recent, directional, overview)
 - `get_timeline` — full symbol version history
 - `detect_changes` — diff-based impact scope
 
@@ -137,79 +132,59 @@ Multi-step orchestrations that chain tools together with decision logic:
 </tr>
 </table>
 
-## Evolution Engine
+## 12 Agent Skills
 
-The temporal analysis engine implements **six distinct scoring algorithms** — choose the right one for the question you're asking:
+Memtrace ships skills that teach Claude *how* to use the graph. They fire automatically based on what you ask — no prompt engineering required.
 
-| Mode | Formula | Best for |
-|:-----|:--------|:---------|
-| **`compound`** | `0.50 × rank(impact) + 0.35 × rank(novel) + 0.15 × rank(recent)` | General-purpose _"what changed?"_ |
-| **`impact`** | `sig(n) = in_degree^0.7 × (1 + out_degree)^0.3` | _"What broke?"_ — largest blast radius |
-| **`novel`** | `surprise(n) = (1 + in_degree) / (1 + change_freq_90d)` | _"What's unexpected?"_ — anomaly detection |
-| **`recent`** | `impact × exp(−0.5 × Δhours)` | _"What changed near the incident?"_ |
-| **`directional`** | Asymmetric: added → out_degree, removed → in_degree | _"What was added vs removed?"_ |
-| **`overview`** | Module-level rollup only | Quick summary, no per-symbol scoring |
+| | Skill | You say... |
+|:--|:------|:-----------|
+| **Search** | `memtrace-search` | _"find this function"_, _"where is X defined"_ |
+| **Relationships** | `memtrace-relationships` | _"who calls this"_, _"show class hierarchy"_ |
+| **Evolution** | `memtrace-evolution` | _"what changed this week"_, _"how did this evolve"_ |
+| **Impact** | `memtrace-impact` | _"what breaks if I change this"_, _"blast radius"_ |
+| **Quality** | `memtrace-quality` | _"find dead code"_, _"complexity hotspots"_ |
+| **Architecture** | `memtrace-graph` | _"show me the architecture"_, _"find bottlenecks"_ |
+| **APIs** | `memtrace-api-topology` | _"list API endpoints"_, _"service dependencies"_ |
+| **Index** | `memtrace-index` | _"index this project"_, _"parse this codebase"_ |
 
-Uses **Structural Significance Budgeting (SSB)** to select the minimum set of changes covering ≥80% of total significance — surfaces what matters without drowning you in noise.
+Plus **4 workflow skills** that chain multiple tools with decision logic:
 
-## Benchmarks
+| Skill | You say... |
+|:------|:-----------|
+| `memtrace-codebase-exploration` | _"I'm new to this project"_, _"give me an overview"_ |
+| `memtrace-change-impact-analysis` | _"what will break if I refactor this"_ |
+| `memtrace-incident-investigation` | _"something broke"_, _"root cause analysis"_ |
+| `memtrace-refactoring-guide` | _"help me refactor"_, _"clean up tech debt"_ |
 
-Memtrace is purpose-built to defeat traditional memory systems by natively indexing via AST parsers rather than relying on noisy semantic chunking. All benchmarks run on the same machine against complex, real-world codebases.
+## Temporal Engine
 
-### Search Accuracy — 1,000 Multi-Hop Queries
+Six scoring algorithms for different temporal questions:
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <img alt="Search accuracy: Memtrace 83.5% vs Vector RAG 25.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
-</picture>
+| Mode | Best for |
+|:-----|:---------|
+| **`compound`** | General-purpose _"what changed?"_ — weighted blend of impact, novelty, recency |
+| **`impact`** | _"What broke?"_ — ranks by blast radius (`in_degree^0.7 × (1 + out_degree)^0.3`) |
+| **`novel`** | _"What's unexpected?"_ — anomaly detection via surprise scoring |
+| **`recent`** | _"What changed near the incident?"_ — exponential time decay |
+| **`directional`** | _"What was added vs removed?"_ — asymmetric scoring |
+| **`overview`** | Quick module-level summary |
 
-### Token Context Reduction
+Uses **Structural Significance Budgeting** to surface the minimum set of changes covering ≥80% of total significance.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
-  <img alt="Token usage: Memtrace 284K vs Vector RAG 2.4M — 88.2% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
-</picture>
+## Setup
 
-### Indexing Speed — 1,500 Files
+### Claude Code
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/indexing-speed.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/indexing-speed.svg"/>
-  <img alt="Indexing: Memtrace 1.5s vs Graphiti 6h vs Mem0 31m" src="assets/benchmarks/indexing-speed.svg" width="720"/>
-</picture>
-
-<details>
-<summary><strong>Why the difference?</strong></summary>
-
-<br/>
-
-**AST vs. LLM-based ingestion** — General-purpose memory engines (Mem0, Graphiti) use LLM API calls to *guess* code relationships, costing ~$25+ per medium repository and taking minutes to hours. Memtrace compiles native AST parsers via Tree-sitter, resolving deterministic symbol references in seconds for $0.
-
-**Graph traversal vs. vector similarity** — Vector RAG retrieves chunks by cosine similarity, returning noisy context that floods the agent's context window. Memtrace traverses the knowledge graph along explicit `CALLS`, `IMPLEMENTS`, `IMPORTS` edges — returning only the exact subgraph the agent needs.
-
-**Structural integrity** — Memtrace links AST constructs (`(Interface)←[:IMPLEMENTS]-(Class)`) with deterministic precision. No fuzzy semantic nodes, no hallucinated relationships.
-
-</details>
-
-## Claude Code Setup
-
-`npm install -g memtrace` handles everything. For manual setup:
+`npm install -g memtrace` handles everything automatically. For manual setup:
 
 ```bash
-# 1. Register the marketplace
 claude plugin marketplace add syncable-dev/memtrace
-
-# 2. Install the skills plugin
 claude plugin install memtrace-skills@memtrace --scope user
-
-# 3. Register the MCP server
 claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
 ```
 
 <details>
-<summary><strong>What this writes to <code>~/.claude/settings.json</code></strong></summary>
+<summary>What this writes to <code>~/.claude/settings.json</code></summary>
 
 ```json
 {
@@ -233,18 +208,9 @@ claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
 
 </details>
 
-### Installing skills separately
+### Claude Desktop
 
-```bash
-npx memtrace-skills install     # install skills + register MCP
-npx memtrace-skills uninstall   # remove everything
-```
-
-## Claude Desktop Setup
-
-Skills are installed to `~/.claude/skills/` which is shared between Claude Code and Claude Desktop — both pick up skills automatically after `npm install -g memtrace`.
-
-Add the MCP server to your `claude_desktop_config.json`:
+Skills and plugins are shared between Claude Code and Claude Desktop — both activate after `npm install -g memtrace`. Add the MCP server to `claude_desktop_config.json`:
 
 ```json
 {
@@ -258,7 +224,7 @@ Add the MCP server to your `claude_desktop_config.json`:
 }
 ```
 
-## Supported Languages
+## Languages
 
 Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Swift · Kotlin · Ruby · PHP · Dart · Scala · Perl — and more via Tree-sitter.
 
@@ -266,17 +232,15 @@ Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Sw
 
 | Dependency | Purpose |
 |:-----------|:--------|
-| **Memgraph** | Knowledge graph backend — auto-managed via `memtrace start` |
+| **Memgraph** | Graph database — auto-managed via `memtrace start` |
 | **Node.js ≥ 18** | npm installation |
 | **Git** | Temporal analysis (commit history) |
 
-## Links
+<br/>
 
-- [Documentation](https://memtrace.dev)
-- [npm Package](https://www.npmjs.com/package/memtrace)
-- [Report an Issue](https://github.com/syncable-dev/memtrace-public/issues)
-
----
+<p align="center">
+  <a href="https://memtrace.dev">Documentation</a> · <a href="https://www.npmjs.com/package/memtrace">npm</a> · <a href="https://github.com/syncable-dev/memtrace-public/issues">Issues</a>
+</p>
 
 <p align="center">
   <sub>Built by <a href="https://syncable.dev">Syncable</a> · <a href="LICENSE">Proprietary EULA</a> · Free to use</sub>

@@ -1,0 +1,21 @@
+{
+  "name": "memtrace-skills",
+  "description": "Memtrace skills for codebase exploration, code search, relationship analysis, temporal evolution, blast radius impact, code quality, graph algorithms, API topology, and multi-step workflows for change impact, incident investigation, and refactoring.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Syncable",
+    "email": "support@syncable.dev"
+  },
+  "homepage": "https://memtrace.dev",
+  "license": "FSL-1.1-MIT",
+  "keywords": [
+    "memtrace",
+    "code-intelligence",
+    "knowledge-graph",
+    "mcp",
+    "temporal-analysis",
+    "blast-radius",
+    "refactoring",
+    "architecture"
+  ]
+}

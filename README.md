@@ -33,17 +33,22 @@ That's it. Claude picks up the skills and MCP tools automatically.
 
 ## Why Memtrace Exists
 
-Every coding agent today operates with amnesia. Ask it about your codebase and it re-reads files, re-chunks text, re-embeds tokens — every single time. The context window fills up with noise. The agent hallucinates relationships that don't exist.
+Static code graphs exist. Tools like GitNexus and CodeGrapherContext build AST-based graphs with symbol relationships — and they're useful. But they solve one dimension: *what exists right now*.
 
-Memtrace eliminates this entirely. It compiles your codebase into a **persistent bi-temporal knowledge graph** where:
+Memtrace is a **bi-temporal episodic structural knowledge graph**. It adds two dimensions no other code intelligence tool has:
+
+- **Temporal memory** — every symbol carries its full version history. Agents can reason about *what changed*, *when it changed*, and *how the architecture evolved* — not just what exists today. Six scoring algorithms (impact, novelty, recency, directional, compound, overview) let agents ask different temporal questions.
+- **Cross-service API topology** — Memtrace maps HTTP call graphs between repositories, detecting which services call which endpoints. No other code grapher does inter-service relationship mapping.
+
+On top of that, the structural layer is comprehensive:
 
 - **Symbols are nodes** — functions, classes, interfaces, types, endpoints
 - **Relationships are edges** — `CALLS`, `IMPLEMENTS`, `IMPORTS`, `EXPORTS`, `CONTAINS`
-- **Time is a first-class dimension** — every node carries its full version history, so agents can reason about *what changed* and *when*, not just *what exists*
-- **Community structure is detected** — Louvain algorithm identifies architectural modules automatically
-- **Semantic search is hybrid** — BM25 + vector embeddings with Reciprocal Rank Fusion, on top of the graph
+- **Community detection** — Louvain algorithm identifies architectural modules automatically
+- **Hybrid search** — Tantivy BM25 + vector embeddings + Reciprocal Rank Fusion, all on top of the graph
+- **Rust-native** — compiled binary, no Python/JS runtime overhead, single-digit millisecond queries
 
-The agent doesn't search your code. It *traverses* it.
+The agent doesn't just search your code. It *remembers* it.
 
 ## Benchmarks
 
@@ -99,15 +104,25 @@ Mem0 and Graphiti are excellent conversational memory engines for tracking entit
 </details>
 
 <details>
-<summary><strong>Why the architecture matters</strong></summary>
+<summary><strong>Memtrace vs. code graphers (GitNexus, CodeGrapherContext)</strong></summary>
 
 <br/>
 
-**AST compilation, not LLM ingestion.** Memtrace compiles native Tree-sitter parsers and resolves deterministic symbol references in seconds, for $0. No LLM in the indexing loop.
+GitNexus and CodeGrapherContext both build AST-based code graphs with structural relationships — they're real tools solving real problems. Here's what Memtrace adds:
 
-**Graph + hybrid search, not vector-only.** Vector RAG retrieves chunks by cosine distance alone, flooding the context window with noise. Memtrace combines compiled AST edges, Tantivy BM25, vector embeddings, and Reciprocal Rank Fusion — structural queries resolve through graph traversal in single-digit milliseconds, while semantic queries get the precision of a real knowledge graph underneath.
+| Capability | Memtrace | GitNexus | CodeGrapher |
+|:-----------|:---------|:---------|:------------|
+| AST-based graph | Yes | Yes | Yes |
+| Structural relationships (CALLS, IMPLEMENTS, IMPORTS) | Yes | Yes | Yes |
+| Bi-temporal version history per symbol | **Yes — 6 scoring modes** | Git-diff only | No |
+| Cross-service HTTP API topology | **Yes** | No | No |
+| Community detection (Louvain) | **Yes** | Yes | No |
+| Hybrid search (BM25 + vector + RRF) | **Yes — Tantivy + embeddings** | No | BM25 + optional embeddings |
+| Language | **Rust (compiled binary)** | JavaScript | Python |
+| Query latency (1K queries) | **4.6 ms avg** | 220 ms avg | 466.7 ms avg |
+| Index time (1,500 files) | **1.5 sec** | 10.5 sec | 3.5 min |
 
-**Structural integrity, not fuzzy nodes.** `(Interface)←[:IMPLEMENTS]-(Class)` is a fact, not an approximation. Agents get deterministic context they can reason over without hallucinating.
+The speed difference comes from Rust vs. interpreted runtimes, and Memgraph's Bolt protocol vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions that don't exist in static-snapshot graphs.
 
 </details>
 

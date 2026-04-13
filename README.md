@@ -40,12 +40,12 @@ https://github.com/user-attachments/assets/e7d6a1e9-c912-4e65-a421-bd0256dffa5a
 
 ## Why Memtrace Exists
 
-Static code graphs exist. Tools like GitNexus and CodeGrapherContext build AST-based graphs with symbol relationships — and they're useful. But they solve one dimension: *what exists right now*.
+Good code intelligence tools already exist. GitNexus and CodeGrapherContext build AST-based graphs with symbol relationships, and they work well for understanding what's in your codebase *right now*.
 
-Memtrace is a **bi-temporal episodic structural knowledge graph**. It adds two dimensions no other code intelligence tool has:
+Memtrace is a **bi-temporal episodic structural knowledge graph**. It builds on that same AST foundation and adds two dimensions:
 
 - **Temporal memory** — every symbol carries its full version history. Agents can reason about *what changed*, *when it changed*, and *how the architecture evolved* — not just what exists today. Six scoring algorithms (impact, novelty, recency, directional, compound, overview) let agents ask different temporal questions.
-- **Cross-service API topology** — Memtrace maps HTTP call graphs between repositories, detecting which services call which endpoints. No other code grapher does inter-service relationship mapping.
+- **Cross-service API topology** — Memtrace maps HTTP call graphs between repositories, detecting which services call which endpoints across your architecture.
 
 On top of that, the structural layer is comprehensive:
 
@@ -53,7 +53,7 @@ On top of that, the structural layer is comprehensive:
 - **Relationships are edges** — `CALLS`, `IMPLEMENTS`, `IMPORTS`, `EXPORTS`, `CONTAINS`
 - **Community detection** — Louvain algorithm identifies architectural modules automatically
 - **Hybrid search** — Tantivy BM25 + vector embeddings + Reciprocal Rank Fusion, all on top of the graph
-- **Rust-native** — compiled binary, no Python/JS runtime overhead, single-digit millisecond queries
+- **Rust-native** — compiled binary, no Python/JS runtime overhead, sub-15ms average query latency
 
 The agent doesn't just search your code. It *remembers* it.
 
@@ -66,7 +66,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <img alt="Search accuracy: Memtrace 83.5% vs Vector RAG 25.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
+  <img alt="Search accuracy: Memtrace 97.3% vs ChromaDB 89.6% vs GitNexus 12.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
 </picture>
 
 ### How fast?
@@ -74,7 +74,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-latency.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-latency.svg"/>
-  <img alt="Search latency: Memtrace 4.6ms vs GitNexus 220ms vs CodeGrapher 466.7ms" src="assets/benchmarks/search-latency.svg" width="720"/>
+  <img alt="Search latency: Memtrace 13.4ms vs ChromaDB 60.6ms vs GitNexus 172.7ms vs CodeGrapher 510.5ms" src="assets/benchmarks/search-latency.svg" width="720"/>
 </picture>
 
 ### How much context does it save?
@@ -82,7 +82,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
-  <img alt="Token usage: Memtrace 284K vs Vector RAG 2.4M — 88.2% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
+  <img alt="Token usage: Memtrace 319K vs ChromaDB 1.91M — 83% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
 </picture>
 
 ### How long to set up?
@@ -98,15 +98,15 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 
 <br/>
 
-Mem0 and Graphiti are excellent conversational memory engines for tracking entity knowledge (e.g. `User -> Likes -> Apples`). They are **architecturally unsuited for code intelligence** because they require LLM inference to build their graphs.
+Mem0 and Graphiti are strong conversational memory engines designed for tracking entity knowledge (e.g. `User -> Likes -> Apples`). They excel at that. For code intelligence specifically, the tradeoff is that they rely on LLM inference to build their graphs — which adds cost and time when processing thousands of source files.
 
-**Graphiti** processes data through `add_episode()`, which triggers multiple LLM calls per episode — entity extraction, relationship resolution, deduplication. At ~50 episodes/minute ([source](https://github.com/getzep/graphiti)), ingesting 1,500 code files takes **1–2 hours**. Every episode costs LLM tokens.
+**Graphiti** processes data through `add_episode()`, which triggers multiple LLM calls per episode — entity extraction, relationship resolution, deduplication. At ~50 episodes/minute ([source](https://github.com/getzep/graphiti)), ingesting 1,500 code files takes **1–2 hours**.
 
-**Mem0** processes data through `client.add()`, which queues async LLM extraction and conflict resolution per memory item ([source](https://mem0.ai)). Bulk ingestion with `infer=True` (default) means every file passes through an LLM distillation pipeline. Throughput is bounded by your LLM provider's rate limits.
+**Mem0** processes data through `client.add()`, which queues async LLM extraction and conflict resolution per memory item ([source](https://mem0.ai)). Bulk ingestion with `infer=True` (default) means every file passes through an LLM pipeline. Throughput is bounded by your LLM provider's rate limits.
 
-**Both** accumulate $10–50+ in API costs because they use LLMs to *guess* code relationships rather than parsing them deterministically.
+**Both** accumulate $10–50+ in API costs for large codebases because every relationship is inferred rather than parsed.
 
-**Memtrace indexes 1,500 files in 1.2–1.8 seconds for $0.00** — no LLM calls, no API costs, no rate limits. Native Tree-sitter AST parsers resolve deterministic symbol references (`CALLS`, `IMPLEMENTS`, `IMPORTS`) locally.
+**Memtrace takes a different approach:** it indexes 1,500 files in 1.2–1.8 seconds for $0.00 — no LLM calls, no API costs, no rate limits. Native Tree-sitter AST parsers resolve deterministic symbol references (`CALLS`, `IMPLEMENTS`, `IMPORTS`) locally. The tradeoff is that Memtrace is purpose-built for code — it doesn't handle conversational entity memory the way Mem0 and Graphiti do.
 
 </details>
 
@@ -115,7 +115,7 @@ Mem0 and Graphiti are excellent conversational memory engines for tracking entit
 
 <br/>
 
-GitNexus and CodeGrapherContext both build AST-based code graphs with structural relationships — they're real tools solving real problems. Here's what Memtrace adds:
+GitNexus and CodeGrapherContext both build AST-based code graphs with structural relationships — solid tools in the same space. Memtrace shares that foundation and extends it with temporal memory, API topology, and a Rust runtime:
 
 | Capability | Memtrace | GitNexus | CodeGrapher |
 |:-----------|:---------|:---------|:------------|
@@ -126,10 +126,14 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | Community detection (Louvain) | **Yes** | Yes | No |
 | Hybrid search (BM25 + vector + RRF) | **Yes — Tantivy + embeddings** | No | BM25 + optional embeddings |
 | Language | **Rust (compiled binary)** | JavaScript | Python |
-| Query latency (1K queries) | **4.6 ms avg** | 220 ms avg | 466.7 ms avg |
-| Index time (1,500 files) | **1.5 sec** | 10.5 sec | 3.5 min |
+| Search accuracy (1K queries) | **97.3%** | 12.8% | 0%* |
+| Query latency (1K queries) | **13.4 ms avg** | 172.7 ms avg | 510.5 ms avg |
+| Tokens per query | **319 avg** | 254 avg | 23 avg |
+| Index time (1,500 files) | **1.5 sec** | 10.5 sec | ~3.5 min |
 
-The speed difference comes from Rust vs. interpreted runtimes, and Memgraph's Bolt protocol vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions that don't exist in static-snapshot graphs.
+*CGC's 0% reflects an output format mismatch — it returns symbol names without file paths, so our Acc@1 evaluator can't match them. CGC likely finds relevant symbols; the metric just can't confirm it. All numbers from [live benchmark](benchmarks/) on the same machine, same codebase, same 1,000 queries.
+
+The latency difference is primarily Rust vs. interpreted runtimes, and Memgraph's Bolt protocol vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions Memtrace adds on top of the shared AST-graph foundation.
 
 </details>
 

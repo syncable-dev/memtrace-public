@@ -2,6 +2,7 @@ import json
 from neo4j import GraphDatabase
 from collections import Counter
 
+
 def analyze_failures(json_path: str):
     with open(json_path, 'r') as f:
         failures = json.load(f)

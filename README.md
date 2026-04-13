@@ -15,6 +15,8 @@
   <a href="https://memtrace.dev"><img src="https://img.shields.io/badge/docs-memtrace.dev-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
 
+> **Early Access** — Memtrace is under active development. Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
+
 ---
 
 Memtrace gives coding agents something they've never had: **structural memory**. Not vector similarity. Not semantic chunking. A real knowledge graph compiled from your codebase's AST — where every function, class, interface, and API endpoint exists as a node with deterministic, typed relationships.
@@ -28,6 +30,14 @@ memtrace index .           # indexes your codebase in seconds
 ```
 
 That's it. Claude picks up the skills and MCP tools automatically.
+
+<p align="center">
+  <a href="https://youtu.be/7G9q7H7BVrU">
+    <img src="https://img.youtube.com/vi/7G9q7H7BVrU/maxresdefault.jpg" alt="Memtrace Demo" width="720"/>
+  </a>
+  <br/>
+  <sub>▶ Memtrace ships with a built-in UI at <code>localhost:3030</code> — explore your graph, trace dependencies, spot dead code, and visualize architecture at a glance</sub>
+</p>
 
 ---
 

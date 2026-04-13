@@ -32,11 +32,9 @@ memtrace index .           # indexes your codebase in seconds
 That's it. Claude picks up the skills and MCP tools automatically.
 
 <p align="center">
-  <a href="https://youtu.be/7G9q7H7BVrU">
-    <img src="https://img.youtube.com/vi/7G9q7H7BVrU/maxresdefault.jpg" alt="Memtrace Demo" width="720"/>
-  </a>
+  <video src="assets/memtrace-demo.mp4" width="720" autoplay loop muted playsinline></video>
   <br/>
-  <sub>▶ Memtrace ships with a built-in UI at <code>localhost:3030</code> — explore your graph, trace dependencies, spot dead code, and visualize architecture at a glance</sub>
+  <sub>Built-in UI at <code>localhost:3030</code> — explore your graph, trace dependencies, spot dead code, and visualize architecture at a glance</sub>
 </p>
 
 ---

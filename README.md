@@ -226,11 +226,28 @@ Six scoring algorithms for different temporal questions:
 
 Uses **Structural Significance Budgeting** to surface the minimum set of changes covering ≥80% of total significance.
 
+## Compatibility
+
+| Editor / Agent | MCP Tools (25+) | Skills (12) | Install |
+|:---------------|:---------------:|:-----------:|:--------|
+| **Claude Code** | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
+| **Claude Desktop** | ✅ | ✅ | Automatic — shared with Claude Code |
+| **Cursor** | ✅ | Coming soon | Add MCP server manually |
+| **Windsurf** | ✅ | Coming soon | Add MCP server manually |
+| **VS Code (Copilot)** | ✅ | — | Add MCP server manually |
+| **Cline / Roo Code** | ✅ | — | Add MCP server manually |
+| **Codex CLI** | ✅ | Coming soon | Add MCP server manually |
+| **Any MCP client** | ✅ | — | Add MCP server manually |
+
+> **MCP tools** work with any editor or agent that supports the [Model Context Protocol](https://modelcontextprotocol.io). **Skills** are Claude-specific workflow prompts that teach the agent *how* to chain tools — they require Claude Code or Claude Desktop.
+
 ## Setup
 
-### Claude Code
+### Claude Code + Claude Desktop
 
-`npm install -g memtrace` handles everything automatically. For manual setup:
+`npm install -g memtrace` handles everything automatically — binary, 12 skills, MCP server, plugin, and marketplace all register in one command for both Claude Code and Claude Desktop.
+
+For manual setup:
 
 ```bash
 claude plugin marketplace add syncable-dev/memtrace
@@ -238,8 +255,9 @@ claude plugin install memtrace-skills@memtrace --scope user
 claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
 ```
 
-<details>
-<summary>What this writes to <code>~/.claude/settings.json</code></summary>
+### Other Editors (Cursor, Windsurf, VS Code, Cline)
+
+After `npm install -g memtrace`, add the MCP server to your editor's config:
 
 ```json
 {
@@ -248,35 +266,34 @@ claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
       "command": "memtrace",
       "args": ["mcp"],
       "env": { "MEMGRAPH_URL": "bolt://localhost:7687" }
-    }
-  },
-  "enabledPlugins": {
-    "memtrace-skills@memtrace": true
-  },
-  "extraKnownMarketplaces": {
-    "memtrace": {
-      "source": { "source": "github", "repo": "syncable-dev/memtrace" }
     }
   }
 }
 ```
 
+<details>
+<summary>Config file locations by editor</summary>
+
+| Editor | Config file |
+|:-------|:------------|
+| **Cursor** | `.cursor/mcp.json` in your project root |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
+| **VS Code (Copilot)** | `.vscode/mcp.json` in your project root |
+| **Cline** | Cline MCP settings in the extension panel |
+
 </details>
 
-### Claude Desktop
+### Uninstall
 
-Skills and plugins are shared between Claude Code and Claude Desktop — both activate after `npm install -g memtrace`. Add the MCP server to `claude_desktop_config.json`:
+```bash
+memtrace uninstall              # removes skills, MCP server, plugin, and settings
+npm uninstall -g memtrace       # removes the binary
+```
 
-```json
-{
-  "mcpServers": {
-    "memtrace": {
-      "command": "memtrace",
-      "args": ["mcp"],
-      "env": { "MEMGRAPH_URL": "bolt://localhost:7687" }
-    }
-  }
-}
+Already ran `npm uninstall` first? The cleanup script is persisted at `~/.memtrace/uninstall.js`:
+
+```bash
+node ~/.memtrace/uninstall.js
 ```
 
 ## Languages

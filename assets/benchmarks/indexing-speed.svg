@@ -21,46 +21,42 @@
   <text x="40" y="42" fill="#E6EDF3" font-size="16" font-weight="600">Indexing Speed — 1,500 Files</text>
   <text x="40" y="62" fill="#7D8590" font-size="12">Time to full codebase ingestion · same machine · same repository</text>
 
-  <!-- Scale labels (log-ish visual, but labeled accurately) -->
-  <!-- Bar max width = 500px, mapped to Graphiti's 6h = 21600s -->
-
-  <!-- Graphiti bar: 6 hours = 21600s → 500px -->
+  <!-- Graphiti bar: 1-2h baseline, use 90min = 5400s as midpoint → 500px -->
   <text x="40" y="108" fill="#8B949E" font-size="12" font-weight="500">Graphiti</text>
   <rect x="160" y="93" width="500" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
-  <text x="670" y="110" fill="#8B949E" font-size="12" font-weight="600" text-anchor="end">~6 hours</text>
-  <text x="160" y="132" fill="#F8514950" font-size="10">Multi-pass LLM node generation · ~$25+ API cost</text>
+  <text x="670" y="110" fill="#8B949E" font-size="12" font-weight="600" text-anchor="end">1–2 hours</text>
+  <text x="160" y="132" fill="#7D8590" font-size="10">add_episode() · multiple LLM calls per episode · entity extraction + dedup · $10–50+</text>
 
-  <!-- Mem0 bar: 31 min = 1860s → 1860/21600 * 500 = 43px -->
+  <!-- Mem0 bar: 30min = 1800s → 1800/5400 * 500 = 167px -->
   <text x="40" y="168" fill="#8B949E" font-size="12" font-weight="500">Mem0</text>
-  <rect x="160" y="153" width="43" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
-  <text x="213" y="170" fill="#8B949E" font-size="12" font-weight="600">~31 min</text>
-  <text x="160" y="192" fill="#F8514950" font-size="10">Rapid LLM API calls · ~$25+ API cost</text>
+  <rect x="160" y="153" width="167" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
+  <text x="337" y="170" fill="#8B949E" font-size="12" font-weight="600">~30 min</text>
+  <text x="160" y="192" fill="#7D8590" font-size="10">client.add() · async LLM extraction per memory · rate-limited by LLM provider · $10–50+</text>
 
-  <!-- CGC bar: 3.5 min = 210s → 210/21600 * 500 = 4.9px, min 12px for visibility -->
+  <!-- CGC bar: 3.5 min = 210s → 210/5400 * 500 = 19px -->
   <text x="40" y="228" fill="#8B949E" font-size="12" font-weight="500">CodeGrapher</text>
-  <rect x="160" y="213" width="14" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
-  <text x="184" y="230" fill="#8B949E" font-size="12" font-weight="600">~3.5 min</text>
-  <text x="160" y="252" fill="#7D8590" font-size="10">ONNX vector embedding loop</text>
+  <rect x="160" y="213" width="19" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
+  <text x="189" y="230" fill="#8B949E" font-size="12" font-weight="600">~3.5 min</text>
+  <text x="160" y="252" fill="#7D8590" font-size="10">ONNX vector embedding loop across FalkorDB</text>
 
-  <!-- GitNexus bar: 10.5s → 10.5/21600 * 500 = 0.24px, min 10px -->
+  <!-- GitNexus bar: 10.5s → 10.5/5400 * 500 = 0.97px, min 10px -->
   <text x="40" y="288" fill="#8B949E" font-size="12" font-weight="500">GitNexus</text>
   <rect x="160" y="273" width="10" height="24" rx="5" fill="url(#grayGrad3)" filter="url(#shadow3)"/>
   <text x="180" y="290" fill="#8B949E" font-size="12" font-weight="600">10.5s</text>
-  <text x="160" y="312" fill="#7D8590" font-size="10">JS/NPM parser</text>
+  <text x="160" y="312" fill="#7D8590" font-size="10">JS/NPM parser environment</text>
 
-  <!-- Memtrace bar: 1.5s → tiny, but we make it visible with glow -->
+  <!-- Memtrace bar: 1.5s → tiny, glow for visibility -->
   <text x="40" y="348" fill="#E6EDF3" font-size="12" font-weight="600">Memtrace</text>
   <rect x="160" y="333" width="8" height="24" rx="5" fill="url(#tealGrad3)" filter="url(#shadow3)"/>
-  <!-- Glow effect -->
   <rect x="158" y="331" width="12" height="28" rx="6" fill="none" stroke="#00D4B8" stroke-width="1.5" opacity="0.5"/>
   <text x="180" y="350" fill="#00D4B8" font-size="12" font-weight="700">1.5s</text>
-  <text x="160" y="372" fill="#7D8590" font-size="10">Native Rust AST · zero API cost · zero dependencies</text>
+  <text x="160" y="372" fill="#7D8590" font-size="10">Native Tree-sitter AST · deterministic symbol resolution · $0.00 · no LLM calls</text>
 
   <!-- Callout -->
   <rect x="40" y="392" width="640" height="32" rx="8" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.3"/>
-  <text x="60" y="414" fill="#00D4B8" font-size="14" font-weight="700">1,240× faster than Mem0</text>
-  <text x="288" y="414" fill="#4A5A6C" font-size="13">·</text>
-  <text x="304" y="414" fill="#00D4B8" font-size="14" font-weight="700">14,400× faster than Graphiti</text>
-  <text x="558" y="414" fill="#4A5A6C" font-size="13">·</text>
-  <text x="574" y="414" fill="#8B949E" font-size="13" font-weight="600">$0 cost</text>
+  <text x="60" y="413" fill="#00D4B8" font-size="14" font-weight="700">3,600× faster than Graphiti</text>
+  <text x="312" y="413" fill="#4A5A6C" font-size="13">·</text>
+  <text x="328" y="413" fill="#00D4B8" font-size="14" font-weight="700">1,200× faster than Mem0</text>
+  <text x="548" y="413" fill="#4A5A6C" font-size="13">·</text>
+  <text x="564" y="413" fill="#8B949E" font-size="13" font-weight="600">$0 cost</text>
 </svg>

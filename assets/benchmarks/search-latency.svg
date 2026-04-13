@@ -48,5 +48,5 @@
   <text x="340" y="330" fill="#4A5A6C" font-size="16">·</text>
   <text x="368" y="330" fill="#00D4B8" font-size="22" font-weight="700">101× faster</text>
   <text x="534" y="330" fill="#8B949E" font-size="13">than CodeGrapher</text>
-  <text x="60" y="349" fill="#4A5A6C" font-size="11">Graph traversal eliminates vector similarity sorting entirely. No embedding lookup. No re-ranking. Just edges.</text>
+  <text x="60" y="349" fill="#4A5A6C" font-size="11">Compiled AST edges + Tantivy BM25 + vector embeddings with RRF — structural queries resolve in single-digit ms.</text>
 </svg>

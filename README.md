@@ -82,13 +82,30 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 </picture>
 
 <details>
-<summary><strong>What makes the difference</strong></summary>
+<summary><strong>Memtrace vs. general memory systems (Mem0, Graphiti)</strong></summary>
 
 <br/>
 
-**AST compilation, not LLM ingestion.** General-purpose memory engines call LLMs to *guess* code relationships — $25+ per repo, minutes to hours. Memtrace compiles native Tree-sitter parsers and resolves deterministic symbol references in seconds, for $0.
+Mem0 and Graphiti are excellent conversational memory engines for tracking entity knowledge (e.g. `User -> Likes -> Apples`). They are **architecturally unsuited for code intelligence** because they require LLM inference to build their graphs.
 
-**Graph traversal, not vector similarity.** Vector RAG retrieves chunks by cosine distance, flooding the context window with noise. Memtrace traverses explicit `CALLS → IMPLEMENTS → IMPORTS` edges via Bolt protocol — returning only the exact subgraph the agent needs, in single-digit milliseconds.
+**Graphiti** processes data through `add_episode()`, which triggers multiple LLM calls per episode — entity extraction, relationship resolution, deduplication. At ~50 episodes/minute ([source](https://github.com/getzep/graphiti)), ingesting 1,500 code files takes **1–2 hours**. Every episode costs LLM tokens.
+
+**Mem0** processes data through `client.add()`, which queues async LLM extraction and conflict resolution per memory item ([source](https://mem0.ai)). Bulk ingestion with `infer=True` (default) means every file passes through an LLM distillation pipeline. Throughput is bounded by your LLM provider's rate limits.
+
+**Both** accumulate $10–50+ in API costs because they use LLMs to *guess* code relationships rather than parsing them deterministically.
+
+**Memtrace indexes 1,500 files in 1.2–1.8 seconds for $0.00** — no LLM calls, no API costs, no rate limits. Native Tree-sitter AST parsers resolve deterministic symbol references (`CALLS`, `IMPLEMENTS`, `IMPORTS`) locally.
+
+</details>
+
+<details>
+<summary><strong>Why the architecture matters</strong></summary>
+
+<br/>
+
+**AST compilation, not LLM ingestion.** Memtrace compiles native Tree-sitter parsers and resolves deterministic symbol references in seconds, for $0. No LLM in the indexing loop.
+
+**Graph + hybrid search, not vector-only.** Vector RAG retrieves chunks by cosine distance alone, flooding the context window with noise. Memtrace combines compiled AST edges, Tantivy BM25, vector embeddings, and Reciprocal Rank Fusion — structural queries resolve through graph traversal in single-digit milliseconds, while semantic queries get the precision of a real knowledge graph underneath.
 
 **Structural integrity, not fuzzy nodes.** `(Interface)←[:IMPLEMENTS]-(Class)` is a fact, not an approximation. Agents get deterministic context they can reason over without hallucinating.
 

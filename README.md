@@ -47,17 +47,33 @@ The agent doesn't search your code. It *traverses* it.
 
 ## Benchmarks
 
+All benchmarks run on the same machine, same codebase, same queries. No cherry-picking.
+
+### Does it find the right thing?
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
   <img alt="Search accuracy: Memtrace 83.5% vs Vector RAG 25.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
 </picture>
 
+### How fast?
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-latency.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-latency.svg"/>
+  <img alt="Search latency: Memtrace 4.6ms vs GitNexus 220ms vs CodeGrapher 466.7ms" src="assets/benchmarks/search-latency.svg" width="720"/>
+</picture>
+
+### How much context does it save?
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
   <img alt="Token usage: Memtrace 284K vs Vector RAG 2.4M — 88.2% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
 </picture>
+
+### How long to set up?
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/indexing-speed.svg"/>
@@ -72,7 +88,7 @@ The agent doesn't search your code. It *traverses* it.
 
 **AST compilation, not LLM ingestion.** General-purpose memory engines call LLMs to *guess* code relationships — $25+ per repo, minutes to hours. Memtrace compiles native Tree-sitter parsers and resolves deterministic symbol references in seconds, for $0.
 
-**Graph traversal, not vector similarity.** Vector RAG retrieves chunks by cosine distance, flooding the context window with noise. Memtrace walks explicit `CALLS → IMPLEMENTS → IMPORTS` edges and returns only the subgraph the agent needs.
+**Graph traversal, not vector similarity.** Vector RAG retrieves chunks by cosine distance, flooding the context window with noise. Memtrace traverses explicit `CALLS → IMPLEMENTS → IMPORTS` edges via Bolt protocol — returning only the exact subgraph the agent needs, in single-digit milliseconds.
 
 **Structural integrity, not fuzzy nodes.** `(Interface)←[:IMPLEMENTS]-(Class)` is a fact, not an approximation. Agents get deterministic context they can reason over without hallucinating.
 

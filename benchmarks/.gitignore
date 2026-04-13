@@ -1,0 +1,7 @@
+.venv/
+.chroma_db_baseline/
+__pycache__/
+*.log
+results.jsonl
+failed_queries.json
+.DS_Store

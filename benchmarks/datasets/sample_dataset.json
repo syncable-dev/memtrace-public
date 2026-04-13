@@ -1,0 +1,29 @@
+[
+  {
+    "id": "q1",
+    "query": "Where is the main entry point for starting the HTTP web server in the codebase?",
+    "complexity": "low",
+    "expected_files": ["server/main.go", "app.js", "src/index.ts"],
+    "traditional_retrieval_tokens_loaded": 15000,
+    "traditional_retrieval_time_ms": 1250,
+    "traditional_attempts_to_success": 3
+  },
+  {
+    "id": "q2",
+    "query": "If I change the 'User' struct auth signature, what downstream services and files will break?",
+    "complexity": "high",
+    "expected_files": ["auth/service.go", "api/handlers.go", "tests/auth_test.go"],
+    "traditional_retrieval_tokens_loaded": 85000,
+    "traditional_retrieval_time_ms": 4500,
+    "traditional_attempts_to_success": 4
+  },
+  {
+    "id": "q3",
+    "query": "List all standard public API endpoints exposed by the user service and trace their database calls.",
+    "complexity": "high",
+    "expected_files": ["api/routes.go", "db/user_repository.go"],
+    "traditional_retrieval_tokens_loaded": 120000,
+    "traditional_retrieval_time_ms": 7800,
+    "traditional_attempts_to_success": 5
+  }
+]

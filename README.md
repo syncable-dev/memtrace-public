@@ -236,14 +236,14 @@ Uses **Structural Significance Budgeting** to surface the minimum set of changes
 |:---------------|:---------------:|:-----------:|:--------|
 | **Claude Code** | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | **Claude Desktop** | ✅ | ✅ | Automatic — shared with Claude Code |
-| **Cursor** | ✅ | Coming soon | Add MCP server manually |
+| **Cursor** (v2.4+) | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | **Windsurf** | ✅ | Coming soon | Add MCP server manually |
 | **VS Code (Copilot)** | ✅ | — | Add MCP server manually |
 | **Cline / Roo Code** | ✅ | — | Add MCP server manually |
 | **Codex CLI** | ✅ | Coming soon | Add MCP server manually |
 | **Any MCP client** | ✅ | — | Add MCP server manually |
 
-> **MCP tools** work with any editor or agent that supports the [Model Context Protocol](https://modelcontextprotocol.io). **Skills** are Claude-specific workflow prompts that teach the agent *how* to chain tools — they require Claude Code or Claude Desktop.
+> **MCP tools** work with any editor or agent that supports the [Model Context Protocol](https://modelcontextprotocol.io). **Skills** are workflow prompts that teach the agent *how* to chain tools — Claude Code, Claude Desktop, and Cursor (v2.4+) all load them natively from the same `SKILL.md` format.
 
 ## Setup
 
@@ -259,7 +259,31 @@ claude plugin install memtrace-skills@memtrace --scope user
 claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
 ```
 
-### Other Editors (Cursor, Windsurf, VS Code, Cline)
+### Cursor
+
+Cursor **v2.4+** supports Agent Skills natively, and `npm install -g memtrace` handles everything automatically — no separate Cursor plugin is needed because Cursor reads the same `SKILL.md` format as Claude.
+
+What the installer writes:
+- **MCP server** → `~/.cursor/mcp.json` (global — works in every project you open)
+- **12 skills + 4 workflows** → `~/.cursor/skills/memtrace-*/SKILL.md`
+
+For a **project-local** install (so the skills travel with your repo and teammates get them on clone), run inside the project:
+
+```bash
+memtrace install --only cursor --local
+```
+
+This writes to `.cursor/mcp.json` and `.cursor/skills/` relative to the project root instead of your home directory.
+
+For a **manual install** (without the npm package), clone this repo and copy the skills directly:
+
+```bash
+cp -R plugins/memtrace-skills/skills/* ~/.cursor/skills/
+```
+
+Then register the MCP server manually (see the "Other Editors" JSON below).
+
+### Other Editors (Windsurf, VS Code, Cline)
 
 After `npm install -g memtrace`, add the MCP server to your editor's config:
 
@@ -280,7 +304,6 @@ After `npm install -g memtrace`, add the MCP server to your editor's config:
 
 | Editor | Config file |
 |:-------|:------------|
-| **Cursor** | `.cursor/mcp.json` in your project root |
 | **Windsurf** | `~/.codeium/windsurf/mcp_config.json` |
 | **VS Code (Copilot)** | `.vscode/mcp.json` in your project root |
 | **Cline** | Cline MCP settings in the extension panel |

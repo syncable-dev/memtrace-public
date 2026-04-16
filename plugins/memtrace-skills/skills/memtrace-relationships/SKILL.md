@@ -1,12 +1,6 @@
 ---
 name: memtrace-relationships
 description: "Use when the user asks who calls a function, what a function calls, class hierarchy, inheritance, imports, exports, type usages, dependencies between symbols, or wants to understand how code connects before making changes"
-allowed-tools:
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-user-invocable: true
 ---
 
 ## Overview

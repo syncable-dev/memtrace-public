@@ -1,12 +1,6 @@
 ---
 name: memtrace-index
 description: "Use when the user asks to index a project, set up code intelligence, parse a codebase, build a knowledge graph, prepare a repo for analysis, or as the very first step before any code exploration, search, or relationship analysis"
-allowed-tools:
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__check_job_status
-  - mcp__memtrace__list_jobs
-  - mcp__memtrace__list_indexed_repositories
-user-invocable: true
 ---
 
 ## Overview

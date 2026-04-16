@@ -1,12 +1,6 @@
 ---
 name: memtrace-impact
 description: "Use when the user asks about blast radius, what will break if I change this, risk of modifying a symbol, upstream or downstream dependencies, impact analysis before refactoring, or wants to understand the consequences of a code change"
-allowed-tools:
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-user-invocable: true
 ---
 
 ## Overview

@@ -1,7 +1,7 @@
 {
   "name": "memtrace-skills",
   "description": "Memtrace skills for codebase exploration, code search, relationship analysis, temporal evolution, blast radius impact, code quality, graph algorithms, API topology, and multi-step workflows for change impact, incident investigation, refactoring, session continuity, co-change analysis, and episode replay.",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "author": {
     "name": "Syncable",
     "email": "support@syncable.dev"

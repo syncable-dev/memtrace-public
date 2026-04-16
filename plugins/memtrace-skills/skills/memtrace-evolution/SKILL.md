@@ -1,13 +1,6 @@
 ---
 name: memtrace-evolution
 description: "Use when the user asks what changed in the codebase, how code evolved over time, what was recently modified, what's the diff between versions, what changed since a date, incident investigation timeline, unexpected changes, change history, or temporal analysis of any kind"
-allowed-tools:
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_changes_since
-user-invocable: true
 ---
 
 ## Overview

@@ -1,11 +1,6 @@
 ---
 name: memtrace-cochange
 description: "Use when the user asks what tends to change together with a symbol, what other code moves when this moves, historical coupling, blast awareness before modifying a symbol, or wants to find hidden dependencies not visible in the call graph"
-allowed-tools:
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__get_impact
-user-invocable: true
 ---
 
 ## Overview

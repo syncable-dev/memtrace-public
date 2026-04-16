@@ -1,13 +1,6 @@
 ---
 name: memtrace-api-topology
 description: "Use when the user asks about API endpoints, HTTP routes, service-to-service calls, microservice dependencies, API topology, which services call which, cross-repo dependencies, or wants to understand the API surface of a codebase"
-allowed-tools:
-  - mcp__memtrace__get_api_topology
-  - mcp__memtrace__find_api_endpoints
-  - mcp__memtrace__find_api_calls
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__link_repositories
-user-invocable: true
 ---
 
 ## Overview

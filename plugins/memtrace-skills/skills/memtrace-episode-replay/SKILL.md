@@ -1,12 +1,6 @@
 ---
 name: memtrace-episode-replay
 description: "Use when an agent needs to understand why code looks the way it does, replay implementation steps between commits, find what was tried and reverted, understand a colleague's (or your past self's) reasoning, or avoid repeating a previously-abandoned approach"
-allowed-tools:
-  - mcp__memtrace__get_episode_replay
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__list_indexed_repositories
-user-invocable: true
 ---
 
 ## Overview

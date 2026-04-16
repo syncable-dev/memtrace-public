@@ -1,11 +1,6 @@
 ---
 name: memtrace-session-continuity
 description: "Use at the start of any session to check what changed since last time, when resuming work after a break, when an agent needs to orient itself without guessing timestamps, or when asked 'what changed while I was away'"
-allowed-tools:
-  - mcp__memtrace__get_changes_since
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_evolution
-user-invocable: true
 ---
 
 ## Overview

@@ -1,16 +1,6 @@
 ---
 name: memtrace-change-impact-analysis
 description: "Use when the user is about to modify code, planning a refactoring, wants to know what will break, needs a pre-change risk assessment, is reviewing a PR, or wants to understand the full consequences of a code change before making it"
-allowed-tools:
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__list_indexed_repositories
-user-invocable: true
 ---
 
 ## Overview

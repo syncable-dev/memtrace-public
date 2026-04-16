@@ -1,20 +1,6 @@
 ---
 name: memtrace-codebase-exploration
 description: "Use when the user asks to explore a codebase, understand a project, onboard to a new repo, get an overview of how code is structured, map the architecture, or wants a comprehensive understanding of a codebase they're new to"
-allowed-tools:
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__check_job_status
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_repository_stats
-  - mcp__memtrace__list_communities
-  - mcp__memtrace__list_processes
-  - mcp__memtrace__find_central_symbols
-  - mcp__memtrace__find_bridge_symbols
-  - mcp__memtrace__find_api_endpoints
-  - mcp__memtrace__get_api_topology
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__find_most_complex_functions
-user-invocable: true
 ---
 
 ## Overview

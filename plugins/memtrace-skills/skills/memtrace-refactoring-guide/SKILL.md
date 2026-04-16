@@ -1,19 +1,6 @@
 ---
 name: memtrace-refactoring-guide
 description: "Use when the user wants to refactor code, reduce complexity, clean up technical debt, split a large function, extract a module, reorganize code, identify refactoring priorities, or improve code structure"
-allowed-tools:
-  - mcp__memtrace__find_most_complex_functions
-  - mcp__memtrace__find_dead_code
-  - mcp__memtrace__find_bridge_symbols
-  - mcp__memtrace__find_central_symbols
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__list_communities
-  - mcp__memtrace__calculate_cyclomatic_complexity
-  - mcp__memtrace__list_indexed_repositories
-user-invocable: true
 ---
 
 ## Overview

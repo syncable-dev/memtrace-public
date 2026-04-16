@@ -1,11 +1,6 @@
 ---
 name: memtrace-search
 description: "Use when the user asks to find code, search for a function, locate a symbol, look up where something is defined, search across repos, find implementations, or needs to discover where a piece of logic lives before making changes"
-allowed-tools:
-  - mcp__memtrace__find_code
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__list_indexed_repositories
-user-invocable: true
 ---
 
 ## Overview

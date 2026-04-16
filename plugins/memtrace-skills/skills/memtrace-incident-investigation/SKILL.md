@@ -1,19 +1,6 @@
 ---
 name: memtrace-incident-investigation
 description: "Use when the user is investigating a bug, incident, production issue, regression, something that broke, root cause analysis, debugging a failure, or trying to figure out what went wrong and when"
-allowed-tools:
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__find_code
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__get_episode_replay
-user-invocable: true
 ---
 
 ## Overview

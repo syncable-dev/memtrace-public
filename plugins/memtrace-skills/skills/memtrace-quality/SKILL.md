@@ -1,12 +1,6 @@
 ---
 name: memtrace-quality
 description: "Use when the user asks about dead code, unused functions, code complexity, cyclomatic complexity, refactoring candidates, code smells, code quality metrics, functions that are too complex, or wants to find code that should be cleaned up"
-allowed-tools:
-  - mcp__memtrace__find_dead_code
-  - mcp__memtrace__calculate_cyclomatic_complexity
-  - mcp__memtrace__find_most_complex_functions
-  - mcp__memtrace__get_repository_stats
-user-invocable: true
 ---
 
 ## Overview

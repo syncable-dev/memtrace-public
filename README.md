@@ -26,11 +26,10 @@ Index once. Every agent query after that resolves through graph traversal — ca
 
 ```bash
 npm install -g memtrace    # binary + 12 skills + MCP server — one command
-memtrace start             # launches the graph database
-memtrace index .           # indexes your codebase in seconds
+memtrace start             # launches the graph database and auto-indexes the current project
 ```
 
-That's it. Claude picks up the skills and MCP tools automatically.
+That's it. Run `memtrace start` from your project root — it spins up the graph database and kicks off indexing automatically. Claude and Cursor (v2.4+) pick up the skills and MCP tools automatically.
 
 https://github.com/user-attachments/assets/e7d6a1e9-c912-4e65-a421-bd0256dffa5a
 

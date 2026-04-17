@@ -1,7 +1,9 @@
 ---
 name: memtrace-first
-description: "Use when working on any indexed codebase before searching files, reading code, debugging issues, tracing call flows, finding implementations, understanding behavior, or answering 'how does X work' questions. Triggered by: file search, symbol lookup, code navigation, debugging, tracing, understanding architecture, finding where something is defined or called."
+description: "Meta-router that tells you WHICH Memtrace skill / tool to reach for first when working in an indexed codebase. USE at the start of any code-understanding task — file search, symbol lookup, call-flow tracing, debugging, 'how does X work', blast-radius questions — to avoid guessing a tool name and to skip redundant Grep/Read when the graph has the answer in milliseconds. DO NOT USE for non-code tasks (writing docs, running tests, deploying), for repos that aren't indexed (→ memtrace-index), or once you already know which specific Memtrace skill applies."
 ---
+
+> **Tool argument schemas:** this skill calls several MCP tools. For the authoritative name / type / required / default / constraint of every argument, see `references/mcp-parameters.md`. Pass JSON numbers as numbers, booleans as booleans — the MCP validator does not coerce.
 
 # Memtrace First
 

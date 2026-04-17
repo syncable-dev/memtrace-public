@@ -1,6 +1,6 @@
 ---
 name: memtrace-session-continuity
-description: "Use at the start of any session to check what changed since last time, when resuming work after a break, when an agent needs to orient itself without guessing timestamps, or when asked 'what changed while I was away'"
+description: "Get exactly what changed since your previous Memtrace session by passing a stored `session_anchor` episode ID — no timestamp guessing. USE at the start of every new conversation on an indexed codebase, when resuming after a break, or when asked 'what changed while I was away'. DO NOT USE on the very first session in a repo (no anchor yet — skip this and call `list_indexed_repositories` / `memtrace-codebase-exploration` instead), for a user-specified date range (→ memtrace-evolution with `from`/`to`), or for tracing one symbol's history (→ `get_timeline`)."
 ---
 
 ## Overview
@@ -26,13 +26,26 @@ If you have no anchor yet (first run), call `list_indexed_repositories`. Each re
 
 ### 2. Call `get_changes_since`
 
-```
-get_changes_since(
-  repo_id: "...",
-  last_episode_id: "ep_abc123"      // preferred — exact episode boundary
-  // OR
-  last_reference_time: "2026-04-13T10:43:00Z"   // fallback
-)
+## CRITICAL: parameter types are strict
+
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Pitfalls here:
+
+* Pass **exactly one** of `last_episode_id` OR `last_reference_time`. Both set → ambiguous. Neither set → error.
+* `last_reference_time` is ISO-8601 WITH timezone — `"2026-04-13T10:43:00Z"`, not `"2026-04-13"`.
+
+### `get_changes_since` — parameters
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | |
+| `last_episode_id` | string (UUID) | no † | — | PREFERRED — exact boundary |
+| `last_reference_time` | string (ISO-8601) | no † | — | Fallback when no episode ID |
+| `branch` | string | no | `"main"` | |
+
+† Exactly one is required.
+
+```json
+{ "repo_id": "memtrace", "last_episode_id": "ep_abc123" }
 ```
 
 ### 3. Interpret the response

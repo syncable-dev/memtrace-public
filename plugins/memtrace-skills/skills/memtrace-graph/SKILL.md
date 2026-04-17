@@ -1,6 +1,6 @@
 ---
 name: memtrace-graph
-description: "Use when the user asks about architectural bottlenecks, important symbols, PageRank, centrality, bridge functions, code communities, logical modules, service boundaries, chokepoints, or wants to understand the high-level architecture of a codebase"
+description: "Graph-wide architecture analysis of an indexed codebase — PageRank/degree centrality, Louvain communities, betweenness bridges, execution-flow processes, and custom read-only Cypher. USE for repo-level questions like 'what are the key modules', 'what are the bottlenecks', 'which symbols are load-bearing', 'how does a request flow'. DO NOT USE for a single symbol's neighbourhood (→ memtrace-relationships), for blast-radius scoring of one change (→ memtrace-impact), for temporal 'what changed' questions (→ memtrace-evolution), or for symbol discovery when you don't have an ID (→ memtrace-search)."
 ---
 
 ## Overview
@@ -18,17 +18,18 @@ Graph algorithms that reveal the structural architecture of a codebase — commu
 | `get_process_flow` | Trace a single process step-by-step |
 | `execute_cypher` | Direct read-only Cypher queries for custom analysis |
 
-## Parameter Types — Read This First
+## CRITICAL: parameter types are strict
 
-All memtrace MCP tools are **strictly typed**. Numbers must be JSON numbers, not strings.
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Quick-reference for graph tools:
 
-| Parameter shape | Correct | Wrong (will fail deserialization) |
-|-----------------|---------|-----------------------------------|
-| Integer/count (`limit`, `min_size`, `depth`) | `limit: 20` | `limit: "20"` |
-| String identifier (`repo_id`, `branch`, `name`) | `repo_id: "my-repo"` | `repo_id: my-repo` |
-| Boolean (`fuzzy`, `include_tests`) | `fuzzy: true` | `fuzzy: "true"` |
+| Shape | Correct | Wrong |
+|---|---|---|
+| Integer (`limit`, `min_size`, `depth`) | `limit: 20` | `limit: "20"` |
+| String (`repo_id`, `branch`, `algorithm`) | `"my-repo"` | `my-repo` (unquoted) |
+| Boolean | `true` / `false` | `"true"` / `"false"` |
+| Enum (`algorithm`) | `"pagerank"` or `"degree"` | `"PageRank"` (case matters) |
 
-If you see `MCP error -32602: invalid type: string "N", expected usize`, you passed a string where a number was required. Remove the quotes.
+`execute_cypher` rejects any query containing write keywords (CREATE, MERGE, DELETE, SET, DROP, REMOVE). Use `$repo_id` as a bind param — do not string-concat it into the query.
 
 ## Steps
 

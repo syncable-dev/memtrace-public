@@ -1,58 +1,70 @@
 ---
 name: memtrace-impact
-description: "Use when the user asks about blast radius, what will break if I change this, risk of modifying a symbol, upstream or downstream dependencies, impact analysis before refactoring, or wants to understand the consequences of a code change"
+description: "Quantify the blast radius of modifying a single symbol in an indexed codebase. USE when planning or reviewing a change to a specific function / method / class / type and you need to know who breaks, or when reviewing a PR to scope affected symbols from a diff. DO NOT USE for repo-wide overviews (→ memtrace-graph), for what-changed-over-time questions (→ memtrace-evolution), for finding code you don't have a symbol ID for yet (→ memtrace-search first), or for general 'explain this codebase' (→ memtrace-codebase-exploration)."
 ---
 
-## Overview
+## What this gives you
 
-Compute the blast radius of changing a specific symbol. Traces upstream (what depends on this) and downstream (what this depends on) through the knowledge graph to quantify risk before making modifications.
+Traverses the code knowledge graph from one symbol to report: upstream dependents (what breaks if this changes), downstream dependencies (what this relies on), transitive reach with decay, and a Low/Medium/High/Critical risk rating. Diff-mode additionally maps a raw patch to the set of affected symbols + execution flows.
 
-## Quick Reference
+## Tools
 
-| Tool | Purpose |
-|------|---------|
-| `get_impact` | Blast radius from a specific symbol (by ID) |
-| `detect_changes` | Scope symbols affected by a diff/patch |
+| Tool | Use when |
+|------|----------|
+| `get_impact` | You have a single symbol ID and want its blast radius |
+| `detect_changes` | You have a git diff / patch text and need the symbols it touches |
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+## CRITICAL: parameter types are strict
 
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**.
 
-## Steps
+MCP validation is structural. A string where a number is expected fails with `MCP error -32602: invalid type: string, expected usize` and wastes a turn. Pass numeric fields as JSON numbers, booleans as booleans.
 
-### 1. Identify the symbol
+```json
+// CORRECT
+{ "symbol_id": "abc-123", "direction": "both", "depth": 3 }
 
-If you have a symbol name but not its ID:
-- Use `find_symbol` for exact names
-- Use `find_code` for natural-language queries
+// WRONG — fails validation
+{ "symbol_id": "abc-123", "direction": "both", "depth": "3" }
+```
 
-### 2. Run impact analysis
+## `get_impact` — full parameter schema
 
-Use the `get_impact` MCP tool:
-- `symbol_id` — the symbol you plan to change (required)
-- `direction` — `upstream` (what depends on me), `downstream` (what I depend on), or `both` (default)
-- `depth` — traversal hops (default 3)
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `symbol_id` | string (UUID) | yes | — | Get from `find_symbol` / `find_code` results |
+| `direction` | string enum | no | `"both"` | One of `"upstream"`, `"downstream"`, `"both"` |
+| `depth` | integer | no | `3` | Traversal hops; 1–8 reasonable, >8 explodes |
+| `include_types` | array of string | no | all edge types | E.g. `["CALLS","IMPORTS","IMPLEMENTS"]` |
+| `limit` | integer | no | `100` | Max symbols returned in each direction |
 
-### 3. Interpret the risk rating
+## `detect_changes` — full parameter schema
 
-| Risk | Meaning | Action |
-|------|---------|--------|
-| **Low** | Few dependents, leaf node | Safe to modify; minimal testing needed |
-| **Medium** | Moderate dependents | Test direct callers; review interface contracts |
-| **High** | Many dependents across modules | Coordinate changes; comprehensive test coverage |
-| **Critical** | Core infrastructure, many transitive dependents | Plan migration strategy; consider backward-compatible changes |
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `diff` | string | yes | — | Unified git diff text; pipe `git diff` output directly |
+| `repo_id` | string | no | auto-detect from diff headers | Pass to disambiguate in multi-repo setups |
+| `branch_name` | string | no | `"main"` | Match the branch the diff applies to |
 
-### 4. For diff-based analysis
+## Workflow
 
-When you have an actual code diff (not just a symbol), use `detect_changes`:
-- Scopes all symbols affected by the diff
-- Returns blast radius AND affected processes (execution flows)
-- Useful for PR reviews or pre-commit checks
+1. **No symbol ID yet?** Call `find_symbol` (exact name) or `find_code` (natural language) first — both return `id` values you feed to `get_impact`.
+2. **Single symbol change:** `get_impact` with `direction: "both"` gives full picture. Drop to `"upstream"` for "who breaks" or `"downstream"` for "what do I rely on".
+3. **PR review / multi-symbol change:** `detect_changes` with the diff text. Returns affected symbols and the execution flows (processes) that cross them.
+4. **Act on the risk label:**
 
-## Decision Points
+| Risk | Meaning | Next action |
+|------|---------|-------------|
+| Low | Leaf node, few dependents | Change freely; unit test is enough |
+| Medium | Bounded dependents | Test direct callers; review interface contracts |
+| High | Many dependents across modules | Full test suite; coordinate with module owners |
+| Critical | Core infrastructure, wide transitive reach | Plan migration; prefer backward-compatible change |
 
-| Situation | Action |
-|-----------|--------|
-| Changing a single function | `get_impact` with `direction: both` |
-| Reviewing a PR or diff | `detect_changes` with the diff content |
-| Renaming/removing a public API | `get_impact` with `direction: upstream`, high depth |
-| Refactoring internals | `get_impact` with `direction: downstream` to check what you depend on |
+## Common mistakes
+
+| Mistake | Fix |
+|---------|-----|
+| Passing `depth: "3"` as string | Use JSON number `depth: 3` |
+| Calling `get_impact` before you have an ID | Call `find_symbol`/`find_code` first, copy the `id` |
+| Using `depth: 10+` on wide graphs | Stay at 3–5; you get thousands of symbols at higher depths |
+| Using `get_impact` for a diff with multiple symbols | Use `detect_changes` instead — takes the diff once |

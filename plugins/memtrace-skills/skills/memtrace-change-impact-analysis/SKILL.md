@@ -1,7 +1,9 @@
 ---
 name: memtrace-change-impact-analysis
-description: "Use when the user is about to modify code, planning a refactoring, wants to know what will break, needs a pre-change risk assessment, is reviewing a PR, or wants to understand the full consequences of a code change before making it"
+description: "Multi-tool pre-change risk workflow — chains find_symbol → get_symbol_context → get_impact → get_evolution → cochange to produce a written risk-rated change plan. USE when the user is about to refactor / rename / delete a symbol and wants a FULL risk write-up before they touch anything, or when reviewing a PR touching a critical symbol. DO NOT USE for a quick one-shot blast-radius number (→ memtrace-impact), for exploratory 'what does this code do' (→ memtrace-codebase-exploration / memtrace-relationships), or for after-the-fact incident investigation (→ memtrace-incident-investigation)."
 ---
+
+> **Tool argument schemas:** this skill calls several MCP tools. For the authoritative name / type / required / default / constraint of every argument, see `references/mcp-parameters.md`. Pass JSON numbers as numbers, booleans as booleans — the MCP validator does not coerce.
 
 ## Overview
 

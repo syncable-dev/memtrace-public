@@ -1,67 +1,74 @@
 ---
 name: memtrace-relationships
-description: "Use when the user asks who calls a function, what a function calls, class hierarchy, inheritance, imports, exports, type usages, dependencies between symbols, or wants to understand how code connects before making changes"
+description: "Map graph relationships for a specific symbol in an indexed codebase — who calls it, what it calls, class hierarchy, overrides, imports, exports, type usages. USE when you need the neighbourhood of ONE symbol before modifying it. DO NOT USE for computing blast-radius risk ratings (→ memtrace-impact), for diff-based change scoping (→ memtrace-impact with detect_changes), for graph-wide centrality / bridges / communities (→ memtrace-graph), or for natural-language symbol discovery before you have an ID (→ memtrace-search)."
 ---
 
-## Overview
+## What this gives you
 
-Traverse the code knowledge graph to map relationships between symbols — callers, callees, class hierarchies, imports, exports, and type usages. Essential for understanding a symbol's neighbourhood before modifying it.
+One symbol's immediate graph neighbourhood. `get_symbol_context` is the preferred one-shot call — it returns direct callers, callees, type references, community, process membership, and cross-repo API callers in a single request. `analyze_relationships` is the targeted drill-down when you need one specific edge type at custom depth.
 
-## Quick Reference
+## Tools
 
-| query_type | What it finds |
-|------------|---------------|
-| `find_callers` | What calls this function/method? |
-| `find_callees` | What does this function call? |
-| `class_hierarchy` | Parent classes, interfaces, mixins |
-| `overrides` | Which child classes override this method? |
-| `imports` | What modules does this file import? |
-| `exporters` | Which files import this module? |
-| `type_usages` | Where is this type/interface referenced? |
+| Tool | Use when |
+|------|----------|
+| `get_symbol_context` | ALMOST ALWAYS. 360° view in one call. |
+| `analyze_relationships` | You need one specific `query_type` at depth > 2, or want a filtered result |
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+## CRITICAL: parameter types are strict
 
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**.
 
-## Steps
+MCP validation is structural. Pass numbers as JSON numbers, not strings. Example failure: `depth: "3"` → `MCP error -32602: invalid type: string, expected usize`.
 
-### 1. Get the symbol ID
+## `get_symbol_context` — full parameter schema
 
-If you don't have a symbol `id`, find it first:
-- Use `find_symbol` for exact names
-- Use `find_code` for natural-language queries
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `symbol_id` | string (UUID) | yes | — | From `find_symbol` / `find_code` |
 
-### 2. Choose your approach
+Returns: `{ symbol, callers, callees, type_references, community, processes, api_callers_cross_repo }`.
 
-**Quick 360° view** → Use `get_symbol_context`
-Returns in one call: direct callers, callees, type references, community membership, process membership, and cross-repo API callers.
+## `analyze_relationships` — full parameter schema
 
-**ALWAYS prefer `get_symbol_context` first** — it answers "what does this touch and what touches it?" faster than multiple `analyze_relationships` calls.
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `symbol_id` | string (UUID) | yes | — | From `find_symbol` / `find_code` |
+| `query_type` | string enum | yes | — | See query-type table below |
+| `depth` | integer | no | `2` | 1–5 reasonable; higher = slower + wider |
+| `limit` | integer | no | `50` | Cap per-level results |
 
-**Targeted traversal** → Use `analyze_relationships`
-When you need a specific relationship type at a specific depth:
-- `symbol_id` — the symbol to start from (required)
-- `query_type` — one of the types above (required)
-- `depth` — traversal hops, default 2 (higher = slower but reveals indirect deps)
+### `query_type` values
 
-### 3. Interpret results
+| Value | Finds |
+|-------|-------|
+| `"find_callers"` | Functions/methods that call this one |
+| `"find_callees"` | Functions/methods this one calls |
+| `"class_hierarchy"` | Parent classes, interfaces, mixins |
+| `"overrides"` | Child classes that override this method |
+| `"imports"` | Modules this file imports |
+| `"exporters"` | Files that import this module |
+| `"type_usages"` | Where this type / interface is referenced |
 
-- **High in_degree** (many callers) → widely-used symbol; changes have large blast radius
-- **High out_degree** (many callees) → complex function; candidate for refactoring
-- **Deep class hierarchy** → check for Liskov violations or fragile base class issues
-- **Cross-repo API callers** → changes require coordination with other teams/services
+## Workflow
 
-### 4. Follow up
+1. **No symbol ID yet?** Call `find_symbol` (exact name) or `find_code` (behaviour description) and copy the `id` from the first match.
+2. **Broad context needed:** Call `get_symbol_context` first. Done in one request.
+3. **Need depth or a specific edge type:** Call `analyze_relationships`. Keep `depth ≤ 3` unless there's a reason.
+4. **Act on what you see:**
 
-After understanding relationships, consider:
-- `get_impact` to quantify the blast radius of a change
-- `get_evolution` to see how this symbol has changed over time
-- `find_dead_code` if you found unreferenced symbols
+| Signal | Meaning | Next step |
+|--------|---------|-----------|
+| High in_degree (many callers) | Widely-used; changes ripple | Run `get_impact` before modifying |
+| High out_degree (many callees) | Complex; refactoring candidate | See `memtrace-refactoring-guide` |
+| Deep class hierarchy | Fragile-base-class risk | Check `overrides` before changing the base |
+| Cross-repo API callers | Service boundary | Coordinate; treat as public API |
+| Zero callers on public symbol | Possibly dead | Confirm with `find_dead_code` |
 
-## Decision Points
+## Common mistakes
 
-| Situation | Action |
-|-----------|--------|
-| Need broad context fast | Use `get_symbol_context` (one call, full picture) |
-| Need specific relationship at depth >2 | Use `analyze_relationships` with custom depth |
-| Symbol has many callers | Follow up with `get_impact` before modifying |
-| Found cross-repo API callers | This is a service boundary — coordinate changes |
+| Mistake | Fix |
+|---------|-----|
+| Making 4 `analyze_relationships` calls for callers+callees+hierarchy+types | Use one `get_symbol_context` call instead |
+| Passing `depth: "2"` as string | JSON number `depth: 2` |
+| `query_type: "callers"` (wrong enum) | Use `"find_callers"` — the `find_` prefix is required |
+| Jumping to relationships before search | Get the `id` from `find_symbol`/`find_code` first |

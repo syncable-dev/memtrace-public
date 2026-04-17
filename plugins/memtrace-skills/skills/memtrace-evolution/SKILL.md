@@ -1,6 +1,6 @@
 ---
 name: memtrace-evolution
-description: "Use when the user asks what changed in the codebase, how code evolved over time, what was recently modified, what's the diff between versions, what changed since a date, incident investigation timeline, unexpected changes, change history, or temporal analysis of any kind"
+description: "Answer 'what changed?' across a time window in an indexed codebase — ranked by impact, novelty, recency, direction, or compound. USE when the user asks what changed in a date range, what might have broken around an incident, what's anomalous, or what's been added vs removed. DO NOT USE for a single symbol's full version history (→ get_timeline), for mapping a specific diff to affected symbols (→ memtrace-impact with detect_changes), for resuming mid-session when you don't know the start timestamp (→ memtrace-session-continuity / get_changes_since), or for incident root-cause tracing end-to-end (→ memtrace-incident-investigation)."
 ---
 
 ## Overview
@@ -20,38 +20,29 @@ This is memtrace's most powerful analytical tool. It implements six distinct sco
 | `directional` | Asymmetric scoring (added→out_degree, removed→in_degree, modified→impact) | "What was added vs removed?" — structural change direction |
 | `overview` | Fast module-level rollup only | Quick summary — no per-symbol scoring, just module counts |
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+## CRITICAL: parameter types are strict
 
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**.
 
-## Steps
+`from` and `to` are ISO-8601 strings with timezone (e.g. `"2026-04-01T00:00:00Z"`), NOT dates. `limit` and `max_symbols` are JSON numbers. A string where a number is expected fails with `MCP error -32602: invalid type: string, expected usize`.
 
-### 1. Determine the time window
+## `get_evolution` — full parameter schema
 
-Ask the user or infer:
-- `from` — ISO-8601 start timestamp (required)
-- `to` — ISO-8601 end timestamp (defaults to now)
-- `repo_id` — scope to a repo (call `list_indexed_repositories` if unknown)
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | From `list_indexed_repositories` if unknown |
+| `from` | string (ISO-8601) | yes | — | Start of window, e.g. `"2026-04-10T00:00:00Z"` |
+| `to` | string (ISO-8601) | no | now | End of window |
+| `mode` | string enum | no | `"compound"` | See table above |
+| `branch_name` | string | no | `"main"` | |
+| `max_symbols` | integer | no | `50` | Per category (added/removed/modified) |
+| `scope` | string | no | — | File path or module prefix to narrow |
 
-### 2. Choose the mode
+## Workflow
 
-**Decision tree:**
-
-```
-User wants to know...
-├── "what changed?"           → compound (default)
-├── "what could have broken?" → impact
-├── "anything unexpected?"    → novel
-├── "what changed near X?"    → recent (set to to incident time)
-├── "what was added/removed?" → directional
-└── "quick summary?"          → overview
-```
-
-### 3. Execute the query
-
-Use the `get_evolution` MCP tool with:
-- `repo_id` — required
-- `from` / `to` — the time window
-- `mode` — one of: compound, impact, novel, recent, directional, overview
+1. **Know the window?** Pass `from` / `to`. Mid-session and unsure? Use `get_changes_since` with an episode anchor instead — no guessing.
+2. **Pick mode from the decision tree above.** Default is `compound`.
+3. **Call `get_evolution`.**
 
 ### 4. Interpret results
 

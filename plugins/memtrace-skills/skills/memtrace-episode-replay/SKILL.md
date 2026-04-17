@@ -1,6 +1,6 @@
 ---
 name: memtrace-episode-replay
-description: "Use when an agent needs to understand why code looks the way it does, replay implementation steps between commits, find what was tried and reverted, understand a colleague's (or your past self's) reasoning, or avoid repeating a previously-abandoned approach"
+description: "Replay the sub-commit narrative for a specific symbol in an indexed codebase — every working_tree save between two commits, including abandoned attempts. USE when you need to understand WHY current code looks the way it does, reconstruct an incident timeline, or avoid repeating a previously-reverted approach. DO NOT USE for a snapshot of current code (read the file), for ranked 'what changed' across a window (→ memtrace-evolution), for a symbol's plain version list (→ `get_timeline`), or if the target repo was indexed without the file watcher running (there are no working_tree episodes to replay)."
 ---
 
 ## Overview
@@ -11,28 +11,39 @@ Replay the sub-commit implementation narrative for any symbol. Between any two c
 
 This is the only tool that can answer: "why does this code look like this?" without relying on commit messages or comments.
 
-## Steps
+## CRITICAL: parameter types are strict
 
-### 1. Identify the symbol and time window
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Pitfalls specific to this skill:
 
-Use `find_symbol` to get the exact symbol name if needed. Determine the window:
-- `from` — when to start (e.g. a few days before a confusing commit)
-- `to` — when to end (usually the commit timestamp or now)
+* `symbol` is a NAME string (e.g. `"validateToken"`), NOT a `symbol_id` UUID.
+* `from` / `to` are ISO-8601 strings with timezone — `"2026-04-10T00:00:00Z"`, not `"2026-04-10"`.
+* `include_working_tree` is a boolean. `"true"` as a string fails validation.
 
-If you don't know the window, call `get_timeline` first to find when the symbol changed.
+## `get_episode_replay` — parameters
 
-### 2. Call `get_episode_replay`
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | From `list_indexed_repositories` |
+| `symbol` | string | yes | — | Exact name, e.g. `"validateToken"` |
+| `from` | string (ISO-8601) | yes | — | Window start |
+| `to` | string (ISO-8601) | yes | — | Window end |
+| `branch` | string | no | `"main"` | |
+| `include_working_tree` | boolean | no | `true` | `false` = commits only |
 
-```
-get_episode_replay(
-  repo_id: "...",
-  symbol: "execute",
-  from: "2026-04-10T00:00:00Z",
-  to:   "2026-04-13T00:00:00Z",
-  include_working_tree: true,   // false = commits only
-  compress: true                // collapse identical-hash runs
-)
-```
+## `get_timeline` — parameters (for locating the window first)
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | |
+| `scope_path` | string | yes | — | e.g. `"AuthService::validateToken"` |
+| `file_path` | string | yes | — | Containing file |
+| `branch` | string | no | `"main"` | |
+
+## Workflow
+
+1. **Confirm the symbol name** — call `find_symbol` if you're unsure of the exact name.
+2. **Find the window** — if the user didn't specify dates, call `get_timeline` with `scope_path` + `file_path` to see when this symbol changed, then pick a window around the interesting change.
+3. **Call `get_episode_replay`** with `symbol` name + the window. Keep `include_working_tree: true` for the full sub-commit narrative.
 
 ### 3. Read the narrative_hint sequence
 

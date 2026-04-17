@@ -1,11 +1,11 @@
 ---
 name: memtrace-search
-description: "Use when the user asks to find code, search for a function, locate a symbol, look up where something is defined, search across repos, find implementations, or needs to discover where a piece of logic lives before making changes"
+description: "Discover where code lives in an indexed codebase — find a function by name, locate behaviour described in natural language, or retrieve a symbol `id` for downstream graph tools. USE as the first step any time you need a symbol `id` and only have a name, description, or partial identifier. DO NOT USE once you already have a symbol `id` (→ memtrace-relationships / memtrace-impact), for graph-wide architecture questions (→ memtrace-graph), or for what-changed-over-time queries (→ memtrace-evolution)."
 ---
 
-## Overview
+## What this gives you
 
-Find code using hybrid BM25 full-text + semantic vector search with Reciprocal Rank Fusion. Works for both natural-language queries and exact symbol names. This is the primary discovery tool — use it before calling relationship or impact analysis tools.
+Hybrid search over the code knowledge graph: Tantivy BM25 + semantic vector embeddings + Reciprocal Rank Fusion. Returns ranked symbols with `id`, `file_path`, `start_line`, `kind`, and `score`. The `id` is the entry point into every other Memtrace tool.
 
 ## Quick Reference
 
@@ -24,7 +24,13 @@ Find code using hybrid BM25 full-text + semantic vector search with Reciprocal R
 
 ### 2. Execute the search
 
-> **Parameter types:** numbers must be JSON numbers, not strings. `limit: 20` is correct; `limit: "20"` returns `MCP error -32602: expected usize`.
+## CRITICAL: parameter types are strict
+
+Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Most common pitfalls here:
+
+* `limit`, `edit_distance` are JSON numbers. `limit: "20"` fails with `MCP error -32602: invalid type: string "20", expected usize`.
+* `fuzzy` is a boolean — `true` not `"true"`.
+* `kind` is a case-sensitive enum: `"Function"` not `"function"`.
 
 **`find_code` parameters:**
 - `query` — string, required. Natural-language or exact text.

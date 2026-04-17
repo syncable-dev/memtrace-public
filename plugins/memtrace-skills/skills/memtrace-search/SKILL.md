@@ -24,19 +24,24 @@ Find code using hybrid BM25 full-text + semantic vector search with Reciprocal R
 
 ### 2. Execute the search
 
-**find_code parameters:**
-- `query` — natural-language or exact text (required)
-- `repo_id` — scope to a single repo (optional; omit to search all)
-- `kind` — filter by symbol type: Function, Class, Method, Interface, APIEndpoint, APICall
-- `limit` — max results (default 10)
-- `as_of` — ISO-8601 timestamp for time-travel search
+> **Parameter types:** numbers must be JSON numbers, not strings. `limit: 20` is correct; `limit: "20"` returns `MCP error -32602: expected usize`.
 
-**find_symbol parameters:**
-- `name` — exact or partial symbol name (required)
-- `fuzzy` — enable Levenshtein correction (default false)
-- `repo_id` — scope to a single repo (optional)
-- `kind` — filter by symbol type
-- `file_path` — filter by file path substring
+**`find_code` parameters:**
+- `query` — string, required. Natural-language or exact text.
+- `repo_id` — string, optional. Scope to a single repo (omit to search all).
+- `kind` — string, optional. Filter by symbol type: `"Function"`, `"Class"`, `"Method"`, `"Interface"`, `"APIEndpoint"`, `"APICall"`.
+- `limit` — **integer**, optional. Max results. Default `20`, capped at `100`.
+- `as_of` — string, optional. ISO-8601 timestamp for time-travel search (e.g. `"2026-04-01T00:00:00Z"`).
+- `file_path` — string, optional. File path or directory substring to constrain results (e.g. `"cli/commands"` or `"auth.py"`).
+
+**`find_symbol` parameters:**
+- `name` — string, required. Exact or partial symbol name (e.g. `"ValidateToken"`).
+- `fuzzy` — boolean, optional. Enable Levenshtein correction. Default `false`.
+- `edit_distance` — **integer**, optional. Maximum Levenshtein edit distance for fuzzy search. Default `2`, capped at `2`.
+- `repo_id` — string, optional. Scope to a single repo.
+- `kind` — string, optional. Filter by symbol type (e.g. `"Function"`, `"Class"`, `"Variable"`).
+- `file_path` — string, optional. Filter by file path substring.
+- `limit` — **integer**, optional. Max results. Default `10`, capped at `50`.
 
 **Success criteria:** Results include `file_path`, `start_line`, `kind`, and relevance `score`.
 

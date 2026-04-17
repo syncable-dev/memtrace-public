@@ -16,6 +16,9 @@ Identify code quality issues using structural graph analysis — dead code (zero
 | `find_most_complex_functions` | Top-N functions by complexity across the repo |
 | `get_repository_stats` | Repo-wide counts: nodes, edges, communities, processes |
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Get repository overview

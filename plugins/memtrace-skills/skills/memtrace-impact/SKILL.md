@@ -14,6 +14,9 @@ Compute the blast radius of changing a specific symbol. Traces upstream (what de
 | `get_impact` | Blast radius from a specific symbol (by ID) |
 | `detect_changes` | Scope symbols affected by a diff/patch |
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Identify the symbol

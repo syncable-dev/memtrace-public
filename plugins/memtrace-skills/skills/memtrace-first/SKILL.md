@@ -16,6 +16,18 @@ Memtrace is the memory layer of the codebase. It has the full knowledge graph: e
 
 **97% better accuracy. 83% fewer wasted tokens. No exceptions.**
 
+## Parameter Types — Read This Before Calling Any Tool
+
+All memtrace MCP tools are **strictly typed**. Pass JSON numbers (not strings) for integer parameters.
+
+| Parameter | Correct | WRONG (fails with MCP error -32602) |
+|---|---|---|
+| `limit`, `min_size`, `depth`, `max_depth`, `last_n` | `limit: 20` | `limit: "20"` |
+| `repo_id`, `branch`, `name`, `symbol_name`, `query` | `repo_id: "my-repo"` | `repo_id: my-repo` (unquoted) |
+| `fuzzy`, `include_tests`, `invalidate` | `fuzzy: true` | `fuzzy: "true"` |
+
+If you see `failed to deserialize parameters: invalid type: string "N", expected usize`, remove the quotes from the number and retry.
+
 ## Check Indexing First (Once Per Session)
 
 ```

@@ -12,6 +12,9 @@ Find symbols that historically co-change with a target symbol — ranked by co-o
 
 They are complementary. A symbol with no direct callers can still have strong cochange partners if it's always modified alongside another in every commit.
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Identify the target symbol

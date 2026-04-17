@@ -16,6 +16,9 @@ Map the HTTP API surface of a codebase — exposed endpoints, outbound HTTP call
 | `get_api_topology` | Cross-repo call graph: which service calls which endpoint |
 | `link_repositories` | Manually link repos for cross-repo edge detection |
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Discover endpoints

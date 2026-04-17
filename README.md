@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/v/memtrace?style=flat-square&color=00D4B8&label=npm" alt="npm version" /></a>
   <a href="https://github.com/syncable-dev/memtrace-public/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Proprietary%20EULA-0A1628?style=flat-square" alt="license" /></a>
-  <a href="https://memtrace.dev"><img src="https://img.shields.io/badge/docs-memtrace.dev-00D4B8?style=flat-square" alt="docs" /></a>
+  <a href="https://memtrace.io"><img src="https://img.shields.io/badge/docs-memtrace.io-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
 
 > **Early Access** — Memtrace is under active development. Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
@@ -338,7 +338,7 @@ Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Sw
 <br/>
 
 <p align="center">
-  <a href="https://memtrace.dev">Documentation</a> · <a href="https://www.npmjs.com/package/memtrace">npm</a> · <a href="https://github.com/syncable-dev/memtrace-public/issues">Issues</a>
+  <a href="https://memtrace.io">Documentation</a> · <a href="https://www.npmjs.com/package/memtrace">npm</a> · <a href="https://github.com/syncable-dev/memtrace-public/issues">Issues</a>
 </p>
 
 <p align="center">

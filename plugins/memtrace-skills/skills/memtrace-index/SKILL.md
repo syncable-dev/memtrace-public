@@ -15,6 +15,9 @@ Index a local codebase into the persistent code knowledge graph. This is always 
 | `incremental` | Only re-parse changed files (use for subsequent runs) |
 | `clear_existing` | Wipe and rebuild from scratch |
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Check if already indexed

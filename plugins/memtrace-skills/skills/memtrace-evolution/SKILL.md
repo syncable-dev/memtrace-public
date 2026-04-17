@@ -20,6 +20,9 @@ This is memtrace's most powerful analytical tool. It implements six distinct sco
 | `directional` | Asymmetric scoring (added→out_degree, removed→in_degree, modified→impact) | "What was added vs removed?" — structural change direction |
 | `overview` | Fast module-level rollup only | Quick summary — no per-symbol scoring, just module counts |
 
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+
+
 ## Steps
 
 ### 1. Determine the time window

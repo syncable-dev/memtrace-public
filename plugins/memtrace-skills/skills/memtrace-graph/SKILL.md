@@ -1,6 +1,6 @@
 ---
 name: memtrace-graph
-description: "Graph-wide architecture analysis of an indexed codebase — PageRank/degree centrality, Louvain communities, betweenness bridges, execution-flow processes, and custom read-only Cypher. USE for repo-level questions like 'what are the key modules', 'what are the bottlenecks', 'which symbols are load-bearing', 'how does a request flow'. DO NOT USE for a single symbol's neighbourhood (→ memtrace-relationships), for blast-radius scoring of one change (→ memtrace-impact), for temporal 'what changed' questions (→ memtrace-evolution), or for symbol discovery when you don't have an ID (→ memtrace-search)."
+description: "Use when the user asks about architectural bottlenecks, important symbols, PageRank, centrality, bridge functions, code communities, logical modules, service boundaries, chokepoints, or wants to understand the high-level architecture of a codebase"
 ---
 
 ## Overview
@@ -12,24 +12,23 @@ Graph algorithms that reveal the structural architecture of a codebase — commu
 | Tool | Purpose |
 |------|---------|
 | `find_bridge_symbols` | Architectural chokepoints — symbols that connect otherwise-separate modules |
-| `find_central_symbols` | Most important symbols by PageRank or degree centrality |
+| `find_central_symbols` | Most important symbols (PageRank via ArcadeDB `algo.pagerank`) |
 | `list_communities` | Louvain-detected logical modules/services |
 | `list_processes` | Execution flows: HTTP handlers, background jobs, CLI commands, event handlers |
 | `get_process_flow` | Trace a single process step-by-step |
 | `execute_cypher` | Direct read-only Cypher queries for custom analysis |
 
-## CRITICAL: parameter types are strict
+## Parameter Types — Read This First
 
-Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Quick-reference for graph tools:
+All memtrace MCP tools are **strictly typed**. Numbers must be JSON numbers, not strings.
 
-| Shape | Correct | Wrong |
-|---|---|---|
-| Integer (`limit`, `min_size`, `depth`) | `limit: 20` | `limit: "20"` |
-| String (`repo_id`, `branch`, `algorithm`) | `"my-repo"` | `my-repo` (unquoted) |
-| Boolean | `true` / `false` | `"true"` / `"false"` |
-| Enum (`algorithm`) | `"pagerank"` or `"degree"` | `"PageRank"` (case matters) |
+| Parameter shape | Correct | Wrong (will fail deserialization) |
+|-----------------|---------|-----------------------------------|
+| Integer/count (`limit`, `min_size`, `depth`) | `limit: 20` | `limit: "20"` |
+| String identifier (`repo_id`, `branch`, `name`) | `repo_id: "my-repo"` | `repo_id: my-repo` |
+| Boolean (`fuzzy`, `include_tests`) | `fuzzy: true` | `fuzzy: "true"` |
 
-`execute_cypher` rejects any query containing write keywords (CREATE, MERGE, DELETE, SET, DROP, REMOVE). Use `$repo_id` as a bind param — do not string-concat it into the query.
+If you see `MCP error -32602: invalid type: string "N", expected usize`, you passed a string where a number was required. Remove the quotes.
 
 ## Steps
 
@@ -60,7 +59,8 @@ Use `find_central_symbols` to identify the most important symbols:
 - `repo_id` — string, required.
 - `branch` — string, optional. Defaults to `"main"`.
 - `limit` — **integer**, optional. How many to return. Default `20`, capped at `100`.
-- `algorithm` — string, optional. `"pagerank"` (default, via MAGE — falls back to degree if unavailable) or `"degree"` (simple in-degree count, no MAGE required).
+
+Returns the top-N symbols ranked by **PageRank** (ArcadeDB's native `algo.pagerank` procedure). Filters the global run to Function/Method/Class/Interface/Struct in the requested repo + branch. Falls back to in-degree centrality only if the native procedure isn't registered on the connected ArcadeDB build.
 
 ### 3. Find architectural chokepoints
 
@@ -73,6 +73,8 @@ Use `find_bridge_symbols` to find symbols that, if removed, would disconnect par
 - `repo_id` — string, required.
 - `branch` — string, optional. Defaults to `"main"`.
 - `limit` — **integer**, optional. Default `15`, capped at `50`.
+
+Ranks symbols by **betweenness centrality** (ArcadeDB's native `algo.betweenness` with `normalized: true`) — how many shortest paths between other symbols pass through each one. Falls back to an in-degree × out-degree heuristic only if the native procedure isn't registered.
 
 ### 4. Trace execution flows
 
@@ -104,7 +106,7 @@ Use `execute_cypher` for advanced graph queries not covered by built-in tools. T
 | Question | Tool |
 |----------|------|
 | "What are the main modules?" | `list_communities` |
-| "What are the most important functions?" | `find_central_symbols` with method=pagerank |
+| "What are the most important functions?" | `find_central_symbols` (PageRank, native) |
 | "Where are the bottlenecks?" | `find_bridge_symbols` |
 | "How does a request flow through the system?" | `list_processes` → `get_process_flow` |
 | "What's the entry point for feature X?" | `list_processes`, then filter by name |

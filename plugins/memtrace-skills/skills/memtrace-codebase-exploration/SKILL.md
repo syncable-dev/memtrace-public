@@ -1,9 +1,7 @@
 ---
 name: memtrace-codebase-exploration
-description: "Multi-step onboarding workflow for a codebase you've never seen — chains indexing, communities, centrality, processes, and recent activity into a structured overview. USE when the user asks to 'explain / explore / onboard to / understand this project' or 'show me how this is organised'. DO NOT USE for targeted questions about one symbol (→ memtrace-relationships / memtrace-impact), for 'what changed' temporal questions (→ memtrace-evolution), for quality / dead-code audits (→ memtrace-quality), or when the user has already been in the codebase and wants a specific answer (this skill is broad — it reads many tools)."
+description: "Use when the user asks to explore a codebase, understand a project, onboard to a new repo, get an overview of how code is structured, map the architecture, or wants a comprehensive understanding of a codebase they're new to"
 ---
-
-> **Tool argument schemas:** this skill calls several MCP tools. For the authoritative name / type / required / default / constraint of every argument, see `references/mcp-parameters.md`. Pass JSON numbers as numbers, booleans as booleans — the MCP validator does not coerce.
 
 ## Overview
 
@@ -38,7 +36,7 @@ Each community represents a cohesive module — these are the "areas" of the cod
 
 ### 4. Find the most important symbols
 
-Call `find_central_symbols` with `method: "pagerank"` and `limit: 15`.
+Call `find_central_symbols` with `limit: 15`. It ranks symbols by PageRank (ArcadeDB's native `algo.pagerank`) — no extra parameter needed.
 
 These are the symbols that the rest of the codebase depends on most heavily. They form the "skeleton" of the architecture.
 

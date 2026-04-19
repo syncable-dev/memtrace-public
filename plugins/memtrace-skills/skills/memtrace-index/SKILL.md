@@ -1,46 +1,48 @@
 ---
 name: memtrace-index
-description: "Index a local codebase into Memtrace's knowledge graph — parses files, resolves edges, detects APIs, runs community / process detection, writes symbols + embeddings. USE when `list_indexed_repositories` shows the project isn't indexed yet, when the user says 'index this project' / 'set up memtrace here', or when `memtrace start` hasn't been run. DO NOT USE if the repo already appears in `list_indexed_repositories` (→ go straight to memtrace-search / memtrace-graph). DO NOT USE to 'reindex after edits' — the file watcher handles that automatically; call `watch_directory` instead."
+description: "Use when the user asks to index a project, set up code intelligence, parse a codebase, build a knowledge graph, prepare a repo for analysis, or as the very first step before any code exploration, search, or relationship analysis"
 ---
 
 ## Overview
 
 Index a local codebase into the persistent code knowledge graph. This is always the first step — it parses every source file, resolves cross-file relationships, detects API endpoints/calls, runs community detection and process tracing, and embeds all symbols for semantic search.
 
-## CRITICAL: parameter types are strict
+## Quick Reference
 
-Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**. Pitfalls specific to this skill:
+| Parameter | Purpose |
+|-----------|---------|
+| `path` | Absolute path to the directory to index |
+| `incremental` | Only re-parse changed files (use for subsequent runs) |
+| `clear_existing` | Wipe and rebuild from scratch |
 
-* `path` is an ABSOLUTE path. Relative paths like `"."` or `"./src"` fail or index the wrong root.
-* `incremental`, `clear_existing`, `skip_embed` are JSON booleans (`true` / `false`), not strings.
-* `job_id` from the response is a UUID string — pass it back to `check_job_status` exactly as received.
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
 
-## `index_directory` — parameters
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `path` | string | yes | — | ABSOLUTE path to repo root |
-| `repo_id` | string | no | directory name | Override the default auto-derived ID |
-| `branch` | string | no | `"main"` | |
-| `incremental` | boolean | no | `false` | Re-index only changed files |
-| `clear_existing` | boolean | no | `false` | Wipe graph before indexing |
-| `skip_embed` | boolean | no | `false` | Skip embedding stage (faster; loses semantic search) |
+## Steps
 
-## `check_job_status` — parameters
+### 1. Check if already indexed
 
-| Field | Type | Required | Default |
-|---|---|---|---|
-| `job_id` | string (UUID) | yes | — |
+Use the `list_indexed_repositories` MCP tool first. If the repo is already indexed and recent, skip to step 4.
 
-## `list_indexed_repositories` — parameters
+**Success criteria:** You have a list of repo_ids and their last-indexed timestamps.
 
-No parameters.
+### 2. Index the directory
 
-## Workflow
+Use the `index_directory` MCP tool:
 
-1. **Is it already indexed?** — call `list_indexed_repositories`. If the target repo is in the list with a recent `last_indexed`, skip to step 4.
-2. **Start indexing** — call `index_directory` with an absolute `path`. Response returns immediately with a `job_id`.
-3. **Poll** — call `check_job_status` every 2–3 seconds with `job_id`. Stages (in order): **scan → parse → resolve → communities → processes → persist → embeddings → api_detect → done**. Stop on `status: "completed"` or `"failed"`.
+- Set `path` to the project root (absolute path)
+- Set `incremental: true` if re-indexing after changes
+- Set `clear_existing: true` only if a full rebuild is needed
+
+**Success criteria:** You receive a `job_id` immediately.
+
+### 3. Poll for completion
+
+Use `check_job_status` with the `job_id` every 2–3 seconds.
+
+Pipeline stages in order: **scan → parse → resolve → communities → processes → persist → embeddings → api_detect → done**
+
+Wait until `status = "completed"`. If `status = "failed"`, report the error message to the user.
 
 ### 4. Report to user
 

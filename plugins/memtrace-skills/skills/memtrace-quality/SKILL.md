@@ -1,81 +1,63 @@
 ---
 name: memtrace-quality
-description: "Find code-quality issues in an indexed codebase — dead code, complexity hotspots, repo-wide stats. USE when the user asks for dead code / unused functions, cyclomatic complexity, refactoring candidates, code smells, or repo counts. DO NOT USE for blast-radius analysis of a specific change (→ memtrace-impact), for graph-wide architecture / centrality questions (→ memtrace-graph), or for executing the refactor itself (→ memtrace-refactoring-guide)."
+description: "Use when the user asks about dead code, unused functions, code complexity, cyclomatic complexity, refactoring candidates, code smells, code quality metrics, functions that are too complex, or wants to find code that should be cleaned up"
 ---
 
-## What this gives you
+## Overview
 
-Pure structural quality signals from the graph — no style rules, no lint. Dead-code = zero incoming CALLS edges (with exclusions). Complexity = out-degree (callees) proxy + true cyclomatic when requested per-symbol. Repo stats = node/edge/community/process counts.
+Identify code quality issues using structural graph analysis — dead code (zero callers), complexity hotspots (high out-degree), and repository-wide statistics.
 
-## Tools
+## Quick Reference
 
-| Tool | Use when |
-|------|----------|
-| `get_repository_stats` | One-shot repo counts — nodes, edges, communities, processes |
-| `find_dead_code` | List symbols with zero callers across a repo |
-| `find_most_complex_functions` | Top-N out-degree hotspots across a repo |
-| `calculate_cyclomatic_complexity` | True McCabe complexity for ONE specific symbol |
+| Tool | Purpose |
+|------|---------|
+| `find_dead_code` | Symbols with zero callers (potentially unused) |
+| `calculate_cyclomatic_complexity` | Complexity score for a specific symbol |
+| `find_most_complex_functions` | Top-N functions by complexity across the repo |
+| `get_repository_stats` | Repo-wide counts: nodes, edges, communities, processes |
 
-## CRITICAL: parameter types are strict
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
 
-Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**.
 
-`limit`, `min_complexity`, `threshold` are JSON numbers. `include_tests` is a JSON boolean (`true`/`false`, not `"true"`). String `repo_id` must be quoted.
+## Steps
 
-## `get_repository_stats` — parameter schema
+### 1. Get repository overview
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `repo_id` | string | yes | — | From `list_indexed_repositories` |
-| `branch_name` | string | no | `"main"` | |
+Use `get_repository_stats` to understand the codebase scale:
+- Node counts by kind (functions, classes, methods, interfaces)
+- Edge counts (calls, imports, extends, type references)
+- Community and process counts
 
-## `find_dead_code` — parameter schema
+### 2. Find dead code
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `repo_id` | string | yes | — | |
-| `branch_name` | string | no | `"main"` | |
-| `include_tests` | boolean | no | `false` | `true` also flags unused test helpers |
-| `limit` | integer | no | `50` | Max results |
-| `kinds` | array of string | no | all | Filter, e.g. `["Function","Method"]` |
+Use `find_dead_code`:
+- `repo_id` — required
+- `include_tests` — set true to also flag unused test helpers (default false)
 
-Exported symbols and process entry points are excluded automatically — public APIs never appear as "dead".
+**Note:** Exported symbols and entry points are excluded by default — the tool won't flag public APIs as "dead" just because they're called externally.
 
-## `find_most_complex_functions` — parameter schema
+### 3. Find complexity hotspots
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `repo_id` | string | yes | — | |
-| `branch_name` | string | no | `"main"` | |
-| `limit` | integer | no | `10` | Top-N to return |
-| `min_complexity` | integer | no | `0` | Cutoff score (out-degree based) |
+Use `find_most_complex_functions`:
+- `repo_id` — required
+- `limit` — how many to return (default 10)
 
-## `calculate_cyclomatic_complexity` — parameter schema
-
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `symbol_id` | string (UUID) | yes | — | From `find_symbol` / `find_code` |
-
-## Workflow
-
-1. **Start with `get_repository_stats`** — know the scale before drilling in.
-2. **Find dead code / complexity hotspots** separately with the two list tools.
-3. **For individual symbols flagged as complex**, call `calculate_cyclomatic_complexity` to confirm with true McCabe score before recommending changes.
-
-### Complexity thresholds (out-degree proxy)
-
+Complexity scoring (based on out-degree — number of callees):
 | Score | Rating | Action |
 |-------|--------|--------|
-| < 5 | Low | No action |
-| 5–10 | Medium | Monitor; check `get_evolution` for growth trend |
-| 10–20 | High | Refactor; extract helpers |
-| > 20 | Critical | Split immediately; single-responsibility violation |
+| < 5 | Low | No action needed |
+| 5–10 | Medium | Monitor; consider splitting if growing |
+| 10–20 | High | Refactoring candidate; extract helper functions |
+| > 20 | Critical | Immediate attention; this function does too much |
 
-## Common mistakes
+### 4. Drill into specific functions
 
-| Mistake | Fix |
-|---------|-----|
-| Deleting everything `find_dead_code` returns | Reflection, dynamic dispatch, and external consumers aren't visible; confirm with grep + git blame before deletion |
-| Passing `include_tests: "true"` as string | JSON boolean `true` |
-| Fixing only the top-complexity function | Pair with `get_evolution` — medium-complexity that's growing is often more urgent |
-| Calling `calculate_cyclomatic_complexity` on a non-function | Only meaningful for Function / Method symbols |
+Use `calculate_cyclomatic_complexity` on specific symbols flagged by the user or found in step 3.
+
+## Common Mistakes
+
+| Mistake | Reality |
+|---------|---------|
+| Treating all dead code as deletable | Some "dead" code is called via reflection, dynamic dispatch, or external consumers |
+| Ignoring exported symbols in dead code results | If `include_tests: false`, exported symbols are already excluded |
+| Only looking at the highest complexity | Medium-complexity functions that are growing (check `get_evolution`) are often more urgent |

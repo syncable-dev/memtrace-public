@@ -1,6 +1,6 @@
 ---
 name: memtrace-cochange
-description: "Find symbols that historically change together with a target symbol in an indexed codebase — ranked by co-occurrence across git episodes. USE when you want blast-awareness BEYOND the static call graph (hidden coupling: sibling files that always get edited together, config↔code pairs, test↔impl drift). DO NOT USE for structural 'who calls this' questions (→ memtrace-impact / memtrace-relationships — that's the call graph), for general what-changed-when questions (→ memtrace-evolution), or on a freshly indexed repo with no git history replayed yet (call `replay_history` first)."
+description: "Use when the user asks what tends to change together with a symbol, what other code moves when this moves, historical coupling, blast awareness before modifying a symbol, or wants to find hidden dependencies not visible in the call graph"
 ---
 
 ## Overview
@@ -12,28 +12,23 @@ Find symbols that historically co-change with a target symbol — ranked by co-o
 
 They are complementary. A symbol with no direct callers can still have strong cochange partners if it's always modified alongside another in every commit.
 
-## CRITICAL: parameter types are strict
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
 
-Full schema for every Memtrace tool: **`../../references/mcp-parameters.md`**.
 
-Cochange takes a **symbol NAME (string), not an ID**. This is the one Memtrace tool where you feed in a name rather than a UUID.
+## Steps
 
-## `get_cochange_context` — parameters
+### 1. Identify the target symbol
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `repo_id` | string | yes | — | From `list_indexed_repositories` |
-| `symbol` | string | yes | — | Exact symbol NAME (not UUID), e.g. `"validateToken"` |
-| `branch` | string | no | `"main"` | |
-| `limit` | integer | no | `20` | JSON number, NOT `"20"` |
+Use `find_symbol` if you need the exact name. The tool matches by `name` field.
 
-## Workflow
+### 2. Call `get_cochange_context`
 
-1. **Confirm the name exists** — run `find_symbol` with the name to verify spelling and see all matches. Pick the right one.
-2. **Call `get_cochange_context`** with `repo_id` and the exact `symbol` string.
-
-```json
-{ "repo_id": "memtrace", "symbol": "validateToken", "limit": 20 }
+```
+get_cochange_context(
+  repo_id: "...",
+  symbol: "execute",    // exact symbol name
+  limit: 20             // default 20, increase for broader view
+)
 ```
 
 ### 3. Interpret results

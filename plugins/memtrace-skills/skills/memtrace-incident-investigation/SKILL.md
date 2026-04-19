@@ -1,9 +1,7 @@
 ---
 name: memtrace-incident-investigation
-description: "Root-cause workflow for incidents / regressions / production bugs on an indexed codebase — chains get_evolution(recent) → find_bridge_symbols → get_process_flow → get_cochange_context. USE when 'X broke at Y time, find why' — you have an incident timestamp and need to narrow down candidate changes. DO NOT USE for pre-change risk assessment of a planned refactor (→ memtrace-change-impact-analysis), for symbol blast-radius without a failure context (→ memtrace-impact), for bug investigation unrelated to recent changes (→ memtrace-search + memtrace-relationships), or when the user hasn't specified an incident window (ask for one first)."
+description: "Use when the user is investigating a bug, incident, production issue, regression, something that broke, root cause analysis, debugging a failure, or trying to figure out what went wrong and when"
 ---
-
-> **Tool argument schemas:** this skill calls several MCP tools. For the authoritative name / type / required / default / constraint of every argument, see `references/mcp-parameters.md`. Pass JSON numbers as numbers, booleans as booleans — the MCP validator does not coerce.
 
 ## Overview
 

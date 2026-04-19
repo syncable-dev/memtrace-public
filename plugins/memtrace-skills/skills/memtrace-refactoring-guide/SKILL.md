@@ -1,9 +1,7 @@
 ---
 name: memtrace-refactoring-guide
-description: "Guided multi-tool refactoring workflow — scores complexity hotspots, dead code, and bridge symbols, then produces a phased, risk-rated refactoring plan. USE when the user wants 'what should I refactor', 'reduce complexity', 'clean up tech debt', or 'a plan to split this module'. DO NOT USE for a quality audit without planned action (→ memtrace-quality), for pre-change risk of ONE planned edit (→ memtrace-change-impact-analysis / memtrace-impact), or for actually editing the code (this skill produces a plan; edits happen separately)."
+description: "Use when the user wants to refactor code, reduce complexity, clean up technical debt, split a large function, extract a module, reorganize code, identify refactoring priorities, or improve code structure"
 ---
-
-> **Tool argument schemas:** this skill calls several MCP tools. For the authoritative name / type / required / default / constraint of every argument, see `references/mcp-parameters.md`. Pass JSON numbers as numbers, booleans as booleans — the MCP validator does not coerce.
 
 ## Overview
 

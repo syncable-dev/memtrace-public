@@ -58,39 +58,30 @@ The agent doesn't just search your code. It *remembers* it.
 
 ## Benchmarks
 
-All benchmarks run on the same machine, same codebase, same queries. No cherry-picking. Full reproduction scripts and raw results are in the [`benchmarks/`](benchmarks/) directory.
+All four systems run on the same machine, same mempalace checkout, same 1,000 queries, same evaluator. Ground truth is extracted by Python's stdlib `ast` module — **not** from any tool's index — so no system gets a home-field advantage in the dataset itself. Full reproduction scripts, raw per-query results, and methodology notes live in [`benchmarks/fair/`](benchmarks/fair/).
 
-### Does it find the right thing?
+### Results (1,000 Python symbol-lookup queries on mempalace)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <img alt="Search accuracy: Memtrace 100% vs ChromaDB 89.5% vs GitNexus 12.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
-</picture>
+| Tool | Coverage | Acc@1 | Acc@5 | Acc@10 | Avg lat | Tokens |
+|:-----|---------:|------:|------:|-------:|--------:|-------:|
+| **Memtrace** (ArcadeDB) | **100.0%** | **96.7%** | **100.0%** | **100.0%** | **9.16 ms** | 195 |
+| ChromaDB (all-MiniLM-L6-v2)     | 100.0%  | 62.3% | 86.1% | 87.9%  |  58.5 ms |  1,937 |
+| GitNexus (eval-server)          |  99.5%  | 27.1% | 89.7% | 89.9%  | 191.2 ms |    213 |
+| CodeGrapherContext (CLI)        |  67.2%  |  6.4% | 66.4% | 66.7%  | 1627.2 ms |    221 |
 
-### How fast?
+- **Coverage** = the tool returned any result for the query (separates "did you index it?" from "did you rank it well?")
+- **Acc@K** = the correct file appeared in the top K ranked results
+- **Avg latency** = wall-clock per query, including all protocol overhead (MCP JSON-RPC for Memtrace, HTTP for GitNexus, in-process for ChromaDB, subprocess spawn for CGC)
+- **Tokens** = average response size in tokens (chars / 4)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-latency.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-latency.svg"/>
-  <img alt="Search latency: Memtrace 7.98ms vs ChromaDB 95.25ms vs GitNexus 384ms vs CodeGrapher 807ms" src="assets/benchmarks/search-latency.svg" width="720"/>
-</picture>
+**What the numbers say, read fairly:**
 
-### How much context does it save?
+- **Memtrace** is exact-symbol lookup's sweet spot: 100% coverage, rank-1 hit in 96.7% of queries, and the correct file is in the top-10 every single time. 9 ms per query, 195 tokens per response.
+- **ChromaDB** shows what semantic embeddings look like for this workload — 88% top-10 but rank-1 is probabilistic, and the response is 10× larger because it returns 800-char chunks rather than symbol metadata.
+- **GitNexus** finds the right file 90% of the time — the old "12.8% accuracy" claim from the Acc@1-only harness understated it massively. GitNexus leads its response with execution *flows*, pushing standalone definitions down the list, which costs it rank-1 but not top-10.
+- **CodeGrapherContext**'s 67.2% coverage means its parser extracted two-thirds of the symbols Python's AST finds. Among symbols it did index, top-10 hit rate is excellent (~99%). Latency is dominated by the CLI re-initialising FalkorDB per call — operational, not algorithmic.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
-  <img alt="Token usage: Memtrace 192K vs ChromaDB 1.91M — 90% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
-</picture>
-
-### How long to set up?
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/indexing-speed.svg"/>
-  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/indexing-speed.svg"/>
-  <img alt="Indexing: Memtrace 1.5s vs Graphiti 6h vs Mem0 31m" src="assets/benchmarks/indexing-speed.svg" width="720"/>
-</picture>
+**Where each tool shines** — this benchmark measures exact-symbol lookup only. Different workloads produce different rankings: ChromaDB wins on natural-language queries, GitNexus on execution-flow traces, Memtrace on exact lookup / typo tolerance / temporal queries / cross-service API topology. See [`benchmarks/fair/README.md`](benchmarks/fair/README.md) for a per-workload breakdown.
 
 <details>
 <summary><strong>Memtrace vs. general memory systems (Mem0, Graphiti)</strong></summary>
@@ -125,12 +116,14 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | Community detection (Louvain) | **Yes** | Yes | No |
 | Hybrid search (BM25 + vector + RRF) | **Yes — Tantivy + embeddings** | No | BM25 + optional embeddings |
 | Language | **Rust (compiled binary)** | JavaScript | Python |
-| Search accuracy (1K queries) | **100%** | 12.8% | 0%* |
-| Query latency (1K queries) | **7.98 ms avg** (10.4 ms p95) | 384 ms avg | 807 ms avg |
-| Tokens per query | **192 avg** | 256 avg | 23 avg |
-| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s Docker / Bolt / schema DDL startup on first run) | 10.5 sec | ~3.5 min |
+| Coverage (1K queries) | **100%** | 99.5% | 67.2% |
+| Acc@1 (1K queries) | **96.7%** | 27.1% | 6.4% |
+| Acc@10 (1K queries) | **100%** | 89.9% | 66.7% |
+| Query latency (1K queries) | **9.16 ms avg** (11.4 ms p95) | 191.2 ms avg | 1627.2 ms avg |
+| Tokens per query | **195 avg** | 213 avg | 221 avg |
+| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s Docker / Bolt / schema DDL startup on first run) | ~6 sec | ~1 sec (cached) |
 
-*CGC's 0% reflects an output format mismatch — it returns symbol names without file paths, so our Acc@1 evaluator can't match them. CGC likely finds relevant symbols; the metric just can't confirm it. All numbers from [live benchmark](benchmarks/) on the same machine, same codebase, same 1,000 queries.
+All numbers from [the fair benchmark](benchmarks/fair/) on the same machine, same mempalace checkout, same 1,000 queries. Ground truth is extracted by Python's stdlib `ast` — not from any tool's index — so no system is advantaged in the dataset itself. Metrics are `coverage` (did the tool index it?), `Acc@1` (is the correct file first?), and `Acc@10` (is it in the top-10?), which together separate parser coverage from rank quality.
 
 The latency difference is primarily Rust vs. interpreted runtimes, and ArcadeDB's Graph-OLAP engine (native CSR projections, PageRank/betweenness as in-database procedures) vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions Memtrace adds on top of the shared AST-graph foundation.
 

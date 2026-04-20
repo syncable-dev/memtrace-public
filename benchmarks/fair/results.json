@@ -1,0 +1,70 @@
+{
+  "n_queries": 1000,
+  "dataset": "mempalace Python AST ground truth (1000 queries)",
+  "tools": {
+    "memtrace": {
+      "adapter": "memtrace",
+      "description": "Rust binary, MCP JSON-RPC over stdio, find_symbol tool",
+      "n_queries": 1000,
+      "coverage_pct": 100.0,
+      "acc_at_1_pct": 96.7,
+      "acc_at_5_pct": 100.0,
+      "acc_at_10_pct": 100.0,
+      "conditional_acc_at_1_pct": 96.7,
+      "avg_latency_ms": 9.16,
+      "median_latency_ms": 8.86,
+      "p95_latency_ms": 11.35,
+      "p99_latency_ms": 14.24,
+      "avg_tokens": 195.0,
+      "wall_seconds": 9.2
+    },
+    "chromadb": {
+      "adapter": "chromadb",
+      "description": "chromadb 1.5 + sentence-transformers all-MiniLM-L6-v2, 800-char code chunks",
+      "n_queries": 1000,
+      "coverage_pct": 100.0,
+      "acc_at_1_pct": 62.3,
+      "acc_at_5_pct": 86.1,
+      "acc_at_10_pct": 87.9,
+      "conditional_acc_at_1_pct": 62.3,
+      "avg_latency_ms": 58.46,
+      "median_latency_ms": 57.73,
+      "p95_latency_ms": 62.12,
+      "p99_latency_ms": 73.35,
+      "avg_tokens": 1937.0,
+      "wall_seconds": 58.48
+    },
+    "gitnexus": {
+      "adapter": "gitnexus",
+      "description": "GitNexus eval-server (POST /tool/query, JSON body)",
+      "n_queries": 1000,
+      "coverage_pct": 99.5,
+      "acc_at_1_pct": 27.1,
+      "acc_at_5_pct": 89.7,
+      "acc_at_10_pct": 89.9,
+      "conditional_acc_at_1_pct": 27.24,
+      "avg_latency_ms": 191.21,
+      "median_latency_ms": 214.91,
+      "p95_latency_ms": 224.11,
+      "p99_latency_ms": 235.35,
+      "avg_tokens": 213.0,
+      "wall_seconds": 191.22
+    },
+    "cgc": {
+      "adapter": "cgc",
+      "description": "cgc find <name> CLI + grep fallback to recover file paths",
+      "n_queries": 1000,
+      "coverage_pct": 67.2,
+      "acc_at_1_pct": 6.4,
+      "acc_at_5_pct": 66.4,
+      "acc_at_10_pct": 66.7,
+      "conditional_acc_at_1_pct": 9.52,
+      "avg_latency_ms": 1627.17,
+      "median_latency_ms": 2119.79,
+      "p95_latency_ms": 3360.89,
+      "p99_latency_ms": 3980.66,
+      "avg_tokens": 221.0,
+      "wall_seconds": 1627.2
+    }
+  }
+}

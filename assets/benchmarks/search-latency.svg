@@ -25,38 +25,38 @@
   <text x="40" y="42" fill="#E6EDF3" font-size="16" font-weight="600">Search Latency — 1,000 Queries</text>
   <text x="40" y="62" fill="#7D8590" font-size="12">Average per-query response time · same codebase · same machine</text>
 
-  <!-- CodeGrapherContext bar: 510.5ms → 500px (max) -->
+  <!-- CodeGrapherContext bar: 807.8ms → 500px (max) -->
   <text x="40" y="112" fill="#8B949E" font-size="12" font-weight="500">CodeGrapher</text>
   <rect x="160" y="95" width="500" height="26" rx="5" fill="url(#grayGradL)" filter="url(#shadowL)"/>
-  <text x="670" y="113" fill="#8B949E" font-size="12" font-weight="600" text-anchor="end">510.5 ms</text>
-  <text x="160" y="138" fill="#7D8590" font-size="11">8.5 min total — Python AST graph + ONNX embedding queries over FalkorDB (50 queries*)</text>
+  <text x="670" y="113" fill="#8B949E" font-size="12" font-weight="600" text-anchor="end">807.8 ms</text>
+  <text x="160" y="138" fill="#7D8590" font-size="11">13.5 min total — Python AST graph + ONNX embedding queries over FalkorDB (50 queries*)</text>
 
-  <!-- GitNexus bar: 172.7ms → 172.7/510.5 * 500 = 169px -->
+  <!-- GitNexus bar: 384.06ms → 384.06/807.8 * 500 = 238px -->
   <text x="40" y="182" fill="#8B949E" font-size="12" font-weight="500">GitNexus</text>
-  <rect x="160" y="165" width="169" height="26" rx="5" fill="url(#grayGradL)" filter="url(#shadowL)"/>
-  <text x="339" y="183" fill="#8B949E" font-size="12" font-weight="600">172.7 ms</text>
-  <text x="160" y="208" fill="#7D8590" font-size="11">2.88 min total — JS AST graph queries via persistent HTTP eval-server</text>
+  <rect x="160" y="165" width="238" height="26" rx="5" fill="url(#grayGradL)" filter="url(#shadowL)"/>
+  <text x="408" y="183" fill="#8B949E" font-size="12" font-weight="600">384.1 ms</text>
+  <text x="160" y="208" fill="#7D8590" font-size="11">6.4 min total — JS AST graph queries via persistent HTTP eval-server</text>
 
-  <!-- ChromaDB bar: 60.6ms → 60.6/510.5 * 500 = 59px -->
+  <!-- ChromaDB bar: 95.25ms → 95.25/807.8 * 500 = 59px -->
   <text x="40" y="252" fill="#8B949E" font-size="12" font-weight="500">ChromaDB</text>
   <rect x="160" y="235" width="59" height="26" rx="5" fill="url(#amberGradL)" filter="url(#shadowL)"/>
-  <text x="229" y="253" fill="#D29922" font-size="12" font-weight="600">60.6 ms</text>
-  <text x="160" y="278" fill="#7D8590" font-size="11">1.01 min total — in-process all-MiniLM-L6-v2 vector similarity search</text>
+  <text x="229" y="253" fill="#D29922" font-size="12" font-weight="600">95.3 ms</text>
+  <text x="160" y="278" fill="#7D8590" font-size="11">1.59 min total — in-process all-MiniLM-L6-v2 vector similarity search</text>
 
-  <!-- Memtrace bar: 13.4ms → 13.4/510.5 * 500 = 13px -->
+  <!-- Memtrace bar: 7.98ms → 7.98/807.8 * 500 = 5px, min visible -->
   <text x="40" y="322" fill="#E6EDF3" font-size="12" font-weight="600">Memtrace</text>
-  <rect x="160" y="305" width="14" height="26" rx="5" fill="url(#tealGradL)" filter="url(#shadowL)"/>
+  <rect x="160" y="305" width="8" height="26" rx="5" fill="url(#tealGradL)" filter="url(#shadowL)"/>
   <!-- Glow effect -->
-  <rect x="158" y="303" width="18" height="30" rx="6" fill="none" stroke="#00D4B8" stroke-width="1.5" opacity="0.5"/>
-  <text x="186" y="323" fill="#00D4B8" font-size="12" font-weight="700">13.4 ms</text>
-  <text x="160" y="348" fill="#7D8590" font-size="11">13.4 sec total — Rust-native Bolt protocol over Memgraph via MCP JSON-RPC</text>
+  <rect x="158" y="303" width="12" height="30" rx="6" fill="none" stroke="#00D4B8" stroke-width="1.5" opacity="0.5"/>
+  <text x="180" y="323" fill="#00D4B8" font-size="12" font-weight="700">7.98 ms</text>
+  <text x="160" y="348" fill="#7D8590" font-size="11">7.98 sec total — Rust-native ArcadeDB graph engine via MCP JSON-RPC (10.4 ms p95)</text>
 
   <!-- Callout -->
   <rect x="40" y="372" width="640" height="50" rx="8" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.3"/>
-  <text x="60" y="396" fill="#00D4B8" font-size="22" font-weight="700">13× faster</text>
+  <text x="60" y="396" fill="#00D4B8" font-size="22" font-weight="700">48× faster</text>
   <text x="206" y="396" fill="#8B949E" font-size="13">than GitNexus</text>
   <text x="330" y="396" fill="#4A5A6C" font-size="16">·</text>
-  <text x="350" y="396" fill="#00D4B8" font-size="22" font-weight="700">38× faster</text>
-  <text x="496" y="396" fill="#8B949E" font-size="13">than CodeGrapher</text>
+  <text x="350" y="396" fill="#00D4B8" font-size="22" font-weight="700">101× faster</text>
+  <text x="510" y="396" fill="#8B949E" font-size="13">than CodeGrapher</text>
   <text x="60" y="414" fill="#4A5A6C" font-size="11">*CGC ran 50 queries (CLI subprocess overhead). All others ran full 1,000. Includes all protocol overhead.</text>
 </svg>

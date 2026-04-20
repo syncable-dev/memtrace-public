@@ -52,13 +52,13 @@ On top of that, the structural layer is comprehensive:
 - **Relationships are edges** — `CALLS`, `IMPLEMENTS`, `IMPORTS`, `EXPORTS`, `CONTAINS`
 - **Community detection** — Louvain algorithm identifies architectural modules automatically
 - **Hybrid search** — Tantivy BM25 + vector embeddings + Reciprocal Rank Fusion, all on top of the graph
-- **Rust-native** — compiled binary, no Python/JS runtime overhead, sub-15ms average query latency
+- **Rust-native** — compiled binary, no Python/JS runtime overhead, sub-8ms average query latency
 
 The agent doesn't just search your code. It *remembers* it.
 
 ## Benchmarks
 
-All benchmarks run on the same machine, same codebase, same queries. No cherry-picking.
+All benchmarks run on the same machine, same codebase, same queries. No cherry-picking. Full reproduction scripts and raw results are in the [`benchmarks/`](benchmarks/) directory.
 
 ### Does it find the right thing?
 

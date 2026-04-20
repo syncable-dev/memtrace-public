@@ -29,23 +29,23 @@
   <text x="40" y="112" fill="#8B949E" font-size="13" font-weight="500">ChromaDB</text>
   <rect x="160" y="95" width="480" height="28" rx="6" fill="url(#redGrad)" filter="url(#shadow2)" opacity="0.85"/>
   <text x="650" y="114" fill="#F85149" font-size="13" font-weight="700" text-anchor="end">1.91M tokens</text>
-  <text x="160" y="140" fill="#7D8590" font-size="11">1,911,500 total — 1,912 tokens/query avg — large chunks with noisy context</text>
+  <text x="160" y="140" fill="#7D8590" font-size="11">1,910,000 total — 1,910 tokens/query avg — large chunks with noisy context</text>
 
-  <!-- Memtrace bar: 318876/1911500 = 16.7% of 480 = 80px -->
-  <text x="40" y="192" fill="#E6EDF3" font-size="13" font-weight="600">Memtrace</text>
-  <rect x="160" y="175" width="80" height="28" rx="6" fill="url(#tealGrad2)" filter="url(#shadow2)"/>
-  <text x="250" y="194" fill="#00D4B8" font-size="13" font-weight="700">319K tokens</text>
-  <text x="160" y="220" fill="#7D8590" font-size="11">318,876 total — 319 tokens/query avg — precise subgraph context</text>
+  <!-- GitNexus bar: 256000/1910000 = 13.4% of 480 = 64px -->
+  <text x="40" y="192" fill="#8B949E" font-size="13" font-weight="500">GitNexus</text>
+  <rect x="160" y="175" width="64" height="28" rx="6" fill="url(#grayGrad2)" filter="url(#shadow2)"/>
+  <text x="234" y="194" fill="#8B949E" font-size="13" font-weight="700">256K tokens</text>
+  <text x="160" y="220" fill="#7D8590" font-size="11">256,000 total — 256 tokens/query avg — but only 12.8% accuracy (compact, mostly wrong)</text>
 
-  <!-- GitNexus bar: 254416/1911500 = 13.3% of 480 = 64px -->
-  <text x="40" y="272" fill="#8B949E" font-size="13" font-weight="500">GitNexus</text>
-  <rect x="160" y="255" width="64" height="28" rx="6" fill="url(#grayGrad2)" filter="url(#shadow2)"/>
-  <text x="234" y="274" fill="#8B949E" font-size="13" font-weight="700">254K tokens</text>
-  <text x="160" y="300" fill="#7D8590" font-size="11">254,416 total — 254 tokens/query avg — but only 12.8% accuracy (compact, mostly wrong)</text>
+  <!-- Memtrace bar: 192016/1910000 = 10% of 480 = 48px -->
+  <text x="40" y="272" fill="#E6EDF3" font-size="13" font-weight="600">Memtrace</text>
+  <rect x="160" y="255" width="48" height="28" rx="6" fill="url(#tealGrad2)" filter="url(#shadow2)"/>
+  <text x="218" y="274" fill="#00D4B8" font-size="13" font-weight="700">192K tokens</text>
+  <text x="160" y="300" fill="#7D8590" font-size="11">192,016 total — 192 tokens/query avg — precise subgraph context at 100% accuracy</text>
 
   <!-- Callout -->
   <rect x="40" y="330" width="640" height="50" rx="8" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.3"/>
-  <text x="60" y="354" fill="#00D4B8" font-size="22" font-weight="700">83% fewer tokens</text>
-  <text x="280" y="354" fill="#8B949E" font-size="13">than ChromaDB — with higher accuracy</text>
-  <text x="60" y="372" fill="#4A5A6C" font-size="11">GitNexus uses fewer tokens but finds the right file only 12.8% of the time. Memtrace: 319 tokens/query at 97.3% accuracy.</text>
+  <text x="60" y="354" fill="#00D4B8" font-size="22" font-weight="700">90% fewer tokens</text>
+  <text x="290" y="354" fill="#8B949E" font-size="13">than ChromaDB — with higher accuracy</text>
+  <text x="60" y="372" fill="#4A5A6C" font-size="11">GitNexus uses fewer tokens but finds the right file only 12.8% of the time. Memtrace: 192 tokens/query at 100% accuracy.</text>
 </svg>

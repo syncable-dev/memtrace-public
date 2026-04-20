@@ -60,6 +60,12 @@ The agent doesn't just search your code. It *remembers* it.
 
 All four systems run on the same machine, same mempalace checkout, same 1,000 queries, same evaluator. Ground truth is extracted by Python's stdlib `ast` module — **not** from any tool's index — so no system gets a home-field advantage in the dataset itself. Full reproduction scripts, raw per-query results, and methodology notes live in [`benchmarks/fair/`](benchmarks/fair/).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/benchmark-overview.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/benchmark-overview.svg"/>
+  <img alt="Benchmark overview: Memtrace 96.7% Acc@1, 100% Acc@10, 9.16ms latency, 195 tokens — vs ChromaDB, GitNexus, CodeGrapher" src="assets/benchmarks/benchmark-overview.svg" width="720"/>
+</picture>
+
 ### Results (1,000 Python symbol-lookup queries on mempalace)
 
 | Tool | Coverage | Acc@1 | Acc@5 | Acc@10 | Avg lat | Tokens |

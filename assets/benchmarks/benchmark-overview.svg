@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 920" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="teal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00D4B8;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#00E8C8;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#D29922;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#E3B341;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="gray" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3A4A5C;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#4A5A6C;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="darkgray" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2A3444;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#3A4454;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#DA3633;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#F85149;stop-opacity:1"/>
+    </linearGradient>
+    <filter id="sh">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="720" height="920" rx="12" fill="#0D1117"/>
+  <rect x="1" y="1" width="718" height="918" rx="11" fill="none" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- Header -->
+  <text x="40" y="38" fill="#E6EDF3" font-size="18" font-weight="700">Memtrace Benchmark — Fair Evaluation</text>
+  <text x="40" y="58" fill="#7D8590" font-size="11">1,000 queries · AST ground truth · same codebase · same machine (Apple M3 Max) · all tools live</text>
+  <text x="40" y="74" fill="#4A5A6C" font-size="10">Methodology: symbols extracted via Python AST (language-neutral corpus), multi-rank scoring (Acc@1/5/10), coverage tracked separately</text>
+
+  <!-- Legend -->
+  <rect x="40" y="90" width="10" height="10" rx="2" fill="url(#teal)"/>
+  <text x="56" y="99" fill="#00D4B8" font-size="10" font-weight="600">Memtrace</text>
+  <rect x="130" y="90" width="10" height="10" rx="2" fill="url(#amber)"/>
+  <text x="146" y="99" fill="#D29922" font-size="10" font-weight="600">ChromaDB</text>
+  <rect x="220" y="90" width="10" height="10" rx="2" fill="url(#gray)"/>
+  <text x="236" y="99" fill="#8B949E" font-size="10" font-weight="600">GitNexus</text>
+  <rect x="305" y="90" width="10" height="10" rx="2" fill="url(#darkgray)"/>
+  <text x="321" y="99" fill="#6A7A8A" font-size="10" font-weight="600">CodeGrapher</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="110" x2="680" y2="110" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- ═══════════ SECTION 1: ACCURACY (Acc@1) ═══════════ -->
+  <text x="40" y="135" fill="#E6EDF3" font-size="14" font-weight="600">Search Accuracy — Acc@1</text>
+  <text x="280" y="135" fill="#7D8590" font-size="10">Does the correct file appear as the top result?</text>
+
+  <!-- Memtrace: 96.7% → 96.7/100 * 440 = 425px -->
+  <text x="40" y="163" fill="#E6EDF3" font-size="11" font-weight="600">Memtrace</text>
+  <rect x="130" y="150" width="425" height="22" rx="4" fill="url(#teal)" filter="url(#sh)"/>
+  <text x="565" y="165" fill="#0D1117" font-size="11" font-weight="700" text-anchor="end">96.7%</text>
+  <text x="580" y="165" fill="#7D8590" font-size="10">967 / 1,000</text>
+
+  <!-- ChromaDB: 62.3% → 274px -->
+  <text x="40" y="193" fill="#8B949E" font-size="11">ChromaDB</text>
+  <rect x="130" y="180" width="274" height="22" rx="4" fill="url(#amber)" filter="url(#sh)"/>
+  <text x="414" y="195" fill="#D29922" font-size="11" font-weight="700">62.3%</text>
+  <text x="468" y="195" fill="#7D8590" font-size="10">623 / 1,000</text>
+
+  <!-- GitNexus: 27.1% → 119px -->
+  <text x="40" y="223" fill="#8B949E" font-size="11">GitNexus</text>
+  <rect x="130" y="210" width="119" height="22" rx="4" fill="url(#gray)" filter="url(#sh)"/>
+  <text x="259" y="225" fill="#8B949E" font-size="11" font-weight="700">27.1%</text>
+  <text x="307" y="225" fill="#7D8590" font-size="10">271 / 1,000</text>
+
+  <!-- CGC: 6.4% → 28px -->
+  <text x="40" y="253" fill="#6A7A8A" font-size="11">CodeGrapher</text>
+  <rect x="130" y="240" width="28" height="22" rx="4" fill="url(#darkgray)" filter="url(#sh)"/>
+  <text x="168" y="255" fill="#6A7A8A" font-size="11" font-weight="700">6.4%</text>
+  <text x="206" y="255" fill="#7D8590" font-size="10">64 / 1,000 (67.2% coverage)</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="275" x2="680" y2="275" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- ═══════════ SECTION 2: ACCURACY (Acc@10) ═══════════ -->
+  <text x="40" y="300" fill="#E6EDF3" font-size="14" font-weight="600">Search Accuracy — Acc@10</text>
+  <text x="310" y="300" fill="#7D8590" font-size="10">Does the correct file appear anywhere in the top 10?</text>
+
+  <!-- Memtrace: 100% → 440px -->
+  <text x="40" y="328" fill="#E6EDF3" font-size="11" font-weight="600">Memtrace</text>
+  <rect x="130" y="315" width="440" height="22" rx="4" fill="url(#teal)" filter="url(#sh)"/>
+  <text x="580" y="330" fill="#0D1117" font-size="11" font-weight="700" text-anchor="end">100%</text>
+
+  <!-- GitNexus: 89.9% → 396px -->
+  <text x="40" y="358" fill="#8B949E" font-size="11">GitNexus</text>
+  <rect x="130" y="345" width="396" height="22" rx="4" fill="url(#gray)" filter="url(#sh)"/>
+  <text x="536" y="360" fill="#8B949E" font-size="11" font-weight="700">89.9%</text>
+
+  <!-- ChromaDB: 87.9% → 387px -->
+  <text x="40" y="388" fill="#8B949E" font-size="11">ChromaDB</text>
+  <rect x="130" y="375" width="387" height="22" rx="4" fill="url(#amber)" filter="url(#sh)"/>
+  <text x="527" y="390" fill="#D29922" font-size="11" font-weight="700">87.9%</text>
+
+  <!-- CGC: 66.7% → 294px -->
+  <text x="40" y="418" fill="#6A7A8A" font-size="11">CodeGrapher</text>
+  <rect x="130" y="405" width="294" height="22" rx="4" fill="url(#darkgray)" filter="url(#sh)"/>
+  <text x="434" y="420" fill="#6A7A8A" font-size="11" font-weight="700">66.7%</text>
+
+  <!-- Insight -->
+  <rect x="40" y="438" width="640" height="28" rx="6" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.25"/>
+  <text x="56" y="456" fill="#00D4B8" font-size="11" font-weight="600">Memtrace finds the right file as top result 96.7% of the time — and always within the top 10.</text>
+  <text x="600" y="456" fill="#4A5A6C" font-size="10">100% Acc@10</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="478" x2="680" y2="478" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- ═══════════ SECTION 3: LATENCY ═══════════ -->
+  <text x="40" y="503" fill="#E6EDF3" font-size="14" font-weight="600">Query Latency</text>
+  <text x="196" y="503" fill="#7D8590" font-size="10">Average per-query response time (ms) — lower is better</text>
+
+  <!-- CGC: 1627ms → 440px (max) -->
+  <text x="40" y="531" fill="#6A7A8A" font-size="11">CodeGrapher</text>
+  <rect x="130" y="518" width="440" height="22" rx="4" fill="url(#darkgray)" filter="url(#sh)"/>
+  <text x="580" y="533" fill="#6A7A8A" font-size="11" font-weight="600" text-anchor="end">1,627 ms</text>
+
+  <!-- GitNexus: 191.21ms → 191.21/1627 * 440 = 52px -->
+  <text x="40" y="561" fill="#8B949E" font-size="11">GitNexus</text>
+  <rect x="130" y="548" width="52" height="22" rx="4" fill="url(#gray)" filter="url(#sh)"/>
+  <text x="192" y="563" fill="#8B949E" font-size="11" font-weight="600">191.2 ms</text>
+
+  <!-- ChromaDB: 58.46ms → 58.46/1627 * 440 = 16px -->
+  <text x="40" y="591" fill="#8B949E" font-size="11">ChromaDB</text>
+  <rect x="130" y="578" width="16" height="22" rx="4" fill="url(#amber)" filter="url(#sh)"/>
+  <text x="156" y="593" fill="#D29922" font-size="11" font-weight="600">58.5 ms</text>
+
+  <!-- Memtrace: 9.16ms → tiny, glow -->
+  <text x="40" y="621" fill="#E6EDF3" font-size="11" font-weight="600">Memtrace</text>
+  <rect x="130" y="608" width="6" height="22" rx="4" fill="url(#teal)" filter="url(#sh)"/>
+  <rect x="128" y="606" width="10" height="26" rx="5" fill="none" stroke="#00D4B8" stroke-width="1.5" opacity="0.5"/>
+  <text x="148" y="623" fill="#00D4B8" font-size="11" font-weight="700">9.16 ms</text>
+
+  <!-- Insight -->
+  <rect x="40" y="640" width="640" height="28" rx="6" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.25"/>
+  <text x="56" y="658" fill="#00D4B8" font-size="11" font-weight="600">21× faster than GitNexus · 6× faster than ChromaDB · 178× faster than CodeGrapher</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="680" x2="680" y2="680" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- ═══════════ SECTION 4: TOKEN USAGE ═══════════ -->
+  <text x="40" y="705" fill="#E6EDF3" font-size="14" font-weight="600">Context Window Usage</text>
+  <text x="266" y="705" fill="#7D8590" font-size="10">Tokens per query injected into the LLM context — lower is better</text>
+
+  <!-- ChromaDB: 1937 → 440px (max) -->
+  <text x="40" y="733" fill="#8B949E" font-size="11">ChromaDB</text>
+  <rect x="130" y="720" width="440" height="22" rx="4" fill="url(#red)" filter="url(#sh)" opacity="0.8"/>
+  <text x="580" y="735" fill="#F85149" font-size="11" font-weight="700" text-anchor="end">1,937 tok</text>
+
+  <!-- CGC: 221 → 221/1937 * 440 = 50px -->
+  <text x="40" y="763" fill="#6A7A8A" font-size="11">CodeGrapher</text>
+  <rect x="130" y="750" width="50" height="22" rx="4" fill="url(#darkgray)" filter="url(#sh)"/>
+  <text x="190" y="765" fill="#6A7A8A" font-size="11" font-weight="700">221 tok</text>
+
+  <!-- GitNexus: 213 → 213/1937 * 440 = 48px -->
+  <text x="40" y="793" fill="#8B949E" font-size="11">GitNexus</text>
+  <rect x="130" y="780" width="48" height="22" rx="4" fill="url(#gray)" filter="url(#sh)"/>
+  <text x="188" y="795" fill="#8B949E" font-size="11" font-weight="700">213 tok</text>
+
+  <!-- Memtrace: 195 → 195/1937 * 440 = 44px -->
+  <text x="40" y="823" fill="#E6EDF3" font-size="11" font-weight="600">Memtrace</text>
+  <rect x="130" y="810" width="44" height="22" rx="4" fill="url(#teal)" filter="url(#sh)"/>
+  <text x="184" y="825" fill="#00D4B8" font-size="11" font-weight="700">195 tok</text>
+
+  <!-- Insight -->
+  <rect x="40" y="842" width="640" height="28" rx="6" fill="#0B2D28" stroke="#00D4B8" stroke-width="1" stroke-opacity="0.25"/>
+  <text x="56" y="860" fill="#00D4B8" font-size="11" font-weight="600">90% fewer tokens than ChromaDB — precise subgraph context instead of noisy chunks</text>
+
+  <!-- Divider -->
+  <line x1="40" y1="880" x2="680" y2="880" stroke="#1B2433" stroke-width="1"/>
+
+  <!-- Footer -->
+  <text x="40" y="900" fill="#4A5A6C" font-size="10">This benchmark evaluates exact-symbol lookup only. Different workloads (NL queries, execution-flow traces, historical snapshots) would produce different rankings.</text>
+  <text x="40" y="914" fill="#4A5A6C" font-size="10">Full reproduction scripts + raw results: github.com/syncable-dev/memtrace-public/tree/main/benchmarks/fair</text>
+</svg>

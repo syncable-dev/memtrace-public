@@ -65,7 +65,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-accuracy.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-accuracy.svg"/>
-  <img alt="Search accuracy: Memtrace 97.3% vs ChromaDB 89.6% vs GitNexus 12.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
+  <img alt="Search accuracy: Memtrace 100% vs ChromaDB 89.5% vs GitNexus 12.8%" src="assets/benchmarks/search-accuracy.svg" width="720"/>
 </picture>
 
 ### How fast?
@@ -73,7 +73,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/search-latency.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/search-latency.svg"/>
-  <img alt="Search latency: Memtrace 13.4ms vs ChromaDB 60.6ms vs GitNexus 172.7ms vs CodeGrapher 510.5ms" src="assets/benchmarks/search-latency.svg" width="720"/>
+  <img alt="Search latency: Memtrace 7.98ms vs ChromaDB 95.25ms vs GitNexus 384ms vs CodeGrapher 807ms" src="assets/benchmarks/search-latency.svg" width="720"/>
 </picture>
 
 ### How much context does it save?
@@ -81,7 +81,7 @@ All benchmarks run on the same machine, same codebase, same queries. No cherry-p
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/token-context.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/token-context.svg"/>
-  <img alt="Token usage: Memtrace 319K vs ChromaDB 1.91M — 83% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
+  <img alt="Token usage: Memtrace 192K vs ChromaDB 1.91M — 90% reduction" src="assets/benchmarks/token-context.svg" width="720"/>
 </picture>
 
 ### How long to set up?
@@ -125,14 +125,14 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | Community detection (Louvain) | **Yes** | Yes | No |
 | Hybrid search (BM25 + vector + RRF) | **Yes — Tantivy + embeddings** | No | BM25 + optional embeddings |
 | Language | **Rust (compiled binary)** | JavaScript | Python |
-| Search accuracy (1K queries) | **97.3%** | 12.8% | 0%* |
-| Query latency (1K queries) | **13.4 ms avg** | 172.7 ms avg | 510.5 ms avg |
-| Tokens per query | **319 avg** | 254 avg | 23 avg |
-| Index time (1,500 files) | **1.5 sec** | 10.5 sec | ~3.5 min |
+| Search accuracy (1K queries) | **100%** | 12.8% | 0%* |
+| Query latency (1K queries) | **7.98 ms avg** (10.4 ms p95) | 384 ms avg | 807 ms avg |
+| Tokens per query | **192 avg** | 256 avg | 23 avg |
+| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** | 10.5 sec | ~3.5 min |
 
 *CGC's 0% reflects an output format mismatch — it returns symbol names without file paths, so our Acc@1 evaluator can't match them. CGC likely finds relevant symbols; the metric just can't confirm it. All numbers from [live benchmark](benchmarks/) on the same machine, same codebase, same 1,000 queries.
 
-The latency difference is primarily Rust vs. interpreted runtimes, and Memgraph's Bolt protocol vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions Memtrace adds on top of the shared AST-graph foundation.
+The latency difference is primarily Rust vs. interpreted runtimes, and ArcadeDB's Graph-OLAP engine (native CSR projections, PageRank/betweenness as in-database procedures) vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions Memtrace adds on top of the shared AST-graph foundation.
 
 </details>
 
@@ -255,7 +255,7 @@ For manual setup:
 ```bash
 claude plugin marketplace add syncable-dev/memtrace
 claude plugin install memtrace-skills@memtrace --scope user
-claude mcp add memtrace -- memtrace mcp -e MEMGRAPH_URL=bolt://localhost:7687
+claude mcp add memtrace -- memtrace mcp -e MEMTRACE_ARCADEDB_BOLT_URL=bolt://localhost:7687
 ```
 
 ### Cursor
@@ -292,7 +292,7 @@ After `npm install -g memtrace`, add the MCP server to your editor's config:
     "memtrace": {
       "command": "memtrace",
       "args": ["mcp"],
-      "env": { "MEMGRAPH_URL": "bolt://localhost:7687" }
+      "env": { "MEMTRACE_ARCADEDB_BOLT_URL": "bolt://localhost:7687" }
     }
   }
 }
@@ -330,7 +330,7 @@ Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Sw
 
 | Dependency | Purpose |
 |:-----------|:--------|
-| **Memgraph** | Graph database — auto-managed via `memtrace start` |
+| **ArcadeDB** | Graph + document + vector database — auto-managed via `memtrace start` (pulls `arcadedata/arcadedb:latest`) |
 | **Node.js ≥ 18** | npm installation |
 | **Git** | Temporal analysis (commit history) |
 

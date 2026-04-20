@@ -128,7 +128,7 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | Search accuracy (1K queries) | **100%** | 12.8% | 0%* |
 | Query latency (1K queries) | **7.98 ms avg** (10.4 ms p95) | 384 ms avg | 807 ms avg |
 | Tokens per query | **192 avg** | 256 avg | 23 avg |
-| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** | 10.5 sec | ~3.5 min |
+| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s Docker / Bolt / schema DDL startup on first run) | 10.5 sec | ~3.5 min |
 
 *CGC's 0% reflects an output format mismatch — it returns symbol names without file paths, so our Acc@1 evaluator can't match them. CGC likely finds relevant symbols; the metric just can't confirm it. All numbers from [live benchmark](benchmarks/) on the same machine, same codebase, same 1,000 queries.
 

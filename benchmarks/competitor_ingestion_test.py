@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()  # loads from .env in current directory or parent
+load_dotenv("/Users/alexthh/Desktop/ZeroToDemo/.env")
 
 from mem0 import Memory
 
@@ -49,7 +49,7 @@ def test_mem0_ingestion(files):
     print(f"-> Extrapolated OpenAI Cost: ~$25.00+ for large codebases depending on token density.")
 
 if __name__ == "__main__":
-    repo_path = os.environ.get("MEMPALACE_DIR", os.path.expanduser("~/mempalace"))
+    repo_path = "/Users/alexthh/Desktop/ZeroToDemo/mempalace"
     sample_files = get_sample_files(repo_path, count=3)
     
     if not sample_files:

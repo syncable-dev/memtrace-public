@@ -7,7 +7,7 @@ import os
 class MemtraceBaseline:
     def __init__(self, uri="bolt://localhost:7687"):
         print("Initializing Memtrace (MCP) baseline...")
-        exe_path = os.environ.get("MEMTRACE_BIN", "memtrace")  # assumes `memtrace` is on PATH
+        exe_path = "/Users/alexthh/Desktop/ZeroToDemo/Memtrace/target/release/memtrace"
         
         self.process = subprocess.Popen(
             [exe_path, "mcp"],

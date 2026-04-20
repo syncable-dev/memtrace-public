@@ -1,5 +1,4 @@
 import json
-import os
 import argparse
 from pathlib import Path
 from chromadb_baseline import ChromaBaseline
@@ -9,7 +8,7 @@ def run_benchmarks(dataset_path: str):
     with open(dataset_path, 'r') as f:
         queries = json.load(f)
         
-    target_repo = os.environ.get("MEMPALACE_DIR", os.path.expanduser("~/mempalace"))
+    target_repo = "/Users/alexthh/Desktop/ZeroToDemo/mempalace"
     traditional = ChromaBaseline(target_dir=target_repo)
     memtrace = MemtraceBaseline()
     

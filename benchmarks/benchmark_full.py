@@ -18,8 +18,8 @@ import urllib.request
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 DATASET       = "datasets/real_code_dataset.json"
-MEMTRACE_BIN  = os.environ.get("MEMTRACE_BIN", "memtrace")  # assumes `memtrace` is on PATH
-MEMPALACE_DIR = os.environ.get("MEMPALACE_DIR", os.path.expanduser("~/mempalace"))
+MEMTRACE_BIN  = "/Users/alexthh/Desktop/ZeroToDemo/Memtrace/target/release/memtrace"
+MEMPALACE_DIR = "/Users/alexthh/Desktop/ZeroToDemo/mempalace"
 CGC_BIN       = os.path.join(os.path.dirname(__file__), ".venv/bin/cgc")
 GN_EVAL_URL   = "http://localhost:4848/tool/query"
 RESULTS_FILE  = "benchmark_results.json"

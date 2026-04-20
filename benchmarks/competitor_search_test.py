@@ -1,10 +1,7 @@
 import time
 import json
-import os
 import subprocess
 import random
-
-MEMPALACE_DIR = os.environ.get("MEMPALACE_DIR", os.path.expanduser("~/mempalace"))
 
 def run_cmd(cmd, cwd=None):
     start = time.time()
@@ -37,7 +34,7 @@ def measure_competitors():
     gn_tokens = 0
     print(f"Testing {len(gn_queries)} sample queries...")
     for q in gn_queries:
-        out, lat = run_cmd(["npx", "-y", "gitnexus", "query", q], cwd=MEMPALACE_DIR)
+        out, lat = run_cmd(["npx", "-y", "gitnexus", "query", q], cwd="/Users/alexthh/Desktop/ZeroToDemo/mempalace")
         gn_time += lat
         # Approximation of tokens sent back to LLM context
         gn_tokens += len(out) // 4
@@ -53,7 +50,7 @@ def measure_competitors():
     cgc_tokens = 0
     print(f"Testing {len(cgc_queries)} sample queries...")
     for q in cgc_queries:
-        out, lat = run_cmd(["cgc", "find", "name", q], cwd=MEMPALACE_DIR)
+        out, lat = run_cmd(["/Users/alexthh/Desktop/ZeroToDemo/Memtrace/benchmarks/.venv/bin/cgc", "find", "name", q], cwd="/Users/alexthh/Desktop/ZeroToDemo/mempalace")
         cgc_time += lat
         cgc_tokens += len(out) // 4
         

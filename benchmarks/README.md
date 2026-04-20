@@ -7,7 +7,7 @@ Reproduction instructions for all benchmark claims in the main README.
 - **Machine:** Apple M3 Max, 14 cores (10P + 4E), 36GB RAM
 - **OS:** macOS
 - **Memtrace:** Rust release binary (`target/release/memtrace`)
-- **Memgraph:** Docker container, auto-managed via `memtrace start`
+- **ArcadeDB:** Docker container (arcadedata/arcadedb:latest with the Neo4j-Bolt plugin), auto-managed via `memtrace start`
 - **Target codebase:** [mempalace](https://github.com/mempalace/mempalace) (~1,500 files)
 
 ## Prerequisites
@@ -17,15 +17,6 @@ cd benchmarks
 python -m venv .venv
 .venv/bin/pip install neo4j chromadb sentence-transformers codegraphcontext
 npm install -g gitnexus
-```
-
-## Environment Variables
-
-All scripts use configurable paths via environment variables (with sensible defaults):
-
-```bash
-export MEMPALACE_DIR="$HOME/mempalace"   # path to the target codebase
-export MEMTRACE_BIN="memtrace"           # path to memtrace binary (default: on PATH)
 ```
 
 ## Step 1: Index the target repository
@@ -44,7 +35,7 @@ cgc index /path/to/mempalace
 
 ## Step 2: Generate the dataset
 
-Samples 1,000 unique symbols from the live Memgraph (mempalace-only, excluding trivial names):
+Samples 1,000 unique symbols from the live ArcadeDB (mempalace-only, excluding trivial names):
 
 ```bash
 .venv/bin/python datasets/generate_dataset.py

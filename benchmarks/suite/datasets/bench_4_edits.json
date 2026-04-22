@@ -1,0 +1,720 @@
+[
+  {
+    "id": "e1",
+    "action_type": "move_symbol",
+    "file": "metrics.py",
+    "target_name": "on_error",
+    "new_name": null,
+    "dest_file": "errors.py",
+    "expected_post_state": {
+      "symbol": "on_error",
+      "file": "errors.py",
+      "present": true,
+      "old_file": "metrics.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e2",
+    "action_type": "rename_symbol",
+    "file": "worker.py",
+    "target_name": "__init__",
+    "new_name": "__init___renamed_001",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "__init___renamed_001",
+      "file": "worker.py",
+      "present": true,
+      "old_symbol": "__init__",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e3",
+    "action_type": "rename_symbol",
+    "file": "worker.py",
+    "target_name": "__init___renamed_001",
+    "new_name": "__init___renamed_001_renamed_002",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "__init___renamed_001_renamed_002",
+      "file": "worker.py",
+      "present": true,
+      "old_symbol": "__init___renamed_001",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e4",
+    "action_type": "add_symbol",
+    "file": "backoff.py",
+    "target_name": "added_003_3453",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_003_3453",
+      "file": "backoff.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e5",
+    "action_type": "rename_symbol",
+    "file": "tests/test_scheduler.py",
+    "target_name": "test_run_to_empty_completes_all",
+    "new_name": "test_run_to_empty_completes_all_renamed_004",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "test_run_to_empty_completes_all_renamed_004",
+      "file": "tests/test_scheduler.py",
+      "present": true,
+      "old_symbol": "test_run_to_empty_completes_all",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e6",
+    "action_type": "rename_symbol",
+    "file": "queue.py",
+    "target_name": "pop",
+    "new_name": "pop_renamed_005",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "pop_renamed_005",
+      "file": "queue.py",
+      "present": true,
+      "old_symbol": "pop",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e7",
+    "action_type": "rename_symbol",
+    "file": "health.py",
+    "target_name": "pending_work",
+    "new_name": "pending_work_renamed_006",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "pending_work_renamed_006",
+      "file": "health.py",
+      "present": true,
+      "old_symbol": "pending_work",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e8",
+    "action_type": "move_symbol",
+    "file": "queue.py",
+    "target_name": "pop_renamed_005",
+    "new_name": null,
+    "dest_file": "logger.py",
+    "expected_post_state": {
+      "symbol": "pop_renamed_005",
+      "file": "logger.py",
+      "present": true,
+      "old_file": "queue.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e9",
+    "action_type": "rename_symbol",
+    "file": "errors.py",
+    "target_name": "TaskError",
+    "new_name": "TaskError_renamed_008",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "TaskError_renamed_008",
+      "file": "errors.py",
+      "present": true,
+      "old_symbol": "TaskError",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e10",
+    "action_type": "add_symbol",
+    "file": "worker.py",
+    "target_name": "added_009_6168",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_009_6168",
+      "file": "worker.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e11",
+    "action_type": "move_symbol",
+    "file": "errors.py",
+    "target_name": "TaskError_renamed_008",
+    "new_name": null,
+    "dest_file": "tests/test_worker.py",
+    "expected_post_state": {
+      "symbol": "TaskError_renamed_008",
+      "file": "tests/test_worker.py",
+      "present": true,
+      "old_file": "errors.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e12",
+    "action_type": "rename_symbol",
+    "file": "tests/test_retry.py",
+    "target_name": "test_retry_eventually_succeeds",
+    "new_name": "test_retry_eventually_succeeds_renamed_011",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "test_retry_eventually_succeeds_renamed_011",
+      "file": "tests/test_retry.py",
+      "present": true,
+      "old_symbol": "test_retry_eventually_succeeds",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e13",
+    "action_type": "rename_symbol",
+    "file": "logger.py",
+    "target_name": "error",
+    "new_name": "error_renamed_012",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "error_renamed_012",
+      "file": "logger.py",
+      "present": true,
+      "old_symbol": "error",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e14",
+    "action_type": "add_symbol",
+    "file": "middleware.py",
+    "target_name": "added_013_1792",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_013_1792",
+      "file": "middleware.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e15",
+    "action_type": "add_symbol",
+    "file": "config.py",
+    "target_name": "added_014_5520",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_014_5520",
+      "file": "config.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e16",
+    "action_type": "rename_symbol",
+    "file": "storage.py",
+    "target_name": "put",
+    "new_name": "put_renamed_015",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "put_renamed_015",
+      "file": "storage.py",
+      "present": true,
+      "old_symbol": "put",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e17",
+    "action_type": "move_symbol",
+    "file": "metrics.py",
+    "target_name": "reset",
+    "new_name": null,
+    "dest_file": "backoff.py",
+    "expected_post_state": {
+      "symbol": "reset",
+      "file": "backoff.py",
+      "present": true,
+      "old_file": "metrics.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e18",
+    "action_type": "move_symbol",
+    "file": "errors.py",
+    "target_name": "on_error",
+    "new_name": null,
+    "dest_file": "worker.py",
+    "expected_post_state": {
+      "symbol": "on_error",
+      "file": "worker.py",
+      "present": true,
+      "old_file": "errors.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e19",
+    "action_type": "rename_symbol",
+    "file": "cli.py",
+    "target_name": "main",
+    "new_name": "main_renamed_018",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "main_renamed_018",
+      "file": "cli.py",
+      "present": true,
+      "old_symbol": "main",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e20",
+    "action_type": "add_symbol",
+    "file": "task.py",
+    "target_name": "added_019_8714",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_019_8714",
+      "file": "task.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e21",
+    "action_type": "delete_symbol",
+    "file": "metrics.py",
+    "target_name": "summary",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "summary",
+      "file": "metrics.py",
+      "present": false
+    }
+  },
+  {
+    "id": "e22",
+    "action_type": "move_symbol",
+    "file": "cli.py",
+    "target_name": "main_renamed_018",
+    "new_name": null,
+    "dest_file": "task.py",
+    "expected_post_state": {
+      "symbol": "main_renamed_018",
+      "file": "task.py",
+      "present": true,
+      "old_file": "cli.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e23",
+    "action_type": "delete_symbol",
+    "file": "metrics.py",
+    "target_name": "__init__",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "__init__",
+      "file": "metrics.py",
+      "present": false
+    }
+  },
+  {
+    "id": "e24",
+    "action_type": "add_symbol",
+    "file": "logger.py",
+    "target_name": "added_023_3071",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_023_3071",
+      "file": "logger.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e25",
+    "action_type": "move_symbol",
+    "file": "tests/test_worker.py",
+    "target_name": "test_drain_runs_all_tasks",
+    "new_name": null,
+    "dest_file": "queue.py",
+    "expected_post_state": {
+      "symbol": "test_drain_runs_all_tasks",
+      "file": "queue.py",
+      "present": true,
+      "old_file": "tests/test_worker.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e26",
+    "action_type": "rename_symbol",
+    "file": "errors.py",
+    "target_name": "QueueFullError",
+    "new_name": "QueueFullError_renamed_025",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "QueueFullError_renamed_025",
+      "file": "errors.py",
+      "present": true,
+      "old_symbol": "QueueFullError",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e27",
+    "action_type": "rename_symbol",
+    "file": "storage.py",
+    "target_name": "__init__",
+    "new_name": "__init___renamed_026",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "__init___renamed_026",
+      "file": "storage.py",
+      "present": true,
+      "old_symbol": "__init__",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e28",
+    "action_type": "move_symbol",
+    "file": "storage.py",
+    "target_name": "clear",
+    "new_name": null,
+    "dest_file": "tests/test_worker.py",
+    "expected_post_state": {
+      "symbol": "clear",
+      "file": "tests/test_worker.py",
+      "present": true,
+      "old_file": "storage.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e29",
+    "action_type": "rename_symbol",
+    "file": "tests/test_worker.py",
+    "target_name": "TaskError_renamed_008",
+    "new_name": "TaskError_renamed_008_renamed_028",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "TaskError_renamed_008_renamed_028",
+      "file": "tests/test_worker.py",
+      "present": true,
+      "old_symbol": "TaskError_renamed_008",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e30",
+    "action_type": "add_symbol",
+    "file": "scheduler.py",
+    "target_name": "added_029_4307",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_029_4307",
+      "file": "scheduler.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e31",
+    "action_type": "add_symbol",
+    "file": "events.py",
+    "target_name": "added_030_2598",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_030_2598",
+      "file": "events.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e32",
+    "action_type": "rename_symbol",
+    "file": "worker.py",
+    "target_name": "added_009_6168",
+    "new_name": "added_009_6168_renamed_031",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_009_6168_renamed_031",
+      "file": "worker.py",
+      "present": true,
+      "old_symbol": "added_009_6168",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e33",
+    "action_type": "move_symbol",
+    "file": "health.py",
+    "target_name": "is_healthy",
+    "new_name": null,
+    "dest_file": "task.py",
+    "expected_post_state": {
+      "symbol": "is_healthy",
+      "file": "task.py",
+      "present": true,
+      "old_file": "health.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e34",
+    "action_type": "rename_symbol",
+    "file": "cli.py",
+    "target_name": "greet",
+    "new_name": "greet_renamed_033",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "greet_renamed_033",
+      "file": "cli.py",
+      "present": true,
+      "old_symbol": "greet",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e35",
+    "action_type": "move_symbol",
+    "file": "logger.py",
+    "target_name": "error_renamed_012",
+    "new_name": null,
+    "dest_file": "tests/test_worker.py",
+    "expected_post_state": {
+      "symbol": "error_renamed_012",
+      "file": "tests/test_worker.py",
+      "present": true,
+      "old_file": "logger.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e36",
+    "action_type": "delete_symbol",
+    "file": "queue.py",
+    "target_name": "push",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "push",
+      "file": "queue.py",
+      "present": false
+    }
+  },
+  {
+    "id": "e37",
+    "action_type": "move_symbol",
+    "file": "errors.py",
+    "target_name": "wrap_error",
+    "new_name": null,
+    "dest_file": "cli.py",
+    "expected_post_state": {
+      "symbol": "wrap_error",
+      "file": "cli.py",
+      "present": true,
+      "old_file": "errors.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e38",
+    "action_type": "move_symbol",
+    "file": "logger.py",
+    "target_name": "added_023_3071",
+    "new_name": null,
+    "dest_file": "queue.py",
+    "expected_post_state": {
+      "symbol": "added_023_3071",
+      "file": "queue.py",
+      "present": true,
+      "old_file": "logger.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e39",
+    "action_type": "rename_symbol",
+    "file": "logger.py",
+    "target_name": "get_logger",
+    "new_name": "get_logger_renamed_038",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "get_logger_renamed_038",
+      "file": "logger.py",
+      "present": true,
+      "old_symbol": "get_logger",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e40",
+    "action_type": "add_symbol",
+    "file": "worker.py",
+    "target_name": "added_039_8675",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_039_8675",
+      "file": "worker.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e41",
+    "action_type": "add_symbol",
+    "file": "worker.py",
+    "target_name": "added_040_3039",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_040_3039",
+      "file": "worker.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e42",
+    "action_type": "rename_symbol",
+    "file": "logger.py",
+    "target_name": "_emit",
+    "new_name": "_emit_renamed_041",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "_emit_renamed_041",
+      "file": "logger.py",
+      "present": true,
+      "old_symbol": "_emit",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e43",
+    "action_type": "move_symbol",
+    "file": "worker.py",
+    "target_name": "added_040_3039",
+    "new_name": null,
+    "dest_file": "tests/test_queue.py",
+    "expected_post_state": {
+      "symbol": "added_040_3039",
+      "file": "tests/test_queue.py",
+      "present": true,
+      "old_file": "worker.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e44",
+    "action_type": "delete_symbol",
+    "file": "events.py",
+    "target_name": "subscribe",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "subscribe",
+      "file": "events.py",
+      "present": false
+    }
+  },
+  {
+    "id": "e45",
+    "action_type": "rename_symbol",
+    "file": "storage.py",
+    "target_name": "get",
+    "new_name": "get_renamed_044",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "get_renamed_044",
+      "file": "storage.py",
+      "present": true,
+      "old_symbol": "get",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e46",
+    "action_type": "move_symbol",
+    "file": "worker.py",
+    "target_name": "added_039_8675",
+    "new_name": null,
+    "dest_file": "tests/test_queue.py",
+    "expected_post_state": {
+      "symbol": "added_039_8675",
+      "file": "tests/test_queue.py",
+      "present": true,
+      "old_file": "worker.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e47",
+    "action_type": "add_symbol",
+    "file": "task.py",
+    "target_name": "added_046_5669",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_046_5669",
+      "file": "task.py",
+      "present": true
+    }
+  },
+  {
+    "id": "e48",
+    "action_type": "rename_symbol",
+    "file": "storage.py",
+    "target_name": "__init___renamed_026",
+    "new_name": "__init___renamed_026_renamed_047",
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "__init___renamed_026_renamed_047",
+      "file": "storage.py",
+      "present": true,
+      "old_symbol": "__init___renamed_026",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e49",
+    "action_type": "move_symbol",
+    "file": "tests/test_retry.py",
+    "target_name": "test_retry_eventually_succeeds_renamed_011",
+    "new_name": null,
+    "dest_file": "queue.py",
+    "expected_post_state": {
+      "symbol": "test_retry_eventually_succeeds_renamed_011",
+      "file": "queue.py",
+      "present": true,
+      "old_file": "tests/test_retry.py",
+      "old_present": false
+    }
+  },
+  {
+    "id": "e50",
+    "action_type": "add_symbol",
+    "file": "tests/test_queue.py",
+    "target_name": "added_049_7283",
+    "new_name": null,
+    "dest_file": null,
+    "expected_post_state": {
+      "symbol": "added_049_7283",
+      "file": "tests/test_queue.py",
+      "present": true
+    }
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "id": "t1",
+    "task_description": "In mempalace, add a new private helper method `_is_stale(self, entry)` to the KnowledgeGraph class that returns True iff `entry.valid_to` is set and in the past. Keep existing tests passing.",
+    "initial_state": {
+      "repo_path": "/Users/alexthh/Desktop/ZeroToDemo/mempalace",
+      "base_commit": "HEAD",
+      "hint_symbol": "KnowledgeGraph"
+    },
+    "golden_test_command": "cd /Users/alexthh/Desktop/ZeroToDemo/mempalace && pytest tests/test_knowledge_graph.py -q",
+    "difficulty": "easy",
+    "notes": "Hand-authored. Requires agent to locate KnowledgeGraph class via the adapter, then add a method without breaking existing tests."
+  },
+  {
+    "id": "t2",
+    "task_description": "The CLI command `mempalace search` prints results without the file path. Update it to print `{path}: {snippet}` for each hit. The tests in tests/test_cli.py must continue to pass; update them if the format change requires it.",
+    "initial_state": {
+      "repo_path": "/Users/alexthh/Desktop/ZeroToDemo/mempalace",
+      "base_commit": "HEAD",
+      "hint_symbol": "cli.search"
+    },
+    "golden_test_command": "cd /Users/alexthh/Desktop/ZeroToDemo/mempalace && pytest tests/test_cli.py::test_search_shows_paths -q",
+    "difficulty": "medium",
+    "notes": "Requires locating the search command, understanding its output, and updating both the implementation and any brittle test. Verifier is a specific test to be added as part of this task's setup."
+  },
+  {
+    "id": "t3",
+    "task_description": "Rename the `invalidate` method on KnowledgeGraph to `mark_invalid` throughout the codebase. Update all callers and tests.",
+    "initial_state": {
+      "repo_path": "/Users/alexthh/Desktop/ZeroToDemo/mempalace",
+      "base_commit": "HEAD",
+      "hint_symbol": "invalidate"
+    },
+    "golden_test_command": "cd /Users/alexthh/Desktop/ZeroToDemo/mempalace && pytest tests/test_knowledge_graph.py -q && grep -r '\\binvalidate\\b' mempalace/ tests/ --include='*.py' | grep -v 'mark_invalid' | grep -v 'invalid_at' | wc -l | tr -d ' ' | grep -q '^0$'",
+    "difficulty": "hard",
+    "notes": "Cross-file rename. The verifier asserts both that tests pass AND that no occurrences of the old name remain outside the allowed exceptions. Tests whether the adapter exposes reliable callers discovery."
+  },
+  {
+    "id": "t4",
+    "task_description": "Add a docstring (triple-quoted, at least 30 words) to the top of the `add_triple` method on KnowledgeGraph, explaining what a triple is and when it is considered 'valid' in this model.",
+    "initial_state": {
+      "repo_path": "/Users/alexthh/Desktop/ZeroToDemo/mempalace",
+      "base_commit": "HEAD",
+      "hint_symbol": "add_triple"
+    },
+    "golden_test_command": "cd /Users/alexthh/Desktop/ZeroToDemo/mempalace && python -c \"from mempalace.knowledge_graph import KnowledgeGraph; d = KnowledgeGraph.add_triple.__doc__ or ''; assert len(d.split()) >= 30, f'docstring too short: {len(d.split())} words'\"",
+    "difficulty": "easy",
+    "notes": "Lightweight; tests whether the adapter can surface an exact method definition without sending the whole module as context."
+  },
+  {
+    "id": "t5",
+    "task_description": "There is a subtle bug in the SourceRegistry: when `unregister` is called on a key that is not present, it raises KeyError instead of silently no-oping. Fix it so that unregistering a missing key is a no-op (consistent with dict.pop(key, None)).",
+    "initial_state": {
+      "repo_path": "/Users/alexthh/Desktop/ZeroToDemo/mempalace",
+      "base_commit": "HEAD",
+      "hint_symbol": "SourceRegistry.unregister"
+    },
+    "golden_test_command": "cd /Users/alexthh/Desktop/ZeroToDemo/mempalace && pytest tests/test_sources.py::test_unregister_missing_is_noop -q",
+    "difficulty": "medium",
+    "notes": "Bug-fix task. Requires adapter to locate the buggy method + its tests. The verifier test (test_unregister_missing_is_noop) should be added as part of the task setup."
+  }
+]

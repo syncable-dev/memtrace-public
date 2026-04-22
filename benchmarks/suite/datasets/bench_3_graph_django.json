@@ -1,0 +1,1969 @@
+[
+  {
+    "id": "g1",
+    "symbol": "do_block_translate",
+    "file": "django/django/templatetags/i18n.py",
+    "line": 458,
+    "callers": [],
+    "callees": [
+      {
+        "name": "tag",
+        "file": "django/django/template/library.py",
+        "line": 29
+      },
+      {
+        "name": "TemplateSyntaxError",
+        "file": "django/django/template/exceptions.py",
+        "line": 39
+      },
+      {
+        "name": "token_kwargs",
+        "file": "django/django/template/base.py",
+        "line": 1163
+      },
+      {
+        "name": "len",
+        "file": "",
+        "line": 1566
+      },
+      {
+        "name": "next",
+        "file": "",
+        "line": 1707
+      },
+      {
+        "name": "next",
+        "file": "",
+        "line": 1709
+      },
+      {
+        "name": "iter",
+        "file": "",
+        "line": 1551
+      },
+      {
+        "name": "iter",
+        "file": "",
+        "line": 1553
+      },
+      {
+        "name": "iter",
+        "file": "",
+        "line": 1555
+      },
+      {
+        "name": "iter",
+        "file": "",
+        "line": 1557
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 1223
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 1225
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 1227
+      },
+      {
+        "name": "append",
+        "file": "",
+        "line": 1126
+      },
+      {
+        "name": "BlockTranslateNode",
+        "file": "django/django/templatetags/i18n.py",
+        "line": 104
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g2",
+    "symbol": "get_caller",
+    "file": "django/django/views/debug.py",
+    "line": 102,
+    "callers": [
+      {
+        "name": "get_traceback_data",
+        "file": "django/django/views/debug.py",
+        "line": 349
+      },
+      {
+        "name": "technical_404_response",
+        "file": "django/django/views/debug.py",
+        "line": 614
+      }
+    ],
+    "callees": [
+      {
+        "name": "resolve",
+        "file": "django/django/urls/base.py",
+        "line": 22
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_broken_partial_unclosed_exception_info",
+        "file": "django/tests/template_tests/syntax_tests/test_partials.py",
+        "line": 368
+      },
+      {
+        "name": "get_traceback_text",
+        "file": "django/django/views/debug.py",
+        "line": 438
+      },
+      {
+        "name": "test_template_name_not_in_debug_view",
+        "file": "django/tests/template_tests/syntax_tests/test_basic.py",
+        "line": 419
+      },
+      {
+        "name": "technical_404_response",
+        "file": "django/django/views/debug.py",
+        "line": 614
+      },
+      {
+        "name": "get_traceback_data",
+        "file": "django/django/views/debug.py",
+        "line": 349
+      },
+      {
+        "name": "get_traceback_html",
+        "file": "django/django/views/debug.py",
+        "line": 431
+      },
+      {
+        "name": "test_broken_partial_nesting_mixed",
+        "file": "django/tests/template_tests/syntax_tests/test_partials.py",
+        "line": 639
+      },
+      {
+        "name": "test_template_encoding",
+        "file": "django/tests/view_tests/tests/test_debug.py",
+        "line": 451
+      },
+      {
+        "name": "response_for_exception",
+        "file": "django/django/core/handlers/exception.py",
+        "line": 64
+      },
+      {
+        "name": "test_broken_partial_nesting",
+        "file": "django/tests/template_tests/syntax_tests/test_partials.py",
+        "line": 613
+      }
+    ]
+  },
+  {
+    "id": "g3",
+    "symbol": "not_in_transaction",
+    "file": "django/tests/handlers/views.py",
+    "line": 32,
+    "callers": [],
+    "callees": [
+      {
+        "name": "HttpResponse",
+        "file": "django/django/http/response.py",
+        "line": 370
+      },
+      {
+        "name": "str",
+        "file": "",
+        "line": 480
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g4",
+    "symbol": "commit",
+    "file": "django/django/db/transaction.py",
+    "line": 38,
+    "callers": [
+      {
+        "name": "test_block",
+        "file": "django/tests/select_for_update/tests.py",
+        "line": 568
+      },
+      {
+        "name": "test_atomic_prevents_calling_transaction_methods",
+        "file": "django/tests/transactions/tests.py",
+        "line": 337
+      }
+    ],
+    "callees": [
+      {
+        "name": "get_connection",
+        "file": "django/django/db/transaction.py",
+        "line": 18
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_atomic_prevents_calling_transaction_methods",
+        "file": "django/tests/transactions/tests.py",
+        "line": 337
+      },
+      {
+        "name": "test_block",
+        "file": "django/tests/select_for_update/tests.py",
+        "line": 568
+      }
+    ]
+  },
+  {
+    "id": "g5",
+    "symbol": "non_atomic_requests",
+    "file": "django/django/db/transaction.py",
+    "line": 334,
+    "callers": [
+      {
+        "name": "(module) views.py",
+        "file": "django/tests/handlers/views.py",
+        "line": 1
+      }
+    ],
+    "callees": [
+      {
+        "name": "callable",
+        "file": "",
+        "line": 1384
+      },
+      {
+        "name": "_non_atomic_requests",
+        "file": "django/django/db/transaction.py",
+        "line": 326
+      }
+    ],
+    "impact": [
+      {
+        "name": "(module) views.py",
+        "file": "django/tests/handlers/views.py",
+        "line": 1
+      }
+    ]
+  },
+  {
+    "id": "g6",
+    "symbol": "_property_resolver",
+    "file": "django/django/template/defaultfilters.py",
+    "line": 540,
+    "callers": [
+      {
+        "name": "dictsort",
+        "file": "django/django/template/defaultfilters.py",
+        "line": 579
+      },
+      {
+        "name": "dictsortreversed",
+        "file": "django/django/template/defaultfilters.py",
+        "line": 591
+      },
+      {
+        "name": "test_property_resolver",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 19
+      }
+    ],
+    "callees": [
+      {
+        "name": "float",
+        "file": "",
+        "line": 366
+      },
+      {
+        "name": "AttributeError",
+        "file": "",
+        "line": 2112
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1522
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1528
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1530
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1532
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1534
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1536
+      },
+      {
+        "name": "itemgetter",
+        "file": "",
+        "line": 198
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_sort",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 57
+      },
+      {
+        "name": "test_dictsort_complex_sorting_key",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 76
+      },
+      {
+        "name": "test_sort_list_of_tuples",
+        "file": "django/tests/template_tests/filter_tests/test_dictsortreversed.py",
+        "line": 25
+      },
+      {
+        "name": "test_invalid_values",
+        "file": "django/tests/template_tests/filter_tests/test_dictsortreversed.py",
+        "line": 43
+      },
+      {
+        "name": "test_sort_list_of_tuple_like_dicts",
+        "file": "django/tests/template_tests/filter_tests/test_dictsortreversed.py",
+        "line": 30
+      },
+      {
+        "name": "test_invalid_args",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 118
+      },
+      {
+        "name": "test_sort_list_of_tuple_like_dicts",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 95
+      },
+      {
+        "name": "dictsortreversed",
+        "file": "django/django/template/defaultfilters.py",
+        "line": 591
+      },
+      {
+        "name": "dictsort",
+        "file": "django/django/template/defaultfilters.py",
+        "line": 579
+      },
+      {
+        "name": "test_invalid_args",
+        "file": "django/tests/template_tests/filter_tests/test_dictsortreversed.py",
+        "line": 53
+      },
+      {
+        "name": "test_sort_list_of_tuples",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 90
+      },
+      {
+        "name": "test_property_resolver",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 19
+      },
+      {
+        "name": "test_invalid_values",
+        "file": "django/tests/template_tests/filter_tests/test_dictsort.py",
+        "line": 108
+      },
+      {
+        "name": "test_sort",
+        "file": "django/tests/template_tests/filter_tests/test_dictsortreversed.py",
+        "line": 6
+      }
+    ]
+  },
+  {
+    "id": "g7",
+    "symbol": "shrink_tail",
+    "file": "django/tests/migrations/test_migrations_plan/0001_initial.py",
+    "line": 9,
+    "callers": [],
+    "callees": [],
+    "impact": []
+  },
+  {
+    "id": "g8",
+    "symbol": "do_static",
+    "file": "django/django/templatetags/static.py",
+    "line": 156,
+    "callers": [],
+    "callees": [
+      {
+        "name": "tag",
+        "file": "django/django/template/library.py",
+        "line": 29
+      },
+      {
+        "name": "handle_token",
+        "file": "django/django/templatetags/static.py",
+        "line": 134
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g9",
+    "symbol": "get_hashers",
+    "file": "django/django/contrib/auth/hashers.py",
+    "line": 123,
+    "callers": [
+      {
+        "name": "get_hashers_by_algorithm",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 137
+      },
+      {
+        "name": "get_hasher",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 148
+      }
+    ],
+    "callees": [
+      {
+        "name": "import_string",
+        "file": "django/django/utils/module_loading.py",
+        "line": 19
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1522
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1528
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1530
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1532
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1534
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1536
+      },
+      {
+        "name": "ImproperlyConfigured",
+        "file": "django/django/core/exceptions.py",
+        "line": 123
+      },
+      {
+        "name": "append",
+        "file": "",
+        "line": 1126
+      }
+    ],
+    "impact": [
+      {
+        "name": "assertMakePasswordCalled",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 459
+      },
+      {
+        "name": "test_argon2_version_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 693
+      },
+      {
+        "name": "make_password",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 100
+      },
+      {
+        "name": "test_md5",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 111
+      },
+      {
+        "name": "identify_hasher",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 173
+      },
+      {
+        "name": "test_scrypt_decode",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 771
+      },
+      {
+        "name": "test_pbkdf2_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 357
+      },
+      {
+        "name": "test_pbkdf2_harden_runtime",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 389
+      },
+      {
+        "name": "_test_scrypt_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 785
+      },
+      {
+        "name": "test_check_password_upgrade",
+        "file": "django/tests/auth_tests/test_models.py",
+        "line": 305
+      },
+      {
+        "name": "test_acheck_password_upgrade",
+        "file": "django/tests/auth_tests/test_models.py",
+        "line": 330
+      },
+      {
+        "name": "get_hasher",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 148
+      },
+      {
+        "name": "test_argon2_decode",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 678
+      },
+      {
+        "name": "get_hashers_by_algorithm",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 137
+      },
+      {
+        "name": "test_no_upgrade_on_incorrect_pass",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 344
+      },
+      {
+        "name": "test_pbkdf2_upgrade_new_hasher",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 410
+      },
+      {
+        "name": "test_pbkdf2",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 84
+      },
+      {
+        "name": "test_check_password_fake_runtime",
+        "file": "django/tests/auth_tests/test_handlers.py",
+        "line": 80
+      },
+      {
+        "name": "test_bcrypt_harden_runtime",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 212
+      },
+      {
+        "name": "test_argon2",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 647
+      },
+      {
+        "name": "test_check_password_calls_harden_runtime",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 442
+      },
+      {
+        "name": "_test_argon2_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 718
+      },
+      {
+        "name": "test_bcrypt_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 177
+      },
+      {
+        "name": "test_upgrade",
+        "file": "django/tests/auth_tests/test_hashers.py",
+        "line": 314
+      },
+      {
+        "name": "verify_password",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 39
+      }
+    ]
+  },
+  {
+    "id": "g10",
+    "symbol": "prepopulated_fields_js",
+    "file": "django/django/contrib/admin/templatetags/admin_modify.py",
+    "line": 11,
+    "callers": [],
+    "callees": [
+      {
+        "name": "extend",
+        "file": "",
+        "line": 1127
+      },
+      {
+        "name": "append",
+        "file": "",
+        "line": 1126
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1522
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1528
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1530
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1532
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1534
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1536
+      },
+      {
+        "name": "dumps",
+        "file": "",
+        "line": 10
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g11",
+    "symbol": "flatten_result",
+    "file": "django/django/utils/regex_helper.py",
+    "line": 289,
+    "callers": [
+      {
+        "name": "normalize",
+        "file": "django/django/utils/regex_helper.py",
+        "line": 42
+      },
+      {
+        "name": "flatten_result",
+        "file": "django/django/utils/regex_helper.py",
+        "line": 289
+      }
+    ],
+    "callees": [
+      {
+        "name": "isinstance",
+        "file": "",
+        "line": 1564
+      },
+      {
+        "name": "enumerate",
+        "file": "",
+        "line": 1321
+      },
+      {
+        "name": "join",
+        "file": "",
+        "line": 526
+      },
+      {
+        "name": "join",
+        "file": "",
+        "line": 528
+      },
+      {
+        "name": "range",
+        "file": "",
+        "line": 1328
+      },
+      {
+        "name": "len",
+        "file": "",
+        "line": 1566
+      },
+      {
+        "name": "append",
+        "file": "",
+        "line": 1126
+      },
+      {
+        "name": "flatten_result",
+        "file": "django/django/utils/regex_helper.py",
+        "line": 289
+      },
+      {
+        "name": "extend",
+        "file": "",
+        "line": 1127
+      },
+      {
+        "name": "zip",
+        "file": "",
+        "line": 1943
+      }
+    ],
+    "impact": [
+      {
+        "name": "normalize",
+        "file": "django/django/utils/regex_helper.py",
+        "line": 42
+      },
+      {
+        "name": "test_group_named",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 33
+      },
+      {
+        "name": "test_group_backreference",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 44
+      },
+      {
+        "name": "test_group_positional",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 21
+      },
+      {
+        "name": "test_group_noncapturing",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 27
+      },
+      {
+        "name": "_populate",
+        "file": "django/django/urls/resolvers.py",
+        "line": 545
+      },
+      {
+        "name": "test_empty",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 9
+      },
+      {
+        "name": "test_escape",
+        "file": "django/tests/utils_tests/test_regex_helper.py",
+        "line": 15
+      },
+      {
+        "name": "flatten_result",
+        "file": "django/django/utils/regex_helper.py",
+        "line": 289
+      }
+    ]
+  },
+  {
+    "id": "g12",
+    "symbol": "unpickle_named_row",
+    "file": "django/django/db/models/utils.py",
+    "line": 37,
+    "callers": [],
+    "callees": [
+      {
+        "name": "create_namedtuple_class",
+        "file": "django/django/db/models/utils.py",
+        "line": 42
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g13",
+    "symbol": "check_trac_has_patch",
+    "file": "django/scripts/pr_quality/check_pr.py",
+    "line": 252,
+    "callers": [
+      {
+        "name": "main",
+        "file": "django/scripts/pr_quality/check_pr.py",
+        "line": 417
+      },
+      {
+        "name": "test_already_set_passes",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 380
+      },
+      {
+        "name": "test_not_set_times_out_fails",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 384
+      },
+      {
+        "name": "test_failure_message_contains_ticket_id",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 391
+      },
+      {
+        "name": "test_set_on_second_poll_passes",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 399
+      },
+      {
+        "name": "test_none_data_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 412
+      },
+      {
+        "name": "test_ticket_not_found_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 415
+      },
+      {
+        "name": "test_fetch_error_during_poll_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 421
+      },
+      {
+        "name": "test_fully_valid_pr_passes_all_checks",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 648
+      }
+    ],
+    "callees": [
+      {
+        "name": "monotonic",
+        "file": "",
+        "line": 98
+      },
+      {
+        "name": "info",
+        "file": "",
+        "line": 140
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1693
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1697
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1699
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1701
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1703
+      },
+      {
+        "name": "min",
+        "file": "",
+        "line": 1705
+      },
+      {
+        "name": "sleep",
+        "file": "",
+        "line": 82
+      },
+      {
+        "name": "int",
+        "file": "",
+        "line": 255
+      },
+      {
+        "name": "fetch_trac_ticket",
+        "file": "django/scripts/pr_quality/check_pr.py",
+        "line": 158
+      },
+      {
+        "name": "warning",
+        "file": "",
+        "line": 149
+      },
+      {
+        "name": "Message",
+        "file": "django/scripts/pr_quality/errors.py",
+        "line": 12
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_fetch_error_during_poll_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 421
+      },
+      {
+        "name": "test_failure_message_contains_ticket_id",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 391
+      },
+      {
+        "name": "test_already_set_passes",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 380
+      },
+      {
+        "name": "test_fully_valid_pr_passes_all_checks",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 648
+      },
+      {
+        "name": "(module) check_pr.py",
+        "file": "django/scripts/pr_quality/check_pr.py",
+        "line": 1
+      },
+      {
+        "name": "test_set_on_second_poll_passes",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 399
+      },
+      {
+        "name": "test_not_set_times_out_fails",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 384
+      },
+      {
+        "name": "test_none_data_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 412
+      },
+      {
+        "name": "main",
+        "file": "django/scripts/pr_quality/check_pr.py",
+        "line": 417
+      },
+      {
+        "name": "call_main",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 142
+      },
+      {
+        "name": "test_ticket_not_found_skips_check",
+        "file": "django/scripts/pr_quality/tests/test_check_pr.py",
+        "line": 415
+      }
+    ]
+  },
+  {
+    "id": "g14",
+    "symbol": "get_locator",
+    "file": "django/docs/_ext/github_links.py",
+    "line": 55,
+    "callers": [
+      {
+        "name": "get_path_and_line",
+        "file": "django/docs/_ext/github_links.py",
+        "line": 78
+      }
+    ],
+    "callees": [
+      {
+        "name": "lru_cache",
+        "file": "",
+        "line": 71
+      },
+      {
+        "name": "lru_cache",
+        "file": "",
+        "line": 73
+      },
+      {
+        "name": "from_code",
+        "file": "django/docs/_ext/github_links.py",
+        "line": 15
+      }
+    ],
+    "impact": [
+      {
+        "name": "github_linkcode_resolve",
+        "file": "django/docs/_ext/github_links.py",
+        "line": 132
+      },
+      {
+        "name": "get_path_and_line",
+        "file": "django/docs/_ext/github_links.py",
+        "line": 78
+      }
+    ]
+  },
+  {
+    "id": "g15",
+    "symbol": "adapt_date",
+    "file": "django/django/db/backends/sqlite3/base.py",
+    "line": 35,
+    "callers": [],
+    "callees": [],
+    "impact": []
+  },
+  {
+    "id": "g16",
+    "symbol": "check_async_unsafe",
+    "file": "django/django/core/checks/async_checks.py",
+    "line": 13,
+    "callers": [
+      {
+        "name": "test_no_allowed_async_unsafe",
+        "file": "django/tests/check_framework/test_async_checks.py",
+        "line": 10
+      },
+      {
+        "name": "test_allowed_async_unsafe_set",
+        "file": "django/tests/check_framework/test_async_checks.py",
+        "line": 14
+      }
+    ],
+    "callees": [
+      {
+        "name": "get",
+        "file": "",
+        "line": 717
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 719
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 721
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_allowed_async_unsafe_set",
+        "file": "django/tests/check_framework/test_async_checks.py",
+        "line": 14
+      },
+      {
+        "name": "test_no_allowed_async_unsafe",
+        "file": "django/tests/check_framework/test_async_checks.py",
+        "line": 10
+      }
+    ]
+  },
+  {
+    "id": "g17",
+    "symbol": "method_saving_307_redirect_query_string_view",
+    "file": "django/tests/test_client/views.py",
+    "line": 160,
+    "callers": [],
+    "callees": [
+      {
+        "name": "HttpResponseRedirect",
+        "file": "django/django/http/response.py",
+        "line": 665
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g18",
+    "symbol": "change_loader_patterns",
+    "file": "django/tests/test_runner/test_discover_runner.py",
+    "line": 34,
+    "callers": [
+      {
+        "name": "test_loader_patterns_not_mutated",
+        "file": "django/tests/test_runner/test_discover_runner.py",
+        "line": 267
+      },
+      {
+        "name": "test_loader_patterns_not_mutated_when_test_label_is_file_path",
+        "file": "django/tests/test_runner/test_discover_runner.py",
+        "line": 284
+      }
+    ],
+    "callees": [],
+    "impact": [
+      {
+        "name": "test_loader_patterns_not_mutated",
+        "file": "django/tests/test_runner/test_discover_runner.py",
+        "line": 267
+      },
+      {
+        "name": "test_loader_patterns_not_mutated_when_test_label_is_file_path",
+        "file": "django/tests/test_runner/test_discover_runner.py",
+        "line": 284
+      }
+    ]
+  },
+  {
+    "id": "g19",
+    "symbol": "check_models_permissions",
+    "file": "django/django/contrib/auth/checks.py",
+    "line": 123,
+    "callers": [],
+    "callees": [
+      {
+        "name": "get_models",
+        "file": "django/django/apps/registry.py",
+        "line": 169
+      },
+      {
+        "name": "from_iterable",
+        "file": "",
+        "line": 73
+      },
+      {
+        "name": "get_model",
+        "file": "django/django/apps/registry.py",
+        "line": 188
+      },
+      {
+        "name": "dict",
+        "file": "",
+        "line": 1175
+      },
+      {
+        "name": "_get_builtin_permissions",
+        "file": "django/django/contrib/auth/management/__init__.py",
+        "line": 25
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1679
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1683
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1685
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1687
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1689
+      },
+      {
+        "name": "max",
+        "file": "",
+        "line": 1691
+      },
+      {
+        "name": "len",
+        "file": "",
+        "line": 1566
+      },
+      {
+        "name": "values",
+        "file": "",
+        "line": 1209
+      },
+      {
+        "name": "append",
+        "file": "",
+        "line": 1126
+      },
+      {
+        "name": "Error",
+        "file": "django/django/core/checks/messages.py",
+        "line": 75
+      },
+      {
+        "name": "keys",
+        "file": "",
+        "line": 1208
+      },
+      {
+        "name": "set",
+        "file": "",
+        "line": 1252
+      },
+      {
+        "name": "add",
+        "file": "",
+        "line": 1257
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g20",
+    "symbol": "search_form",
+    "file": "django/django/contrib/admin/templatetags/admin_list.py",
+    "line": 493,
+    "callers": [],
+    "callees": [],
+    "impact": []
+  },
+  {
+    "id": "g21",
+    "symbol": "last_n_parts",
+    "file": "django/tests/sphinx/test_github_links.py",
+    "line": 7,
+    "callers": [
+      {
+        "name": "test_module_name_to_file_path_package",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 48
+      },
+      {
+        "name": "test_module_name_to_file_path_module",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 53
+      },
+      {
+        "name": "test_get_path_and_line_class",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 58
+      },
+      {
+        "name": "test_get_path_and_line_func",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 68
+      },
+      {
+        "name": "test_get_path_and_line_method",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 78
+      },
+      {
+        "name": "test_get_path_and_line_cached_property",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 88
+      },
+      {
+        "name": "test_get_path_and_line_forwarded_import",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 99
+      },
+      {
+        "name": "test_get_path_and_line_wildcard_import",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 109
+      },
+      {
+        "name": "test_get_path_and_line_forwarded_import_module",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 130
+      }
+    ],
+    "callees": [
+      {
+        "name": "join",
+        "file": "",
+        "line": 526
+      },
+      {
+        "name": "join",
+        "file": "",
+        "line": 528
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_get_path_and_line_wildcard_import",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 109
+      },
+      {
+        "name": "test_get_path_and_line_cached_property",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 88
+      },
+      {
+        "name": "test_get_path_and_line_method",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 78
+      },
+      {
+        "name": "test_module_name_to_file_path_package",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 48
+      },
+      {
+        "name": "test_get_path_and_line_forwarded_import",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 99
+      },
+      {
+        "name": "test_get_path_and_line_forwarded_import_module",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 130
+      },
+      {
+        "name": "test_module_name_to_file_path_module",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 53
+      },
+      {
+        "name": "test_get_path_and_line_class",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 58
+      },
+      {
+        "name": "test_get_path_and_line_func",
+        "file": "django/tests/sphinx/test_github_links.py",
+        "line": 68
+      }
+    ]
+  },
+  {
+    "id": "g22",
+    "symbol": "raises_template_does_not_exist",
+    "file": "django/tests/view_tests/views.py",
+    "line": 111,
+    "callers": [],
+    "callees": [
+      {
+        "name": "render",
+        "file": "django/django/shortcuts.py",
+        "line": 19
+      },
+      {
+        "name": "technical_500_response",
+        "file": "django/django/views/debug.py",
+        "line": 65
+      },
+      {
+        "name": "exc_info",
+        "file": "",
+        "line": 370
+      }
+    ],
+    "impact": []
+  },
+  {
+    "id": "g23",
+    "symbol": "is_pickable",
+    "file": "django/django/test/testcases.py",
+    "line": 82,
+    "callers": [
+      {
+        "name": "__getstate__",
+        "file": "django/django/test/testcases.py",
+        "line": 316
+      },
+      {
+        "name": "test_is_picklable_with_non_picklable_object",
+        "file": "django/tests/test_utils/test_testcase.py",
+        "line": 27
+      }
+    ],
+    "callees": [
+      {
+        "name": "loads",
+        "file": "",
+        "line": 41
+      },
+      {
+        "name": "dumps",
+        "file": "",
+        "line": 30
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_is_picklable_with_non_picklable_object",
+        "file": "django/tests/test_utils/test_testcase.py",
+        "line": 27
+      },
+      {
+        "name": "__getstate__",
+        "file": "django/django/test/testcases.py",
+        "line": 316
+      }
+    ]
+  },
+  {
+    "id": "g24",
+    "symbol": "mask_hash",
+    "file": "django/django/contrib/auth/hashers.py",
+    "line": 195,
+    "callers": [
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 354
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 447
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 538
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 633
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 686
+      }
+    ],
+    "callees": [
+      {
+        "name": "len",
+        "file": "",
+        "line": 1566
+      }
+    ],
+    "impact": [
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 538
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 686
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 354
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 447
+      },
+      {
+        "name": "safe_summary",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 633
+      }
+    ]
+  },
+  {
+    "id": "g25",
+    "symbol": "_guess_stylesheet_mimetype",
+    "file": "django/django/utils/feedgenerator.py",
+    "line": 62,
+    "callers": [
+      {
+        "name": "mimetype",
+        "file": "django/django/utils/feedgenerator.py",
+        "line": 93
+      }
+    ],
+    "callees": [
+      {
+        "name": "MimeTypes",
+        "file": "",
+        "line": 42
+      },
+      {
+        "name": "readfp",
+        "file": "",
+        "line": 53
+      },
+      {
+        "name": "StringIO",
+        "file": "",
+        "line": 275
+      },
+      {
+        "name": "guess_type",
+        "file": "",
+        "line": 50
+      }
+    ],
+    "impact": [
+      {
+        "name": "mimetype",
+        "file": "django/django/utils/feedgenerator.py",
+        "line": 93
+      },
+      {
+        "name": "__repr__",
+        "file": "django/django/utils/feedgenerator.py",
+        "line": 106
+      },
+      {
+        "name": "__str__",
+        "file": "django/django/utils/feedgenerator.py",
+        "line": 98
+      }
+    ]
+  },
+  {
+    "id": "g26",
+    "symbol": "handle_extensions",
+    "file": "django/django/core/management/utils.py",
+    "line": 34,
+    "callers": [
+      {
+        "name": "handle",
+        "file": "django/django/core/management/templates.py",
+        "line": 88
+      },
+      {
+        "name": "handle",
+        "file": "django/django/core/management/commands/makemessages.py",
+        "line": 317
+      }
+    ],
+    "callees": [
+      {
+        "name": "extend",
+        "file": "",
+        "line": 1127
+      },
+      {
+        "name": "enumerate",
+        "file": "",
+        "line": 1321
+      },
+      {
+        "name": "set",
+        "file": "",
+        "line": 1252
+      }
+    ],
+    "impact": [
+      {
+        "name": "handle",
+        "file": "django/django/core/management/commands/makemessages.py",
+        "line": 317
+      },
+      {
+        "name": "handle",
+        "file": "django/django/core/management/commands/startproject.py",
+        "line": 13
+      },
+      {
+        "name": "handle",
+        "file": "django/django/core/management/templates.py",
+        "line": 88
+      },
+      {
+        "name": "handle",
+        "file": "django/django/core/management/commands/startapp.py",
+        "line": 11
+      }
+    ]
+  },
+  {
+    "id": "g27",
+    "symbol": "captured_stdin",
+    "file": "django/django/test/utils.py",
+    "line": 832,
+    "callers": [
+      {
+        "name": "test_stdin_read",
+        "file": "django/tests/shell/tests.py",
+        "line": 116
+      },
+      {
+        "name": "test_stdin_read_globals",
+        "file": "django/tests/shell/tests.py",
+        "line": 128
+      },
+      {
+        "name": "test_stdin_read_inline_function_call",
+        "file": "django/tests/shell/tests.py",
+        "line": 140
+      }
+    ],
+    "callees": [
+      {
+        "name": "captured_output",
+        "file": "django/django/test/utils.py",
+        "line": 798
+      }
+    ],
+    "impact": [
+      {
+        "name": "test_stdin_read",
+        "file": "django/tests/shell/tests.py",
+        "line": 116
+      },
+      {
+        "name": "test_stdin_read_inline_function_call",
+        "file": "django/tests/shell/tests.py",
+        "line": 140
+      },
+      {
+        "name": "test_stdin_read_globals",
+        "file": "django/tests/shell/tests.py",
+        "line": 128
+      }
+    ]
+  },
+  {
+    "id": "g28",
+    "symbol": "infix",
+    "file": "django/django/template/smartif.py",
+    "line": 45,
+    "callers": [
+      {
+        "name": "(module) smartif.py",
+        "file": "django/django/template/smartif.py",
+        "line": 1
+      }
+    ],
+    "callees": [],
+    "impact": [
+      {
+        "name": "(module) smartif.py",
+        "file": "django/django/template/smartif.py",
+        "line": 1
+      }
+    ]
+  },
+  {
+    "id": "g29",
+    "symbol": "wkt_r",
+    "file": "django/django/contrib/gis/geos/prototypes/io.py",
+    "line": 337,
+    "callers": [
+      {
+        "name": "_from_wkt",
+        "file": "django/django/contrib/gis/geos/geometry.py",
+        "line": 138
+      }
+    ],
+    "callees": [
+      {
+        "name": "_WKTReader",
+        "file": "django/django/contrib/gis/geos/prototypes/io.py",
+        "line": 152
+      }
+    ],
+    "impact": [
+      {
+        "name": "_from_wkt",
+        "file": "django/django/contrib/gis/geos/geometry.py",
+        "line": 138
+      },
+      {
+        "name": "__init__",
+        "file": "django/django/contrib/gis/geos/geometry.py",
+        "line": 742
+      },
+      {
+        "name": "from_ewkt",
+        "file": "django/django/contrib/gis/geos/geometry.py",
+        "line": 121
+      }
+    ]
+  },
+  {
+    "id": "g30",
+    "symbol": "middleware_urlconf",
+    "file": "django/tests/test_client/tests.py",
+    "line": 47,
+    "callers": [],
+    "callees": [],
+    "impact": []
+  },
+  {
+    "id": "g31",
+    "symbol": "cached_import",
+    "file": "django/django/utils/module_loading.py",
+    "line": 8,
+    "callers": [
+      {
+        "name": "import_string",
+        "file": "django/django/utils/module_loading.py",
+        "line": 19
+      }
+    ],
+    "callees": [
+      {
+        "name": "get",
+        "file": "",
+        "line": 1223
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 1225
+      },
+      {
+        "name": "get",
+        "file": "",
+        "line": 1227
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1522
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1528
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1530
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1532
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1534
+      },
+      {
+        "name": "getattr",
+        "file": "",
+        "line": 1536
+      },
+      {
+        "name": "import_module",
+        "file": "",
+        "line": 10
+      }
+    ],
+    "impact": [
+      {
+        "name": "create",
+        "file": "django/django/apps/config.py",
+        "line": 100
+      },
+      {
+        "name": "configure_logging",
+        "file": "django/django/utils/log.py",
+        "line": 67
+      },
+      {
+        "name": "get_internal_wsgi_application",
+        "file": "django/django/core/servers/basehttp.py",
+        "line": 29
+      },
+      {
+        "name": "_setup",
+        "file": "django/django/contrib/admin/sites.py",
+        "line": 609
+      },
+      {
+        "name": "get_password_validators",
+        "file": "django/django/contrib/auth/password_validation.py",
+        "line": 25
+      },
+      {
+        "name": "__init__",
+        "file": "django/django/utils/log.py",
+        "line": 86
+      },
+      {
+        "name": "create_connection",
+        "file": "django/django/core/cache/__init__.py",
+        "line": 43
+      },
+      {
+        "name": "__init__",
+        "file": "django/django/contrib/sessions/backends/base.py",
+        "line": 45
+      },
+      {
+        "name": "__init__",
+        "file": "django/django/template/backends/jinja2.py",
+        "line": 17
+      },
+      {
+        "name": "test_import_string",
+        "file": "django/tests/utils_tests/test_module_loading.py",
+        "line": 132
+      },
+      {
+        "name": "load_handler",
+        "file": "django/django/core/files/uploadhandler.py",
+        "line": 240
+      },
+      {
+        "name": "__getitem__",
+        "file": "django/django/template/utils.py",
+        "line": 67
+      },
+      {
+        "name": "_get_default_pk_class",
+        "file": "django/django/db/models/options.py",
+        "line": 261
+      },
+      {
+        "name": "_mark_test",
+        "file": "django/django/db/backends/base/creation.py",
+        "line": 367
+      },
+      {
+        "name": "default_storage",
+        "file": "django/django/contrib/messages/storage/__init__.py",
+        "line": 5
+      },
+      {
+        "name": "template_context_processors",
+        "file": "django/django/template/engine.py",
+        "line": 115
+      },
+      {
+        "name": "import_string",
+        "file": "django/django/utils/module_loading.py",
+        "line": 19
+      },
+      {
+        "name": "_contains_subclass",
+        "file": "django/django/contrib/admin/checks.py",
+        "line": 30
+      },
+      {
+        "name": "find_template_loader",
+        "file": "django/django/template/engine.py",
+        "line": 141
+      },
+      {
+        "name": "get_connection",
+        "file": "django/django/core/mail/__init__.py",
+        "line": 52
+      },
+      {
+        "name": "construct_managers",
+        "file": "django/django/db/migrations/state.py",
+        "line": 934
+      },
+      {
+        "name": "get_exception_reporter_class",
+        "file": "django/django/views/debug.py",
+        "line": 93
+      },
+      {
+        "name": "routers",
+        "file": "django/django/db/utils.py",
+        "line": 208
+      },
+      {
+        "name": "exception_class",
+        "file": "django/django/tasks/base.py",
+        "line": 172
+      },
+      {
+        "name": "_subclass_index",
+        "file": "django/django/contrib/auth/checks.py",
+        "line": 11
+      },
+      {
+        "name": "__init__",
+        "file": "django/django/core/cache/backends/redis.py",
+        "line": 33
+      },
+      {
+        "name": "create_storage",
+        "file": "django/django/core/files/storage/handler.py",
+        "line": 38
+      },
+      {
+        "name": "get_key_func",
+        "file": "django/django/core/cache/backends/base.py",
+        "line": 44
+      },
+      {
+        "name": "template_context_processors",
+        "file": "django/django/template/backends/jinja2.py",
+        "line": 51
+      },
+      {
+        "name": "get_finder",
+        "file": "django/django/contrib/staticfiles/finders.py",
+        "line": 305
+      },
+      {
+        "name": "get_hashers",
+        "file": "django/django/contrib/auth/hashers.py",
+        "line": 123
+      },
+      {
+        "name": "test_module_path",
+        "file": "django/tests/tasks/test_tasks.py",
+        "line": 258
+      },
+      {
+        "name": "import_options",
+        "file": "django/django/test/selenium.py",
+        "line": 75
+      },
+      {
+        "name": "get_default_renderer",
+        "file": "django/django/forms/renderers.py",
+        "line": 12
+      },
+      {
+        "name": "get_default_exception_reporter_filter",
+        "file": "django/django/views/debug.py",
+        "line": 83
+      },
+      {
+        "name": "get_cookie_signer",
+        "file": "django/django/core/signing.py",
+        "line": 110
+      },
+      {
+        "name": "load_backend",
+        "file": "django/django/contrib/auth/__init__.py",
+        "line": 20
+      },
+      {
+        "name": "load_middleware",
+        "file": "django/django/core/handlers/base.py",
+        "line": 27
+      },
+      {
+        "name": "create_connection",
+        "file": "django/django/tasks/__init__.py",
+        "line": 33
+      },
+      {
+        "name": "import_webdriver",
+        "file": "django/django/test/selenium.py",
+        "line": 71
+      }
+    ]
+  }
+]

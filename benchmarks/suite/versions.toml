@@ -1,0 +1,40 @@
+# Single source of truth for every adapter + service version the suite uses.
+# Pinned during the first full Bench #0 parity run on 2026-04-21 (commit bbd36a9).
+# Reviewers reproducing published numbers should match these exactly.
+
+schema_version = 1
+
+[memtrace]
+# Memtrace binary was built from this commit on 2026-04-21.
+# Update when binary is rebuilt from a new commit.
+commit = "eda2aa5"
+
+[chromadb]
+pip   = "chromadb==1.5.7"
+model = "sentence-transformers/all-MiniLM-L6-v2"
+# Model weights come from HuggingFace; default revision of all-MiniLM-L6-v2 is
+# deterministic at a given chromadb client version. If weights drift, cross-run
+# ChromaDB numbers can deviate by ±1% — within the tolerance published in the
+# plan and parity table.
+
+[gitnexus]
+npm = "gitnexus@1.6.2"
+
+[cgc]
+pip = "codegraphcontext==0.4.2"
+
+[corpora.mempalace]
+# External reproducers: override via `MEMPALACE_PATH`. Pin the same commit for
+# apples-to-apples numbers.
+path_env = "MEMPALACE_PATH"
+commit = "32ec74d8eb79c97e17139999a321667201f372de"
+
+[corpora.django]
+# Bench #2 + Bench #3 (Django generalization). Override via `DJANGO_PATH`.
+path_env = "DJANGO_PATH"
+
+[services]
+# Bench #0 only requires ArcadeDB (behind Memtrace). CGC runs in-process —
+# no separate FalkorDB container was spawned during the 2026-04-21 parity run.
+# When Bench #3/#4 land with a dedicated CGC service topology, add FalkorDB here.
+arcadedb = "arcadedata/arcadedb@sha256:153ef190d21cad7f1c63ccc79dec7628ed1ae514b717a5be769568281bae3239"

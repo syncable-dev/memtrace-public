@@ -58,13 +58,28 @@ The agent doesn't just search your code. It *remembers* it.
 
 ## Benchmarks
 
-All four systems run on the same machine, same mempalace checkout, same 1,000 queries, same evaluator. Ground truth is extracted by Python's stdlib `ast` module — **not** from any tool's index — so no system gets a home-field advantage in the dataset itself. Full reproduction scripts, raw per-query results, and methodology notes live in [`benchmarks/fair/`](benchmarks/fair/).
+Five sub-benches across three corpora (mempalace, Django, a 21-file scratch fixture). Every system runs on the same machine, against the same ground truth, using the same adapter contract. Ground truth comes from Python's stdlib `ast`, the pyright LSP, or deterministic edit scripts — **never** from any tool's own index — so no system gets a home-field advantage in the dataset itself.
+
+Full reproduction instructions and per-bench numbers: [`benchmarks/README.md`](benchmarks/README.md). The frozen exact-symbol harness is [`benchmarks/fair/`](benchmarks/fair/); the extended harness covering all five benches is [`benchmarks/suite/`](benchmarks/suite/).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/benchmarks/benchmark-overview.svg"/>
   <source media="(prefers-color-scheme: light)" srcset="assets/benchmarks/benchmark-overview.svg"/>
   <img alt="Benchmark overview: Memtrace 96.7% Acc@1, 100% Acc@10, 9.16ms latency, 195 tokens — vs ChromaDB, GitNexus, CodeGrapher" src="assets/benchmarks/benchmark-overview.svg" width="720"/>
 </picture>
+
+**Summary across the five benches** (🟢 = Memtrace wins declared primary axis, 🟡 = Memtrace trails):
+
+| # | Bench | Primary axis | Memtrace | Runner-up | Δ |
+|:-:|:------|:-------------|---------:|:----------|---:|
+| 0 | Exact-symbol lookup (1,000 queries, mempalace) | `acc_at_1_pct` | **96.7%** 🟢 | ChromaDB 62.3% | 1.55× |
+| 1 | Token economy (same 1,000) | `acc_at_1_per_kilo_token` | **495.52** 🟢 | GitNexus 126.90 | 3.90× |
+| 2 | Intent retrieval (100 NL PR titles, Django) | `recall_at_10` | 58.6% 🟡 | ChromaDB 66.8% | −8.2 pp |
+| 3 | Graph queries (mempalace, pyright GT) | `callers_of.recall` | **0.851** 🟢 | CGC 0.584 | 1.46× |
+| 3 | Graph queries (Django, pyright GT) | `callers_of.recall` | **0.816** 🟢 | GitNexus 0.053 | 15.4× |
+| 4 | Incremental freshness (50 edits) | `time_to_queryable_p95` | **42.5 ms** 🟢 | CGC 613.7 ms | 14.4× faster |
+
+Memtrace wins 5 of 6, trails on 1 (Bench #2 — ChromaDB is the expected winner on semantic NL queries). Bench #5 (agent-level) is skeleton-only and gated behind `RUN_AGENT_BENCH=1`.
 
 ### Results (1,000 Python symbol-lookup queries on mempalace)
 
@@ -87,7 +102,7 @@ All four systems run on the same machine, same mempalace checkout, same 1,000 qu
 - **GitNexus** finds the right file 90% of the time — the old "12.8% accuracy" claim from the Acc@1-only harness understated it massively. GitNexus leads its response with execution *flows*, pushing standalone definitions down the list, which costs it rank-1 but not top-10.
 - **CodeGrapherContext**'s 67.2% coverage means its parser extracted two-thirds of the symbols Python's AST finds. Among symbols it did index, top-10 hit rate is excellent (~99%). Latency is dominated by the CLI re-initialising FalkorDB per call — operational, not algorithmic.
 
-**Where each tool shines** — this benchmark measures exact-symbol lookup only. Different workloads produce different rankings: ChromaDB wins on natural-language queries, GitNexus on execution-flow traces, Memtrace on exact lookup / typo tolerance / temporal queries / cross-service API topology. See [`benchmarks/fair/README.md`](benchmarks/fair/README.md) for a per-workload breakdown.
+**Where each tool shines** — the table above measures exact-symbol lookup only (Bench #0). Different workloads produce different rankings: ChromaDB wins Bench #2 (natural-language / intent retrieval), GitNexus has strong execution-flow traces, Memtrace wins exact lookup, graph queries (Bench #3), incremental freshness (Bench #4), token economy (Bench #1), plus capabilities no competitor has (bi-temporal memory, cross-service HTTP topology, typo tolerance via Levenshtein). See [`benchmarks/README.md`](benchmarks/README.md) for the full consolidated table and per-bench repro.
 
 <details>
 <summary><strong>Memtrace vs. general memory systems (Mem0, Graphiti)</strong></summary>
@@ -122,14 +137,18 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | Community detection (Louvain) | **Yes** | Yes | No |
 | Hybrid search (BM25 + vector + RRF) | **Yes — Tantivy + embeddings** | No | BM25 + optional embeddings |
 | Language | **Rust (compiled binary)** | JavaScript | Python |
-| Coverage (1K queries) | **100%** | 99.5% | 67.2% |
-| Acc@1 (1K queries) | **96.7%** | 27.1% | 6.4% |
-| Acc@10 (1K queries) | **100%** | 89.9% | 66.7% |
-| Query latency (1K queries) | **9.16 ms avg** (11.4 ms p95) | 191.2 ms avg | 1627.2 ms avg |
-| Tokens per query | **195 avg** | 213 avg | 221 avg |
+| **Bench #0** exact-symbol Acc@1 (1K queries, mempalace) | **96.7%** | 27.1% | 6.4% |
+| **Bench #0** Acc@10 | **100%** | 89.9% | 66.7% |
+| **Bench #0** latency | **9.16 ms avg** (11.4 ms p95) | 191.2 ms | 1,627.2 ms |
+| **Bench #0** tokens/query | **195** | 213 | 221 |
+| **Bench #1** Acc@1 per 1k tokens | **495.52** | 126.90 | 28.97 |
+| **Bench #3** graph: callers recall (mempalace, pyright GT, filtered) | **0.851** | 0.013 | 0.584 |
+| **Bench #3** graph: callers recall (Django, pyright GT, filtered) | **0.816** | 0.053 | 0.000 |
+| **Bench #3** graph: impact recall (mempalace) | **0.874** | 0.007 | not impl. |
+| **Bench #4** incremental `time_to_queryable` p95 | **42.5 ms** | `NotSupported` | 613.7 ms |
 | Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s Docker / Bolt / schema DDL startup on first run) | ~6 sec | ~1 sec (cached) |
 
-All numbers from [the fair benchmark](benchmarks/fair/) on the same machine, same mempalace checkout, same 1,000 queries. Ground truth is extracted by Python's stdlib `ast` — not from any tool's index — so no system is advantaged in the dataset itself. Metrics are `coverage` (did the tool index it?), `Acc@1` (is the correct file first?), and `Acc@10` (is it in the top-10?), which together separate parser coverage from rank quality.
+All numbers from [`benchmarks/`](benchmarks/) on the same machine, same corpora, same adapter contract. Ground truth is independent of every tool's index (Python `ast` for Bench #0/#1, pyright LSP for Bench #3, deterministic edit scripts for Bench #4) — no system is advantaged in the dataset itself. Bench #3 "filtered" rows only average over symbols with non-empty pyright gold on that axis; unfiltered rollups live in `benchmarks/suite/results/`.
 
 The latency difference is primarily Rust vs. interpreted runtimes, and ArcadeDB's Graph-OLAP engine (native CSR projections, PageRank/betweenness as in-database procedures) vs. HTTP/embedding pipelines. The feature difference is temporal memory and API topology — dimensions Memtrace adds on top of the shared AST-graph foundation.
 

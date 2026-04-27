@@ -15,7 +15,9 @@
   <a href="https://memtrace.io"><img src="https://img.shields.io/badge/docs-memtrace.io-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
 
-> **Early Access** — Memtrace is under active development. Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
+> **Waitlist & Early Access** — Memtrace is currently in a private beta. We are slowly rolling out access to ensure stability. **You must join the waitlist at [memtrace.io](https://memtrace.io) to use the product right now.**
+>
+> Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
 
 ---
 

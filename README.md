@@ -19,6 +19,8 @@
 >
 > Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
 
+> **🔒 Privacy** — Memtrace runs **entirely on your machine**. Your source code never leaves it. All parsing, graph construction, embedding generation, and querying happens locally. The only network traffic is license validation and aggregate usage counts (total nodes/edges — no code, no file paths, no symbol names). See [PRIVACY.md](PRIVACY.md) for the full breakdown.
+
 ---
 
 

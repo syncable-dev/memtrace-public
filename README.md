@@ -357,6 +357,27 @@ Already ran `npm uninstall` first? The cleanup script is persisted at `~/.memtra
 node ~/.memtrace/uninstall.js
 ```
 
+### A note on install
+
+`npm install -g memtrace` ships a small main package + a platform-specific binary (one of `@memtrace/darwin-arm64`, `@memtrace/linux-x64`, or `@memtrace/win32-x64`) that npm picks automatically.
+
+Most setups just work. If `memtrace start` ever says **"Could not find binary for your platform"**, any of these will fix it:
+
+```bash
+# Option 1 — re-run install, asking npm to keep optional deps
+npm install -g memtrace --include=optional
+
+# Option 2 — refresh from latest
+memtrace install                  # built-in self-update
+# or:
+npm install -g memtrace@latest --force
+
+# Option 3 — install the platform binary directly (Apple Silicon shown — swap for your platform)
+npm install -g @memtrace/darwin-arm64
+```
+
+This typically only happens on machines where npm is configured to skip optional dependencies (some corporate npmrc setups, certain CI caches). Postinstall self-heals on most installs; the options above cover the rest.
+
 ## Languages
 
 Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Swift · Kotlin · Ruby · PHP · Dart · Scala · Perl — and more via Tree-sitter.

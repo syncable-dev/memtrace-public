@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/memtrace"><img src="https://img.shields.io/npm/v/memtrace?style=flat-square&color=00D4B8&label=npm" alt="npm version" /></a>
+  <a href="https://github.com/syncable-dev/memtrace-public/stargazers"><img src="https://img.shields.io/github/stars/syncable-dev/memtrace-public?style=flat-square&color=00D4B8&label=GitHub%20stars" alt="GitHub stars" /></a>
   <a href="https://github.com/syncable-dev/memtrace-public/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Proprietary%20EULA-0A1628?style=flat-square" alt="license" /></a>
   <a href="https://memtrace.io"><img src="https://img.shields.io/badge/docs-memtrace.io-00D4B8?style=flat-square" alt="docs" /></a>
 </p>
@@ -20,6 +21,18 @@
 > Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
 
 > **🔒 Privacy** — Memtrace runs **entirely on your machine**. Your source code never leaves it. All parsing, graph construction, embedding generation, and querying happens locally. The only network traffic is license validation and aggregate usage counts (total nodes/edges — no code, no file paths, no symbol names). See [PRIVACY.md](PRIVACY.md) for the full breakdown.
+
+---
+
+## GitHub Star Growth
+
+<a href="https://www.star-history.com/syncable-dev/memtrace-public">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
+    <img alt="Memtrace GitHub star growth over time" src="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
+  </picture>
+</a>
 
 ---
 

@@ -20,7 +20,7 @@
 >
 > Core indexing and structural search are stable. Temporal features (evolution scoring, timeline replay) are functional but may have rough edges. [Report issues here.](https://github.com/syncable-dev/memtrace-public/issues)
 
-> **🔒 Privacy** — Memtrace runs **entirely on your machine**. Your source code never leaves it. All parsing, graph construction, embedding generation, and querying happens locally. The only network traffic is license validation and aggregate usage counts (total nodes/edges — no code, no file paths, no symbol names). See [PRIVACY.md](PRIVACY.md) for the full breakdown.
+> **🔒 Privacy** — Memtrace runs **entirely on your machine**. Your source code never leaves it. All parsing, graph construction, embedding generation, and querying happens locally. The only network traffic is license validation, aggregate usage counts (total nodes/edges — no code, no file paths, no symbol names), and opt-out telemetry for crashes / errors / app-start events (sanitised — no source, no file contents, no symbol names). See [PRIVACY.md](PRIVACY.md) and [TELEMETRY.md](TELEMETRY.md) for the full breakdowns. Disable telemetry with `MEMTRACE_TELEMETRY=off`.
 
 ---
 
@@ -40,6 +40,8 @@
 Memtrace gives coding agents something they've never had: **structural memory**. Not vector similarity. Not semantic chunking. A real knowledge graph compiled from your codebase's AST — where every function, class, interface, and API endpoint exists as a node with deterministic, typed relationships.
 
 Index once. Every agent query after that resolves through graph traversal — callers, callees, implementations, imports, blast radius, temporal evolution — in milliseconds, with zero token waste.
+
+> **Local machine requirements** — Memtrace indexes and embeds your code locally, so the first run is CPU/RAM intensive. Minimum: **4 CPU cores, 8 GB RAM, 5 GB free disk, Node.js 18+, and Git**. Recommended for large monorepos: **8+ CPU cores, 16–32 GB RAM, and 10–20 GB free disk**. No GPU required.
 
 ```bash
 npm install -g memtrace    # binary + 12 skills + MCP server — one command
@@ -163,7 +165,7 @@ GitNexus and CodeGrapherContext both build AST-based code graphs with structural
 | **Bench #3** graph: callers recall (Django, pyright GT, filtered) | **0.816** | 0.053 | 0.000 |
 | **Bench #3** graph: impact recall (mempalace) | **0.874** | 0.007 | not impl. |
 | **Bench #4** incremental `time_to_queryable` p95 | **42.5 ms** | `NotSupported` | 613.7 ms |
-| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s Docker / Bolt / schema DDL startup on first run) | ~6 sec | ~1 sec (cached) |
+| Index time (~250 files / 2.3K nodes / 5.8K edges) | **~4 sec** (≈500 ms of real work + ~3 s local database / schema startup on first run) | ~6 sec | ~1 sec (cached) |
 
 All numbers from [`benchmarks/`](benchmarks/) on the same machine, same corpora, same adapter contract. Ground truth is independent of every tool's index (Python `ast` for Bench #0/#1, pyright LSP for Bench #3, deterministic edit scripts for Bench #4) — no system is advantaged in the dataset itself. Bench #3 "filtered" rows only average over symbols with non-empty pyright gold on that axis; unfiltered rollups live in `benchmarks/suite/results/`.
 
@@ -382,13 +384,56 @@ This typically only happens on machines where npm is configured to skip optional
 
 Rust · Go · TypeScript · JavaScript · Python · Java · C · C++ · C# · Swift · Kotlin · Ruby · PHP · Dart · Scala · Perl — and more via Tree-sitter.
 
+## Telemetry
+
+Since v0.3.17 Memtrace ships with opt-out telemetry that helps us catch
+crashes, regressions, and performance issues before someone has to file
+an issue. Concretely:
+
+- **What's collected**: app-start events, indexing/embedding durations,
+  panic reports, and `WARN`/`ERROR` log lines from Memtrace's own crates.
+- **What's NOT collected**: source code, file contents, symbol names,
+  embeddings, repository names or paths, branch names, commit data.
+- **Sanitisation**: every payload is run through a sanitiser that strips
+  home-dir paths, token-shaped strings, and email addresses **before**
+  it touches disk.
+
+Turn it off with one env var:
+
+```bash
+# Per-run
+MEMTRACE_TELEMETRY=off memtrace start
+
+# Permanent (~/.zshrc, ~/.bashrc, etc.)
+export MEMTRACE_TELEMETRY=off
+```
+
+Or in your editor's MCP config:
+
+```json
+{
+  "command": "memtrace",
+  "args": ["mcp"],
+  "env": { "MEMTRACE_TELEMETRY": "off" }
+}
+```
+
+Full breakdown — including the on-disk queue layout, where the data is
+stored on the receiving end, and how to inspect what would have shipped —
+is in [TELEMETRY.md](TELEMETRY.md).
+
 ## Requirements
 
-| Dependency | Purpose |
-|:-----------|:--------|
-| **ArcadeDB** | Graph + document + vector database — auto-managed via `memtrace start` (pulls `arcadedata/arcadedb:latest`) |
-| **Node.js ≥ 18** | npm installation |
-| **Git** | Temporal analysis (commit history) |
+Memtrace does parsing, graph construction, and embedding generation locally. Expect the first index to use noticeable CPU and memory; follow-up queries and incremental indexing are much lighter.
+
+| Requirement | Minimum | Recommended |
+|:------------|:--------|:------------|
+| **CPU** | 4 cores | 8+ cores for large monorepos |
+| **Memory** | 8 GB RAM | 16–32 GB RAM |
+| **Disk** | 5 GB free | 10–20 GB free for large repositories |
+| **GPU** | Not required | Not required |
+| **Node.js** | ≥ 18 | Current LTS |
+| **Git** | Required for temporal analysis | Full repository history for best results |
 
 <br/>
 

@@ -190,12 +190,13 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 | `process` | string | yes | — |
 | `branch` | string | no | `"main"` |
 
-### `execute_cypher`
+### `find_dependency_path`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `query` | string | yes | — | Read-only Cypher. Write keywords (CREATE/MERGE/DELETE/SET) are rejected |
-| `params` | object | no | `{}` | JSON map of parameter bindings |
-| `repo_id` | string | no | — | Injected into `params` as `$repo_id` |
+| `repo_id` | string | yes | — | — |
+| `from` | string | yes | — | Source symbol name |
+| `to` | string | yes | — | Destination symbol name |
+| `max_depth` | integer | no | `8` | BFS hop limit |
 
 ## Quality
 

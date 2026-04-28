@@ -36,7 +36,7 @@ Each community represents a cohesive module — these are the "areas" of the cod
 
 ### 4. Find the most important symbols
 
-Call `find_central_symbols` with `limit: 15`. It ranks symbols by PageRank (ArcadeDB's native `algo.pagerank`) — no extra parameter needed.
+Call `find_central_symbols` with `limit: 15`. It ranks symbols by PageRank over the repo's CALLS / REFERENCES edges (default `method: "pagerank"`, 0.85 damping factor).
 
 These are the symbols that the rest of the codebase depends on most heavily. They form the "skeleton" of the architecture.
 

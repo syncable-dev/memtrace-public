@@ -1,22 +1,24 @@
 ---
 name: memtrace-graph
-description: "Use when the user asks about architectural bottlenecks, important symbols, PageRank, centrality, bridge functions, code communities, logical modules, service boundaries, chokepoints, or wants to understand the high-level architecture of a codebase"
+description: "Use when the user asks about architectural bottlenecks, important symbols, PageRank, centrality, bridge functions, code communities, logical modules, service boundaries, chokepoints, dependency paths between symbols, or wants to understand the high-level architecture of a codebase"
 ---
 
 ## Overview
 
-Graph algorithms that reveal the structural architecture of a codebase — community detection (Louvain), centrality ranking (PageRank/degree), bridge symbol identification (betweenness), and execution flow tracing.
+Graph algorithms that reveal the structural architecture of a codebase — community detection (Louvain), centrality ranking (PageRank), bridge symbol identification (Tarjan articulation points), shortest-path discovery, and execution flow tracing.
+
+All four algorithm tools (`find_central_symbols`, `find_bridge_symbols`, `find_dependency_path`, `list_communities`) run natively against the MemDB-backed knowledge graph.
 
 ## Quick Reference
 
 | Tool | Purpose |
 |------|---------|
-| `find_bridge_symbols` | Architectural chokepoints — symbols that connect otherwise-separate modules |
-| `find_central_symbols` | Most important symbols (PageRank via ArcadeDB `algo.pagerank`) |
+| `find_bridge_symbols` | Architectural chokepoints — symbols whose removal disconnects the graph (Tarjan articulation points) |
+| `find_central_symbols` | Most important symbols by **PageRank** (default) or degree centrality |
+| `find_dependency_path` | Shortest call/import path between two symbols (BFS over typed edges) |
 | `list_communities` | Louvain-detected logical modules/services |
 | `list_processes` | Execution flows: HTTP handlers, background jobs, CLI commands, event handlers |
-| `get_process_flow` | Trace a single process step-by-step |
-| `execute_cypher` | Direct read-only Cypher queries for custom analysis |
+| `get_process_flow` | Trace a single process step-by-step (ordered by indexed `step` property) |
 
 ## Parameter Types — Read This First
 
@@ -58,13 +60,14 @@ Use `find_central_symbols` to identify the most important symbols:
 **`find_central_symbols` parameters:**
 - `repo_id` — string, required.
 - `branch` — string, optional. Defaults to `"main"`.
+- `method` — string, optional. `"pagerank"` (default) or `"degree"`.
 - `limit` — **integer**, optional. How many to return. Default `20`, capped at `100`.
 
-Returns the top-N symbols ranked by **PageRank** (ArcadeDB's native `algo.pagerank` procedure). Filters the global run to Function/Method/Class/Interface/Struct in the requested repo + branch. Falls back to in-degree centrality only if the native procedure isn't registered on the connected ArcadeDB build.
+Returns the top-N symbols ranked by **PageRank** with the standard 0.85 damping factor over the repo's CALLS / REFERENCES edges. The output is sorted by score descending; each entry carries `name`, `kind`, `file_path`, `score`, `in_degree`, and `out_degree`. Filtered to Function / Method / Class / Interface / Struct in the requested repo + branch.
 
 ### 3. Find architectural chokepoints
 
-Use `find_bridge_symbols` to find symbols that, if removed, would disconnect parts of the graph. These are:
+Use `find_bridge_symbols` to find symbols that, if removed, would disconnect parts of the graph (Tarjan articulation points). These are:
 - **Single points of failure** — if they break, cascading failures occur
 - **Integration points** — good places for interfaces/contracts
 - **Refactoring targets** — often too much responsibility concentrated in one place
@@ -74,9 +77,19 @@ Use `find_bridge_symbols` to find symbols that, if removed, would disconnect par
 - `branch` — string, optional. Defaults to `"main"`.
 - `limit` — **integer**, optional. Default `15`, capped at `50`.
 
-Ranks symbols by **betweenness centrality** (ArcadeDB's native `algo.betweenness` with `normalized: true`) — how many shortest paths between other symbols pass through each one. Falls back to an in-degree × out-degree heuristic only if the native procedure isn't registered.
+Implementation: Tarjan articulation-point pass over the projected directed graph, sorted by the number of disconnected components each cut would produce.
 
-### 4. Trace execution flows
+### 4. Discover paths between symbols
+
+Use `find_dependency_path` to answer "how does symbol A reach symbol B?" — returns the shortest call/import chain via BFS over typed edges.
+
+**`find_dependency_path` parameters:**
+- `repo_id` — string, required.
+- `from` — string, required. Source symbol name.
+- `to` — string, required. Destination symbol name.
+- `max_depth` — **integer**, optional. Default `8`.
+
+### 5. Trace execution flows
 
 Use `list_processes` to see all entry points (HTTP handlers, background jobs, CLI commands, event handlers).
 
@@ -85,21 +98,12 @@ Use `list_processes` to see all entry points (HTTP handlers, background jobs, CL
 - `branch` — string, optional. Defaults to `"main"`.
 - `limit` — **integer**, optional. Default `50`.
 
-Use `get_process_flow` with a process name to trace a specific flow step-by-step — shows the full call chain from entry point through business logic to data access.
+Use `get_process_flow` with a process name to trace a specific flow step-by-step — shows the full call chain from entry point through business logic to data access, ordered by the indexed `step` property on each STEP_IN_PROCESS edge.
 
 **`get_process_flow` parameters:**
 - `process` — string, required. Process name or entry-point symbol name (from `list_processes`).
 - `repo_id` — string, required.
 - `branch` — string, optional. Defaults to `"main"`.
-
-### 5. Custom queries
-
-Use `execute_cypher` for advanced graph queries not covered by built-in tools. This is read-only and runs directly against the knowledge graph.
-
-**`execute_cypher` parameters:**
-- `query` — string, required. A read-only Cypher query. Write keywords (CREATE, MERGE, DELETE, SET, etc.) are forbidden. Use `$repo_id` to scope to a repository.
-- `params` — object, optional. JSON object of parameter bindings.
-- `repo_id` — string, optional. If provided, injected as `$repo_id` into `params`.
 
 ## Decision Points
 
@@ -108,5 +112,6 @@ Use `execute_cypher` for advanced graph queries not covered by built-in tools. T
 | "What are the main modules?" | `list_communities` |
 | "What are the most important functions?" | `find_central_symbols` (PageRank, native) |
 | "Where are the bottlenecks?" | `find_bridge_symbols` |
+| "How does symbol A reach symbol B?" | `find_dependency_path` |
 | "How does a request flow through the system?" | `list_processes` → `get_process_flow` |
 | "What's the entry point for feature X?" | `list_processes`, then filter by name |

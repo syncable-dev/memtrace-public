@@ -343,9 +343,61 @@ No parameters. Returns `{ watches: [{ path, repo_id, branch, started_at, origin 
 | `repo_id` | string | yes | — |
 | `days` | integer | no | all history |
 
+## Session bookends & pre-edit checks
+
+### `get_daily_briefing`
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | |
+| `window_hours` | integer | no | `24` | Clamped to 1–336 (14 days) |
+
+### `review_agent_sessions`
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | |
+| `window_hours` | integer | no | `24` | Clamped to 1–336. Saves >30 min apart split into separate sessions |
+
+### `find_hotspots`
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `repo_id` | string | yes | — | |
+| `window_days` | integer | no | `14` | Kept inside the engine's 15-day hot-history horizon; deeper windows trigger a full-store scan |
+| `top_n` | integer | no | `20` | Max rows |
+
+### `preflight_check`
+| Field | Type | Required | Default |
+|---|---|---|---|
+| `repo_id` | string | yes | — |
+| `symbol` | string | yes | — |
+
+## Cortex decision memory
+
+Proxied to memcortex-serve; available when the Cortex store is enabled. Ids are
+**JSON numbers** (Cortex node ids), not strings — `decision_id: 1`, never `"1"`.
+An unknown or empty query/id returns an explicit **CannotProve**, never a
+fabricated result.
+
+### `recall_decision`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `query` | string | yes | Free text; drives the lexical lane, decisions ranked first |
+
+(A tier-based decision cap is applied server-side; it is not a caller parameter.)
+
+### `get_arc` / `verify_intent`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `decision_id` | integer | yes | The `id` of a `kind: "decision"` hit from `recall_decision` |
+
+### `why_is_this_here` / `governing_contracts`
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `symbol_id` | integer | yes | Cortex symbol node id |
+
 ## When this file is wrong
 
 It's drift-prone. Regenerate by grepping `crates/memtrace-mcp/src/tools/*.rs`
-for `^pub struct.*Params` — the Rust declarations are the source of truth.
+for `^pub struct.*Params` — the Rust declarations are the source of truth
+(Cortex decision tools: `MemCortex/crates/memcortex-mcp/src/request.rs`).
 If a live tool call rejects with `-32602`, trust the Rust struct over this
 doc and file a fix PR.

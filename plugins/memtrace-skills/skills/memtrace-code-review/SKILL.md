@@ -1,6 +1,12 @@
 ---
 name: memtrace-code-review
-description: "Always use when the user asks to review a GitHub pull request, run Memtrace code review, post Memtrace review comments, create a PR with a review step, or publish local graph-backed review findings to GitHub. Prefer the review_github_pr MCP tool over manual diff inspection."
+description: "Review GitHub pull requests with Memtrace's local graph-backed review engine. Use when the user asks to review a GitHub pull request, run Memtrace code review, post Memtrace review comments, create a PR with a review step, or publish local graph-backed review findings to GitHub. Prefer the review_github_pr MCP tool over manual diff inspection. Do not use for local working-tree diffs — that is the built-in /code-review; this skill is for GitHub PRs via review_github_pr."
+allowed-tools:
+  - mcp__memtrace__review_github_pr
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
@@ -15,10 +21,19 @@ Use Memtrace's local-first PR review workflow. The agent should call the `review
 4. Default to `minSeverity: "high"` and `maxComments: 5` when posting. For previews, `maxComments: 10` is acceptable.
 5. Pass `repoRoot` when the PR checkout is not the current working directory. Pass `repoId` when the indexed repository id is known.
 
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
+## Example User Prompts
+
+- "Review this PR with Memtrace: https://github.com/OWNER/REPO/pull/123"
+- "Use Memtrace to review this pull request and post the findings: https://github.com/OWNER/REPO/pull/123"
+- "Create the PR, then run Memtrace code review and publish the review comments."
+
 ## Guardrails
 
 - Do not start with generic grep, rg, or manual diff review when `review_github_pr` is available.
 - Do not post comments unless the user explicitly requested publication.
+- After posting comments (`post: true`), record the PR URL and the posted comment IDs in the session output as the audit trail.
 - Do not create benchmark-specific or PR-specific findings. The review must come from general Memtrace detectors, graph evidence, and policy ranking.
 - If the tool reports missing auth, tell the user to run `memtrace auth login`.
 - If the tool reports missing GitHub App installation, tell the user to install Memtrace Code Reviewer on that repository.
@@ -26,10 +41,11 @@ Use Memtrace's local-first PR review workflow. The agent should call the `review
 
 ## Output
 
-For previews, summarize:
-- PR URL and repository
-- Graph state
-- Number of candidate comments
-- File, line, severity, and message for each finding
+Summarize the `review_github_pr` result with these fields:
 
-For posted reviews, report the PR URL and number of comments posted.
+| Field | Preview (`post: false`) | Posted (`post: true`) |
+|---|---|---|
+| PR URL + repository | yes | yes |
+| Graph state | yes | yes |
+| Findings | count of candidate comments, plus file, line, severity, message per finding | number of comments posted |
+| Posted comment IDs | — | yes — record with the PR URL as the audit trail |

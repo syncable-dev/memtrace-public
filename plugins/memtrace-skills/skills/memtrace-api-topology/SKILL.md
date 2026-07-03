@@ -1,58 +1,61 @@
 ---
 name: memtrace-api-topology
-description: "Always use for API endpoint, HTTP route, fetch/client call, REST surface, service dependency, cross-repo dependency, or API topology questions in source code. Do not use Grep, Glob, rg, find, or manual file search for routes or HTTP calls; Memtrace maps endpoints and call edges from the indexed AST graph."
+description: "Map API endpoints, outbound HTTP calls, and cross-repo service topology in indexed source code. Use when the user asks about API endpoints, HTTP routes, fetch/client calls, REST surface, service dependencies, cross-repo dependencies, or API topology. Do not use Grep, Glob, rg, find, or manual file search for routes or HTTP calls; Memtrace maps endpoints and call edges from the indexed AST graph."
+allowed-tools:
+  - mcp__memtrace__get_api_topology
+  - mcp__memtrace__find_api_endpoints
+  - mcp__memtrace__find_api_calls
+  - mcp__memtrace__get_symbol_context
+  - mcp__memtrace__link_repositories
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Map the HTTP API surface of a codebase — exposed endpoints, outbound HTTP calls, and cross-repo service-to-service dependency graphs. Supports auto-detection for Express, Encore, NestJS, Axum, FastAPI, Flask, Gin, Spring Boot, and more.
+Map HTTP API surface — endpoints, outbound calls, cross-repo topology.
 
 ## Quick Reference
 
-| Tool | Purpose |
-|------|---------|
-| `find_api_endpoints` | All exposed HTTP endpoints (GET /users, POST /orders, etc.) |
-| `find_api_calls` | All outbound HTTP calls (fetch, axios, reqwest, etc.) |
-| `get_api_topology` | Cross-repo call graph: which service calls which endpoint |
-| `link_repositories` | Manually link repos for cross-repo edge detection |
+| Tool | Required | Key optional |
+|------|----------|--------------|
+| `find_api_endpoints` | `repo_id` | `method`, `path_contains`, `limit`, `branch` |
+| `find_api_calls` | `repo_id` | `method`, `path_contains`, `limit`, `branch` |
+| `get_api_topology` | — | `repo_id`, `min_confidence`, `include_external` |
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
-
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Steps
 
-### 1. Discover endpoints
+### 1–3. Endpoints, calls, topology
 
-Use `find_api_endpoints`:
-- `repo_id` — required
-- Returns: method, path, handler function, framework detected
+```json
+{ "repo_id": "memdb" }
+{ "repo_id": "memdb", "method": "GET", "path_contains": "/users" }
+{ "min_confidence": 0.7 }
+```
 
-### 2. Discover outbound calls
+### 4. Deep-dive an endpoint handler
 
-Use `find_api_calls`:
-- `repo_id` — required
-- Returns: target URL/path, HTTP method, calling function, library used (fetch, axios, reqwest, etc.)
+Use handler **symbol name** — not symbol ID:
 
-### 3. Map service topology
+```json
+{ "repo_id": "memdb", "symbol": "handleGetUsers" }
+```
 
-Use `get_api_topology` to see the cross-repo HTTP call graph:
-- Which services call which endpoints
-- Confidence scores for each detected link
-- Service-to-service dependency direction
+## Output
 
-**Prerequisite:** Multiple repos must be indexed. If cross-repo links aren't appearing, use `link_repositories` to explicitly connect them.
-
-### 4. Deep-dive into an endpoint
-
-For any specific endpoint, use `get_symbol_context` with the endpoint's symbol ID to see:
-- Which internal functions handle the request
-- Which processes (execution flows) include this endpoint
-- Which external services call this endpoint
+| Result | Carries |
+|--------|---------|
+| Endpoint entry (`find_api_endpoints`) | HTTP method, route path, handler symbol name (feed to `get_symbol_context` as `symbol`) |
+| Call entry (`find_api_calls`) | HTTP method, target path, calling symbol |
+| Topology edge (`get_api_topology`) | caller repo → handler repo, confidence 0.0–1.0 (edges below `min_confidence` dropped) |
 
 ## Common Mistakes
 
 | Mistake | Reality |
 |---------|---------|
-| Expecting cross-repo links with only one repo indexed | Index ALL related services first; cross-repo HTTP edges are linked automatically after indexing |
-| Missing endpoints from custom frameworks | Memtrace auto-detects major frameworks; for custom routers, the endpoints may appear as regular functions |
-| Not using `link_repositories` | If auto-linking missed a connection, use this to manually establish cross-repo edges |
+| `get_symbol_context(symbol_id=...)` | Use **`symbol`** (name) + `repo_id` |
+| Cross-repo links with one repo indexed | Index all services; use `link_repositories` if needed |

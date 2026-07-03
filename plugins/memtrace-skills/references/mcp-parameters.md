@@ -35,8 +35,8 @@ arrays as arrays. No quoting numbers, no `"true"` for booleans.
 | `branch` *or* `branch_name` | string | Git branch. Default `"main"` across every tool. Both spellings occur historically — use whichever the specific tool's schema says |
 | `limit` | integer | Cap on returned results. Always a JSON number, never a string |
 | `depth` | integer | Graph traversal hops. 1–5 is reasonable; >8 explodes on wide graphs |
-| `symbol_id` | string (UUID) | Node UUID from `find_symbol` / `find_code` results |
-| `from` / `to` / `incident_time` | string (ISO-8601 with timezone) | e.g. `"2026-04-17T13:00:00Z"` — NOT a date like `"2026-04-17"` |
+| `target` / `symbol` | string | Symbol **name** for graph tools — `get_impact`/`analyze_relationships` use `target`; `get_symbol_context` uses `symbol` |
+| `from` / `to` / `since` / `until` | string | e.g. `"90d ago"`, `"2026-04-17T13:00:00Z"`, `"yesterday"` — relative strings work for temporal tools. **Never `days` on `get_evolution`.** |
 
 ## Search & discovery
 
@@ -45,16 +45,18 @@ arrays as arrays. No quoting numbers, no `"true"` for booleans.
 |---|---|---|---|---|
 | `query` | string | yes | — | Natural-language text |
 | `repo_id` | string | no | all repos | Scope to one repo |
-| `kind` | string | no | — | One of `Function`, `Class`, `Method`, `Interface`, `APIEndpoint`, `APICall` |
 | `file_path` | string | no | — | Path substring filter |
-| `limit` | integer | no | `20` | Capped at `100` |
-| `as_of` | string (ISO-8601) | no | now | Time-travel search |
+| `limit` | integer | no | `20` | Max 100 |
+| `as_of` | string | no | now | Time-travel search |
+| `include_diagnostics` | boolean | no | `false` | Include `id`, `score` in results |
+
+No `kind` param — use `find_symbol(kind=...)` instead.
 
 ### `find_symbol`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `name` | string | yes | — | Exact or partial identifier |
-| `fuzzy` | boolean | no | `false` | Levenshtein tolerance |
+| `fuzzy` | boolean | no | `false` | Exact-match today; field kept for API parity |
 | `edit_distance` | integer | no | `2` | Max 2. Only used when `fuzzy: true` |
 | `repo_id` | string | no | all repos | |
 | `kind` | string | no | — | Same enum as `find_code` |
@@ -80,27 +82,34 @@ No parameters. Call once at session start to get `repo_id` values.
 ### `get_symbol_context`
 | Field | Type | Required | Default |
 |---|---|---|---|
-| `symbol_id` | string (UUID) | yes | — |
+| `repo_id` | string | yes | — |
+| `symbol` | string | yes | — |
+| `file_path` | string | no | — |
+| `branch` | string | no | `"main"` |
+| `as_of` | string | no | now |
+| `view` | string | no | `"live"` |
 
 Returns: symbol, callers, callees, type_references, community, processes, api_callers_cross_repo.
 
 ### `analyze_relationships`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `symbol_id` | string (UUID) | yes | — | |
+| `repo_id` | string | yes | — | |
+| `target` | string | yes | — | Symbol name |
 | `query_type` | string enum | yes | — | `find_callers` \| `find_callees` \| `class_hierarchy` \| `overrides` \| `imports` \| `exporters` \| `type_usages` |
-| `depth` | integer | no | `2` | |
-| `limit` | integer | no | `50` | |
+| `depth` | integer | no | `3` | Max 10 |
+| `file_path` | string | no | — | Disambiguation hint |
 
 ## Impact
 
 ### `get_impact`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `symbol_id` | string (UUID) | yes | — | |
+| `repo_id` | string | yes | — | |
+| `target` | string | yes | — | Symbol name |
 | `direction` | string enum | no | `"both"` | `"upstream"` \| `"downstream"` \| `"both"` |
-| `depth` | integer | no | `3` | |
-| `limit` | integer | no | `100` | |
+| `depth` | integer | no | `5` | Max 15 |
+| `as_of` | string | no | now | |
 
 ### `detect_changes`
 | Field | Type | Required | Default | Notes |
@@ -118,13 +127,22 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `repo_id` | string | yes | — | |
-| `from` | string (ISO-8601) | yes | — | Start of window |
-| `to` | string (ISO-8601) | yes | — | End of window |
-| `mode` | string enum | no | `"compound"` | `"compound"` \| `"impact"` \| `"novel"` \| `"recent"` \| `"directional"` \| `"overview"` |
-| `incident_time` | string (ISO-8601) | no | — | Reference for `recent` mode |
-| `branch` | string | no | `"main"` | |
-| `max_symbols` | integer | no | `50` | Per category |
-| `scope` | string | no | — | File / module prefix |
+| `from` | string | yes | — | Start of window. RFC3339, ISO date, epoch, or relative (`"7d ago"`, `"yesterday"`). **Never pass `days`.** |
+| `to` | string | no | now | End of window |
+| `mode` | string enum | no | `"recent"` | `"recent"` \| `"compound"` \| `"summary"` \| `"overview"` (alias for `summary`) |
+| `target` | string | no | — | Symbol name or file path substring scope |
+| `branch` | string | no | any branch | |
+| `file_path` | string | no | — | **`recent` mode only** — substring match on `touched_files` |
+| `kind` | string | no | — | **`recent` mode only** — `"git_commit"` or `"working_tree"` |
+| `limit` | integer | no | `100` | **`recent` mode only** — page size; `0` = server cap |
+| `cursor` | integer | no | `0` | **`recent` mode only** — pagination offset |
+
+**Response by mode:**
+- `recent` → `episodes[]`, `totals`, `page` (with `next_cursor`)
+- `compound` → `totals`, `top_changed_files`, `top_touched_symbols`
+- `summary` / `overview` → `totals`, `first_episode`, `last_episode`
+
+Modes **`impact`**, **`novel`**, **`directional`** are **not implemented**.
 
 ### `get_timeline`
 | Field | Type | Required | Default | Notes |
@@ -137,30 +155,41 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 ### `get_episode_replay`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `repo_id` | string | yes | — | |
-| `symbol` | string | yes | — | Symbol name, e.g. `"validateToken"` |
-| `from` | string (ISO-8601) | yes | — | Window start |
-| `to` | string (ISO-8601) | yes | — | Window end |
-| `branch` | string | no | `"main"` | |
-| `include_working_tree` | boolean | no | `true` | Include uncommitted file-save episodes |
+| `episode_id` | string | † | — | Episode UUID — preferred when known |
+| `repo_id` | string | † | — | Required with `episode_index` when `episode_id` omitted |
+| `episode_index` | integer | † | — | 0 = newest episode |
+| `branch` | string | no | any branch | Used with `episode_index` |
+| `symbol` | string | no | — | Optional filter — scope to one symbol |
+| `kind` | string | no | — | e.g. `Function`, `CALLS` — narrow large commits |
+| `file_path` | string | no | — | Substring filter on record paths |
+| `limit` | integer | no | `200` | Page size per bucket; `0` = no pagination |
+| `cursor` | integer | no | `0` | Pagination offset |
+| `mode` | string | no | default | `"graph_summary"` for digest on large commits |
+| `compress` | boolean | no | `true` | Collapse identical-hash modifications |
+
+† Supply `episode_id`, OR `repo_id` + `episode_index`.
 
 ### `get_changes_since`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `repo_id` | string | yes | — | |
-| `last_episode_id` | string | no † | — | Preferred anchor from previous response |
-| `last_reference_time` | string (ISO-8601) | no † | — | Fallback when no episode ID |
-| `branch` | string | no | `"main"` | |
+| `since` | string | yes | — | Cutoff timestamp. Same formats as `get_evolution.from`. **Not** `last_episode_id`. |
+| `until` | string | no | now | Optional upper bound |
+| `branch` | string | no | any branch | |
 
-† Pass exactly one.
+Returns `episodes[]` with per-episode change counts and `totals`. Store `until` (or latest episode `reference_time`) as the next session's `since` value.
 
 ### `get_cochange_context`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `repo_id` | string | yes | — | |
-| `symbol` | string | yes | — | Symbol name (not ID) |
-| `branch` | string | no | `"main"` | |
-| `limit` | integer | no | `20` | |
+| `target` | string | yes | — | Symbol name or file path |
+| `window_days` | integer | no | `30` | Lookback from `as_of` |
+| `as_of` | string | no | now | Window anchor |
+| `branch` | string | no | any branch | |
+| `limit` | integer | no | `10` | Max cochanged files returned |
+
+Returns `cochanged_files[]` with `file_path`, `cochange_count`, `last_cochanged_at`.
 
 ## Graph algorithms
 
@@ -168,9 +197,9 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `repo_id` | string | yes | — | |
-| `branch` | string | no | `"main"` | |
-| `algorithm` | string enum | no | `"pagerank"` | `"pagerank"` \| `"degree"` — falls back to degree if MAGE unavailable |
-| `limit` | integer | no | `20` | Max 100 |
+| `branch` | string | no | any branch | |
+| `kinds` | array of string | no | Function/Method/Class/… | |
+| `limit` | integer | no | `25` | Max 100. Always PageRank — no `method` param. |
 
 ### `find_bridge_symbols`
 | Field | Type | Required | Default | Notes |
@@ -204,10 +233,11 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 ### `find_dependency_path`
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `repo_id` | string | yes | — | — |
-| `from` | string | yes | — | Source symbol name |
-| `to` | string | yes | — | Destination symbol name |
-| `max_depth` | integer | no | `8` | BFS hop limit |
+| `repo_id` | string | yes | — | |
+| `source` | string | yes | — | Start symbol name |
+| `target` | string | yes | — | End symbol name |
+| `max_depth` | integer | no | `20` | Max 20 |
+| `edge_type` | string | no | calls+refs+… | Comma-separated or alias |
 
 ## Quality
 
@@ -231,13 +261,14 @@ Returns: symbol, callers, callees, type_references, community, processes, api_ca
 |---|---|---|---|
 | `repo_id` | string | yes | — |
 | `branch` | string | no | `"main"` |
-| `limit` | integer | no | `10` |
-| `min_complexity` | integer | no | `0` |
+| `top_n` | integer | no | `20` |
+| `kinds` | array of string | no | Function+Method |
 
 ### `calculate_cyclomatic_complexity`
 | Field | Type | Required | Default |
 |---|---|---|---|
-| `symbol_id` | string (UUID) | yes | — |
+| `repo_id` | string | yes | — |
+| `target` | string | yes | — |
 
 ## API topology
 
@@ -291,8 +322,26 @@ Connects already-indexed repos so `get_api_topology` can stitch their HTTP graph
 |---|---|---|---|
 | `repo_id` | string | yes | — |
 
-### `watch_directory` / `unwatch_directory` / `list_watched_paths`
-File watcher control. See the tool schema via `list_tools` for current fields.
+### `watch_directory`
+| Field | Type | Required | Default |
+|---|---|---|---|
+| `path` | string | yes | — |
+| `repo_id` | string | yes | — |
+| `branch` | string | no | `"main"` |
+
+### `unwatch_directory`
+| Field | Type | Required |
+|---|---|---|
+| `path` | string | yes |
+
+### `list_watched_paths`
+No parameters. Returns `{ watches: [{ path, repo_id, branch, started_at, origin }], count }`.
+
+### `replay_history`
+| Field | Type | Required | Default |
+|---|---|---|---|
+| `repo_id` | string | yes | — |
+| `days` | integer | no | all history |
 
 ## When this file is wrong
 

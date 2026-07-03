@@ -1,128 +1,167 @@
 ---
 name: memtrace-evolution
-description: "Always use for source-code change history, recent modifications, what changed since a date, symbol timeline, evolution, unexpected changes, or incident timeline questions. Do not use git log, git diff, Grep, or manual file search to reconstruct history; Memtrace has symbol-level temporal memory."
+description: "Trace source-code change history from Memtrace's symbol-level temporal memory. Use when the user asks about change history, recent modifications, what changed since a date, symbol timeline, evolution, unexpected changes, or incident timelines. Do not use git log, git diff, Grep, or manual file search to reconstruct history. Do NOT use for current-state architecture overviews (use memtrace-codebase-exploration) or for replaying one commit/save's graph diff (use memtrace-episode-replay)."
+allowed-tools:
+  - mcp__memtrace__get_evolution
+  - mcp__memtrace__get_timeline
+  - mcp__memtrace__detect_changes
+  - mcp__memtrace__list_indexed_repositories
+  - mcp__memtrace__get_changes_since
+  - mcp__memtrace__get_impact
+  - mcp__memtrace__get_cochange_context
+  - mcp__memtrace__get_episode_replay
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Multi-mode temporal analysis engine that answers "what changed and why should I care?" across arbitrary time windows. Uses Structural Significance Budgeting (SSB) to surface the most important changes without overwhelming you with noise.
+Temporal analysis for "what changed in this repo between two points in time?" Works on both git commits and uncommitted working-tree saves.
 
-This is memtrace's most powerful analytical tool. It implements six distinct scoring algorithms — choose the right one based on what the user needs.
+## Required parameters — read before calling
 
-## Query Modes — Choose the Right Algorithm
+`get_evolution` **always** requires `repo_id` and `from`. There is no `days` parameter.
 
-| Mode | Algorithm | Best For |
-|------|-----------|----------|
-| `compound` | Rank-fusion: 0.50×impact + 0.35×novel + 0.15×recent | **Default.** General-purpose "what changed?" — use when unsure |
-| `impact` | Structural Significance: `sig(n) = in_degree^0.7 × (1 + out_degree)^0.3` | "What broke?" — finds changes with the largest blast radius |
-| `novel` | Change Surprise Index: `surprise(n) = (1 + in_degree) / (1 + change_freq_90d)` | "What's unexpected?" — anomaly detection for rarely-changing code |
-| `recent` | Temporal Proximity: `impact × exp(−0.5 × Δhours)` | "What changed near the incident?" — time-weighted for root cause |
-| `directional` | Asymmetric scoring (added→out_degree, removed→in_degree, modified→impact) | "What was added vs removed?" — structural change direction |
-| `overview` | Fast module-level rollup only | Quick summary — no per-symbol scoring, just module counts |
+| Parameter | Required | Type | Example |
+|---|---|---|---|
+| `repo_id` | yes | string | `"memdb"` |
+| `from` | yes | string | `"90d ago"`, `"2026-04-01T00:00:00Z"`, `"yesterday"` |
+| `to` | no | string | defaults to now; set to incident time when investigating |
+| `mode` | no | string | `"recent"` (default), `"compound"`, `"summary"`, `"overview"` |
+| `target` | no | string | symbol name or file path substring to scope results |
+| `branch` | no | string | branch filter |
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `cursor`, etc.) must be JSON numbers — not strings. Use `limit: 100`, never `limit: "100"`.
 
+### Time-window parameters — do not confuse these tools
+
+| Tool | Time param | Example | Notes |
+|---|---|---|---|
+| `get_evolution` | **`from`** (required) | `"90d ago"` | optional `to`; **never** pass `days` |
+| `get_changes_since` | **`since`** (required) | `"2026-04-13T10:43:00Z"` | optional `until` |
+| `replay_history` | **`days`** (optional) | `90` | re-walks git history — different tool entirely |
+
+Common failure: `MCP error -32602: missing field 'from'` — you omitted `from` or passed `days` instead.
+
+```json
+// CORRECT — 90-day overview
+{ "repo_id": "memdb", "from": "90d ago", "mode": "overview" }
+
+// WRONG — days is not a get_evolution parameter
+{ "repo_id": "memdb", "days": 90, "mode": "overview" }
+```
+
+## Query modes — only these four exist
+
+| Mode | What you get | Best for |
+|---|---|---|
+| `recent` | Per-episode list with nodes/edges added/removed; paginate with `limit` + `cursor` | Incident timelines, walking commit-by-commit |
+| `compound` | Totals plus `top_changed_files` and `top_touched_symbols` | "What changed?" when you need hotspots |
+| `summary` | Totals plus `first_episode` / `last_episode` metadata | Cheapest window check |
+| `overview` | Alias for `summary` | Same as `summary` |
+
+Modes **`impact`**, **`novel`**, and **`directional`** are **not implemented** — calling them returns `unknown mode`.
+
+### `recent` mode filters (ignored by `compound` / `summary`)
+
+| Param | Purpose |
+|---|---|
+| `file_path` | substring match against episode `touched_files` |
+| `kind` | `"git_commit"` or `"working_tree"` |
+| `limit` | page size (default 100 episodes) |
+| `cursor` | pagination offset; follow `next_cursor` in response |
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Steps
 
-### 1. Determine the time window
-
-Ask the user or infer:
-- `from` — ISO-8601 start timestamp (required)
-- `to` — ISO-8601 end timestamp (defaults to now)
-- `repo_id` — scope to a repo (call `list_indexed_repositories` if unknown)
-
-### 2. Choose the mode
-
-**Decision tree:**
+### 1. Get `repo_id`
 
 ```
-User wants to know...
-├── "what changed?"           → compound (default)
-├── "what could have broken?" → impact
-├── "anything unexpected?"    → novel
-├── "what changed near X?"    → recent (set to to incident time)
-├── "what was added/removed?" → directional
-└── "quick summary?"          → overview
+list_indexed_repositories()
 ```
 
-### 3. Execute the query
+### 2. Choose the time window
 
-Use the `get_evolution` MCP tool with:
-- `repo_id` — required
-- `from` / `to` — the time window
-- `mode` — one of: compound, impact, novel, recent, directional, overview
+- `from` — start (required). Relative strings work: `"7d ago"`, `"24 hours ago"`.
+- `to` — end (optional, defaults to now). Set to the incident timestamp when investigating regressions.
 
-### 4. Interpret results
+If resuming a session and you have a stored timestamp from last time, prefer `get_changes_since(since=...)` — see `memtrace-session-continuity`.
 
-The response contains:
+### 3. Choose the mode
 
-- **`added[]`** — new symbols that appeared in the time window
-- **`removed[]`** — symbols that were deleted
-- **`modified[]`** — symbols that changed
-- **`by_module[]`** — module-level rollup (NEVER truncated — always shows all modules)
-- **`significance_coverage`** — fraction of total significance captured (target: ≥0.80)
-- **`budget_exhausted`** — if true, there were more significant changes than the budget allowed
-
-Each symbol includes: `name`, `kind`, `file_path`, `scope_path`, `in_degree`, `out_degree`, and all four scores (`impact`, `novel`, `recent`, `compound`).
-
-### 5. Drill deeper
-
-- **For a single symbol's full history:** Use `get_timeline` with the symbol name
-- **For diff-based change scope:** Use `detect_changes` when you have a specific diff/patch
-- **For blast radius of a specific change:** Use `get_impact` on high-scoring symbols
-
-## Scoring Algorithms — Detailed Reference
-
-### Impact Score (Structural Significance Budgeting)
 ```
-sig(n) = in_degree^0.7 × (1 + out_degree)^0.3
+User wants...
+├── per-commit / per-save changelog     → recent
+├── top changed files + symbols         → compound
+├── quick totals only                   → summary or overview
+└── one symbol's full history           → get_timeline (not get_evolution)
 ```
-- Heavily weights callers (in_degree) — symbols called by many others have high blast radius
-- Mild boost for outbound complexity (out_degree) — complex functions that changed are notable
-- SSB selects the minimum set covering ≥80% of total significance mass
 
-### Novelty Score (Change Surprise Index)
+### 4. Execute
+
+```json
+// General "what changed lately?"
+{ "repo_id": "memdb", "from": "30d ago", "mode": "compound" }
+
+// Changes in one file last week
+{ "repo_id": "memdb", "from": "7d ago", "mode": "recent", "file_path": "auth.ts", "limit": 50 }
+
+// Incident: 24h before failure until failure time
+{ "repo_id": "memdb", "from": "2026-04-16T13:00:00Z", "to": "2026-04-17T13:00:00Z", "mode": "recent" }
 ```
-surprise(n) = (1 + in_degree) / (1 + change_freq_90d)
+
+### 5. Interpret results
+
+**`recent` mode** — each entry in `episodes[]`:
+- `episode` — metadata (`source_type`, `reference_time`, `touched_files`, …)
+- `nodes_added`, `nodes_removed`, `edges_added`, `edges_removed`
+
+**`compound` mode:**
+- `totals` — aggregate counts
+- `top_changed_files` — files with most activity
+- `top_touched_symbols` — symbols with most activity
+
+**`summary` / `overview` mode:**
+- `totals` — episode and node/edge counts
+- `first_episode`, `last_episode` — window boundaries
+
+### 6. Drill deeper
+
+| Need | Tool |
+|---|---|
+| Full history of one symbol | `get_timeline(repo_id, scope_path, file_path)` |
+| Blast radius of a suspect symbol | `get_impact(repo_id, target)` |
+| What a diff would affect | `detect_changes(repo_id, diff=...)` |
+| Behavioral coupling | `get_cochange_context(repo_id, target=<symbol>)` |
+| Sub-commit tried-and-reverted history | `get_episode_replay` |
+
+## Output
+
+Sample `compound` payload (per-mode field lists: step 5 above):
+
+```json
+{
+  "totals": { "episodes": 42, "nodes_added": 310, "nodes_removed": 95,
+              "edges_added": 541, "edges_removed": 120 },
+  "top_changed_files":   [ /* files ranked by activity */ ],
+  "top_touched_symbols": [ /* symbols ranked by activity */ ]
+}
 ```
-- High in_degree + low change frequency = **maximum surprise**
-- A core utility that hasn't changed in 90 days suddenly changing → likely worth investigating
-- Low in_degree + high frequency = routine churn, deprioritized
 
-### Recent Score (Temporal Proximity Weighting)
-```
-recent(n) = impact(n) × exp(−0.5 × |Δhours to reference|)
-```
-- Exponential decay from the reference timestamp (the `to` parameter)
-- Changes close to an incident get amplified; older changes fade
-- Best for incident timelines: set `to` to the incident timestamp
+`recent` returns `episodes[]` + `totals` + `page.next_cursor`; `summary`/`overview` return `totals` + `first_episode`/`last_episode`.
 
-### Compound Score (Rank Fusion)
-```
-compound = 0.50×rank(impact) + 0.35×rank(novel) + 0.15×rank(recent)
-```
-- Rank-based fusion avoids scale sensitivity between different score types
-- Impact-dominant but boosted by novelty and recency
-- Best default when you don't have a specific hypothesis
-
-## Auto-overview Safety
-
-If a time window produces more than 500 candidates and mode is not `overview`, the query **automatically downgrades to overview mode** and returns `auto_overview: true`. This prevents timeouts on wide windows. When you see `auto_overview: true`:
-- Narrow the window, OR
-- Switch to `get_changes_since` (which handles this automatically), OR
-- Use the `by_module` rollup to identify the specific area and query a tighter window
-
-## Session-Aware Alternative
-
-If you're resuming work after a break and don't know the right `from` timestamp, use `get_changes_since` instead — it accepts a `last_episode_id` anchor and never requires timestamp guessing.
-
-## Common Mistakes
+## Common mistakes
 
 | Mistake | Reality |
-|---------|---------|
-| Using `overview` when user needs details | Overview only gives module-level counts — use `compound` for symbol-level |
-| Ignoring `budget_exhausted` flag | If true, there are more significant changes beyond what was returned — narrow the time window or use module rollup |
-| Not checking `by_module` first | Module rollup is never truncated — scan it to identify which areas changed before diving into symbol-level |
-| Using `recent` without setting `to` | The `to` timestamp is the reference point for proximity weighting — set it to the incident/event time |
-| Guessing timestamps when resuming work | Use `get_changes_since` with a stored `session_anchor` instead — exact episode boundary, no guessing |
+|---|---|
+| Passing `days: 90` | Use `from: "90d ago"` — `days` is only on `replay_history` |
+| Omitting `from` | Required — call fails with `-32602` before any query runs |
+| Using `mode: "novel"` / `"impact"` / `"directional"` | Not implemented — use `compound` + `get_impact` + `get_cochange_context` instead |
+| Expecting `by_module[]` or significance scores | Not in current response shape — use `top_changed_files` from `compound` |
+| Using `overview` when you need file/symbol detail | `overview`/`summary` are totals only — switch to `compound` or `recent` |
+| Using `get_evolution` for one symbol's history | Use `get_timeline` |
+| Guessing timestamps when resuming work | Use `get_changes_since(since=<stored time>)` — see `memtrace-session-continuity` |
+| Applying `file_path` filter in `compound` mode | Filters are ignored in roll-up modes — use `recent` with `file_path` instead |

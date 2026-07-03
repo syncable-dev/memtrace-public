@@ -1,61 +1,92 @@
 ---
 name: memtrace-cochange
-description: "Always use for historical coupling, co-change, what changes with this, hidden dependency, or what else needs to move questions for source code. Do not use git log, git diff, Grep, or manual file search to correlate changes; Memtrace queries co-change and temporal graph data directly."
+description: "Find files that historically co-change with a target symbol or file, ranked by co-occurrence across git episodes. Use when the user asks about historical coupling, co-change, what changes with this, hidden dependencies, or what else needs to move for source code. Do not use git log, git diff, Grep, or manual file search to correlate changes; Memtrace queries co-change and temporal graph data directly."
+allowed-tools:
+  - mcp__memtrace__get_cochange_context
+  - mcp__memtrace__find_symbol
+  - mcp__memtrace__get_impact
+  - mcp__memtrace__replay_history
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Find symbols that historically co-change with a target symbol — ranked by co-occurrence frequency across all episodes. This surfaces **behavioral coupling** that the static call graph cannot see.
+Find **files** that historically co-change with a target symbol or file path — ranked by co-occurrence frequency across git episodes. Surfaces **behavioral coupling** the static call graph cannot see.
 
 `get_impact` answers "who calls this?" (structural).
-`get_cochange_context` answers "what always moves when this moves?" (historical).
+`get_cochange_context` answers "what files always move when this moves?" (historical, file-level).
 
-They are complementary. A symbol with no direct callers can still have strong cochange partners if it's always modified alongside another in every commit.
+They are complementary. A file with no call-graph edges to the target can still be a strong cochange partner if it's always modified alongside it in every commit.
 
-> **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
+> **Parameter types:** Numbers (`limit`, `window_days`, etc.) must be JSON numbers — not strings.
 
+## Required parameters
+
+| Parameter | Required | Default | Notes |
+|---|---|---|---|
+| `repo_id` | yes | — | |
+| `target` | yes | — | Symbol name **or** file path substring — **not** `symbol` |
+| `limit` | no | **10** | Max cochanged files returned |
+| `window_days` | no | **30** | Lookback from `as_of` |
+| `as_of` | no | now | Window anchor |
+| `branch` | no | any branch | |
+
+```json
+{
+  "repo_id": "memdb",
+  "target": "execute",
+  "limit": 10,
+  "window_days": 30
+}
+```
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
+## Output
+
+```json
+{
+  "cochanged_files": [
+    {
+      "file_path": "src/order/types.rs",
+      "cochange_count": 8,
+      "last_cochanged_at": "2026-04-13T10:43:00Z"
+    }
+  ],
+  "target_files": ["src/order/service.rs"]
+}
+```
+
+There is **no** `cochanges[]` with symbol names — results are **file-level**.
 
 ## Steps
 
-### 1. Identify the target symbol
+### 1. Identify the target
 
-Use `find_symbol` if you need the exact name. The tool matches by `name` field.
+Use `find_symbol` if needed. Pass the symbol **`name`** or a **`file_path`** as `target`.
 
 ### 2. Call `get_cochange_context`
 
-```
-get_cochange_context(
-  repo_id: "...",
-  symbol: "execute",    // exact symbol name
-  limit: 20             // default 20, increase for broader view
-)
-```
+See required parameters above.
 
 ### 3. Interpret results
 
-The response contains `cochanges[]`, each with:
-- `name` — symbol name
-- `kind` — Function / Method / Class / Struct
-- `file_path` — where it lives
-- `cochange_count` — how many episodes it shared with the target
-
-```
-High cochange_count = strong historical coupling
-→ If you modify the target, you will likely need to touch this too
-→ Or it may be the real root cause you should investigate first
-```
+High `cochange_count` on a file → strong historical coupling. When you modify the target, review those files too — even without direct call-graph edges.
 
 ### 4. Cross-reference with call graph
 
-For the top cochange partners, optionally run `get_impact` to see if the coupling is also structural:
+For symbols in cochanged files, optionally run `get_impact(target=...)`:
 
 | Structural coupling | Historical coupling | Interpretation |
 |---|---|---|
-| Yes | Yes | Core architectural dependency — highest risk |
-| No | Yes | Hidden coupling — only visible through history |
-| Yes | No | Called frequently but changed independently — lower risk |
+| Yes | Yes | Core dependency — highest risk |
+| No | Yes | Hidden coupling — history-only |
+| Yes | No | Called often but changed independently |
 
-## When to Use
+## Use Cases
 
 - **Before modifying a symbol** — get blast awareness beyond what `get_impact` shows
 - **Incident investigation** — when `get_impact` doesn't explain the blast radius, check cochange history
@@ -67,5 +98,9 @@ For the top cochange partners, optionally run `get_impact` to see if the couplin
 | Mistake | Reality |
 |---------|---------|
 | Only using `get_impact` for blast radius | Structural coupling misses behavioral coupling — always pair with cochange |
-| Ignoring low-`in_degree` cochange partners | A rarely-called utility with high cochange_count is a strong coupling signal |
-| Using cochange as a dependency map | It's not a dependency graph — it's a change correlation. Two symbols can cochange without any direct relationship. |
+| Ignoring cochanged files with no call-graph edges | A rarely-called file with high `cochange_count` is a strong coupling signal |
+| Using cochange as a dependency map | It's a change correlation, not a dependency graph — files can cochange without any direct relationship |
+| Passing `symbol:` | Required param is **`target`** |
+| Expecting `cochanges[]` with symbol names | Response is **`cochanged_files[]`** (file paths) |
+| Using `limit: 20` as default | API default is **10** |
+| Empty results with 0 git episodes | Run `replay_history` during indexing to populate co-change data |

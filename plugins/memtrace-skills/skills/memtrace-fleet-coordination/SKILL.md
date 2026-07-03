@@ -1,6 +1,17 @@
 ---
 name: memtrace-fleet-coordination
-description: "Use when you need to understand or act on fleet conflict resolution: what conflict class A/B/C means, how a Class C destructive overlap gets decided (by an agent judge or a human), how to be the judge (fleet_submit_verdict), how to read your directive after a decision, and how branch-scoping isolates fleets. Triggered by: 'two agents are changing the same thing', 'resolve this conflict', 'who should proceed', 'a decision is waiting', acting as a mediator between agents."
+description: "Resolve fleet conflicts between coordinated agents: what conflict class A/B/C means, how a Class C destructive overlap gets decided (by an agent judge or a human), how to be the judge (fleet_submit_verdict), how to read your directive after a decision, and how branch-scoping isolates fleets. Use when the user says 'two agents are changing the same thing', 'resolve this conflict', 'who should proceed', 'a decision is waiting', or asks you to act as a mediator between agents. This skill explains the conflict model and decision loop; for just the verdict/directive/resolution tool calls on a specific escalation, use memtrace-fleet-resolve."
+allowed-tools:
+  - mcp__memtrace__fleet_record_episode
+  - mcp__memtrace__fleet_submit_verdict
+  - mcp__memtrace__fleet_get_escalation
+  - mcp__memtrace__fleet_list_escalations
+  - mcp__memtrace__fleet_resolve_escalation
+  - mcp__memtrace__fleet_get_node_state
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 # Fleet Coordination
@@ -45,6 +56,8 @@ fleet_submit_verdict({
 Verdict kinds: `reconcile {merge_plan}` · `recommend {winner, rationale, confidence}`
 · `defer_to_human {question}`.
 
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
 The referee then decides the outcome:
 - **Auto-apply** only when safe: the clear machine case, or ≥2 independent agents
   agree — and **never** for a destructive *removal* (delete/move), which always
@@ -78,3 +91,17 @@ one session branch and conflicts stay real and resolvable.
 `fleet_get_node_state({repo_id, node})` — recent episodes, active intents, dominant
 intent, and conflict density for one symbol. Use it to understand pressure on a
 hot symbol before you pile on.
+
+## Output
+
+`fleet_record_episode` on a destructive overlap, then `fleet_get_escalation` once decided:
+
+```jsonc
+// fleet_record_episode
+{ "conflict_class": "C", "escalation_id": "01J…",
+  "mediation_request": { /* every agent's assignment + the contested symbols */ } }
+
+// fleet_get_escalation — poll until your_directive ≠ "wait"
+{ "your_directive": "defer",
+  "resolution": "recommend: agent-b — rebase the fix onto the signature change" }
+```

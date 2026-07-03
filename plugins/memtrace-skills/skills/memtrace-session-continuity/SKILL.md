@@ -1,93 +1,111 @@
 ---
 name: memtrace-session-continuity
-description: "Always use at session start or resume when the user asks to continue, catch up, see what changed while away, recover prior context, or orient without guessing timestamps in an indexed source-code repo. Do not use git log, Grep, or manual file search for catch-up; Memtrace provides session anchors and change memory."
+description: "Catch up on everything that changed in an indexed source-code repo since the last session, using stored session anchors and Memtrace change memory. Use when the user asks to continue, catch up, resume, see what changed while away, recover prior context, or orient at session start without guessing timestamps. Do not use git log, Grep, or manual file search for catch-up; Memtrace provides session anchors and change memory."
+allowed-tools:
+  - mcp__memtrace__get_changes_since
+  - mcp__memtrace__list_indexed_repositories
+  - mcp__memtrace__get_evolution
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Session continuity for agents. Instead of guessing a time window and blindly running `get_evolution`, pass a `session_anchor` from your last session and get back exactly what changed — nothing more. The response returns a new anchor to persist for next time.
+Session continuity for agents. Store a timestamp from your last session and call `get_changes_since` to see exactly what happened since then — then drill into details with `get_evolution` if needed.
 
-**Core principle:** Agents track a cursor, not a clock. Never guess timestamps.
+**Core principle:** Persist a `since` timestamp (or the `until` from your last catch-up call). Never invent a `days` parameter.
 
 ## Steps
 
 ### 1. Find or bootstrap the session anchor
 
-Look for a stored `session_anchor` from your last session:
+Look for a stored anchor from your last session:
 
 ```json
 {
-  "last_episode_id": "ep_abc123",
-  "last_reference_time": "2026-04-13T10:43:00Z"
+  "repo_id": "memdb",
+  "since": "2026-04-13T10:43:00Z"
 }
 ```
 
-If you have no anchor yet (first run), call `list_indexed_repositories`. Each repo now includes `last_episode_id`, `last_episode_time`, and `last_episode_type` — use `last_episode_id` as your bootstrap anchor.
+If you have no anchor yet (first run), call `list_indexed_repositories`. Use `last_episode_time` from the repo entry as a bootstrap `since` value, or ask the user how far back to look.
 
 ### 2. Call `get_changes_since`
 
+```json
+{
+  "repo_id": "memdb",
+  "since": "2026-04-13T10:43:00Z"
+}
 ```
-get_changes_since(
-  repo_id: "...",
-  last_episode_id: "ep_abc123"      // preferred — exact episode boundary
-  // OR
-  last_reference_time: "2026-04-13T10:43:00Z"   // fallback
-)
-```
+
+Optional: pass `until` to cap the upper bound (defaults to now).
+
+**Required param is `since`** — not `last_episode_id`, not `days`. Same time formats as `get_evolution.from` (`"7d ago"`, ISO-8601, etc.).
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ### 3. Interpret the response
 
-| `status` | Meaning | Action |
-|---|---|---|
-| `no_changes` | Nothing changed since your anchor | Safe to proceed; store new anchor |
-| `changes_detected` | Full symbol-level delta returned | Review `modified[]`, `added[]`, `removed[]` |
-| `changes_detected_overview` | >500 candidates — module rollup only | Check `by_module` for affected areas |
-| `error` | Bad anchor or unknown episode | Fall back to `last_reference_time` or re-index |
+Response shape: see [Output](#output) below. Act on `totals.episode_count`:
+
+| `totals.episode_count` | Action |
+|---|---|
+| `0` | Nothing changed — safe to proceed |
+| `1–20` | Review each episode's `touched_files` and change counts |
+| Many episodes | Scan `touched_files` for overlap with your task; drill down with `get_evolution` |
 
 ### 4. Decide whether changes are relevant
 
 ```
-changes_detected
-├── Check modified[]/added[]/removed[] — do any overlap with your current task?
-│   ├── YES → understand what changed before proceeding
-│   └── NO  → safe to continue, update anchor
-
-changes_detected_overview (large window)
-├── Check by_module — does any changed module overlap with your task area?
-│   ├── YES → get_evolution(mode: compound) scoped to that window for detail
-│   └── NO  → ignore, update anchor
+episodes returned
+├── Any touched_files overlap your current task area?
+│   ├── YES → call get_evolution(from: since, mode: compound) for hotspots
+│   └── NO  → safe to continue
+└── Need per-commit detail?
+    └── get_evolution(from: since, mode: recent, limit: 100)
 ```
 
-### 5. Always persist the returned anchor
+### 5. Always persist the new anchor
 
-Every response includes a new `session_anchor`. Store it for next session:
+Store the `until` value from the response (or the latest episode's `reference_time`) for next session:
 
 ```json
 {
-  "session_anchor": {
-    "last_episode_id": "ep_xyz789",
-    "last_reference_time": "2026-04-13T14:22:00Z"
-  }
+  "repo_id": "memdb",
+  "since": "2026-04-13T14:22:00Z"
 }
 ```
 
-## Auto-mode Selection
+## Output
 
-`get_changes_since` automatically picks the right mode so it never crashes:
+`get_changes_since` returns:
 
-| Candidate count | Mode selected | What you get |
-|---|---|---|
-| 0 | — | `no_changes` immediately |
-| 1–499 | `compound` | Full symbol scoring |
-| 500+ | `overview` | Module rollup only |
+| Field | Meaning |
+|---|---|
+| `episodes[]` | Each episode since `since`, with `touched_files`, `nodes_added/removed`, `reference_time` |
+| `totals.episode_count` | How many episodes in the window — `0` means nothing changed |
+| `since` / `until` | The resolved window boundaries |
 
-`candidate_count` in the response tells you what was found before selection.
+```json
+{
+  "since": "2026-04-13T10:43:00Z",
+  "until": "2026-04-13T14:22:00Z",
+  "episodes": [
+    { "reference_time": "2026-04-13T12:05:00Z", "touched_files": ["src/engine/page_cache.rs"], "nodes_added": 4, "nodes_removed": 1 }
+  ],
+  "totals": { "episode_count": 1 }
+}
+```
 
-## Common Mistakes
+## Common mistakes
 
 | Mistake | Reality |
-|---------|---------|
-| Using `get_evolution` with a guessed timestamp | `get_changes_since` uses an exact episode boundary — no guessing, no over-fetching |
-| Discarding the returned `session_anchor` | Without it, next session reverts to timestamp guessing |
-| Treating `changes_detected_overview` as too large to act on | `by_module` is complete — it tells you exactly which areas changed even in large windows |
-| Calling this tool repeatedly within one session | Call once at session start; use the returned evolution result for the rest of the session |
+|---|---|
+| Passing `last_episode_id` or `days` | `get_changes_since` requires `since` — a timestamp string |
+| Using `get_evolution` without `from` | Always pass `from` (e.g. `"7d ago"`) — never omit it or use `days` |
+| Expecting `status`, `by_module`, or `session_anchor` in the response | Not in the current shape — use `episodes[]` and `totals` |
+| Discarding the stored `since` timestamp | Without it, next session reverts to guessing |
+| Calling this repeatedly within one session | Call once at session start; reuse the result for the rest of the session |

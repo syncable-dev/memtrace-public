@@ -1,96 +1,101 @@
 ---
 name: memtrace-continuous-memory
-description: "Always use when the user asks to keep Memtrace fresh while editing, watch a repo, enable live or incremental indexing, set up always-on memory, or make just-saved source code queryable immediately. Do not fall back to repeated Grep or manual rescans; configure Memtrace watching."
+description: "Keep the Memtrace index fresh while editing by watching a repo for live, incremental re-indexing. Use when the user asks to keep Memtrace fresh while editing, watch a repo, enable live or incremental indexing, set up always-on memory (meaning Memtrace index watching, not generic agent memory), or make just-saved source code queryable immediately. Do not fall back to repeated Grep or manual rescans; configure Memtrace watching."
+allowed-tools:
+  - mcp__memtrace__watch_directory
+  - mcp__memtrace__list_watched_paths
+  - mcp__memtrace__unwatch_directory
+  - mcp__memtrace__index_directory
+  - mcp__memtrace__list_indexed_repositories
+  - mcp__memtrace__check_job_status
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Memtrace keeps the knowledge graph live as you edit. Once you call `watch_directory`, every save runs through the **incremental indexing fast-path** — a notify-based file watcher debounces saves, the indexer re-parses only the touched files, and the engine commits the delta in a single WAL transaction. Steady-state latency is **~80 ms from save to queryable** on a typical project.
+Keep the knowledge graph live while editing. `watch_directory` triggers incremental re-indexing on file saves (~80 ms typical latency after debounce).
 
-This is what makes "session continuity" actually work: by the time you ask `find_symbol` after a save, the new symbol is already in the graph.
+## Required parameters — `watch_directory`
+
+| Param | Required | Notes |
+|---|---|---|
+| `path` | yes | Absolute directory path |
+| `repo_id` | yes | Must already be indexed |
+| `branch` | no | default `"main"` |
+
+```json
+{ "path": "/abs/path/to/repo", "repo_id": "memdb" }
+```
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Steps
 
-### 1. Confirm the repo is indexed
+### 1. Confirm indexed
 
 ```
-mcp__memtrace__list_indexed_repositories
+list_indexed_repositories()
 ```
 
-If the repo isn't there, run `index_directory` first. The watcher requires an existing repo_id — it never bootstraps from scratch.
+Run `index_directory` first if missing (poll `check_job_status`; stop after ~5 minutes and report the job id — see memtrace-index).
 
 ### 2. Start watching
 
-```
-mcp__memtrace__watch_directory(
-  path: "/abs/path/to/repo"
-)
-```
+See JSON above. Returns immediately; watcher runs in background.
 
-The tool registers a `notify` watcher on the directory tree, debounces save bursts (so a `:wq` that touches a swap file doesn't trigger twice), and routes deltas through the indexer's incremental fast-path. Returns immediately — watching runs in the background.
-
-### 3. Confirm it's live
+### 3. Confirm active watches
 
 ```
-mcp__memtrace__list_watched_paths
+list_watched_paths()
 ```
 
-Each entry shows the watched root, the bound repo_id, and the last delta's `persist_ms`.
+Response shape: see [Output](#output).
 
-### 4. Edit normally — Memtrace catches up
+### 4. Edit normally
 
-After every save the watcher emits a `labels_updated` WebSocket event:
+Next `find_symbol` / `get_symbol_context` call sees saved changes after debounce (~500 ms) + incremental persist (~80 ms).
+
+### 5. Stop watching (kill switch)
+
+`unwatch_directory`:
 
 ```json
-{
-  "event":           "labels_updated",
-  "repo_id":         "demo",
-  "nodes_changed":   12,
-  "persist_ms":      78,
-  "timestamp":       "2026-04-27T10:42:13Z"
-}
-```
-
-Dashboards and IDE plugins subscribe to this on `/ws` and refresh themselves. As an agent you don't have to listen — your next `find_symbol` / `find_code` / `get_symbol_context` call will see the new state automatically.
-
-### 5. Stop watching
-
-```
-mcp__memtrace__unwatch_directory(path: "/abs/path/to/repo")
+{ "path": "/abs/path/to/repo" }
 ```
 
 Idempotent — unwatching an already-unwatched path is a no-op.
 
-## When to Use
+## Latency expectations
 
-- **Long sessions on the same repo** — keeps `get_symbol_context` accurate without rerunning `index_directory`
-- **Pair programming with an IDE plugin** — the dashboard's WebSocket subscription auto-refreshes panels
-- **Demo / live coding** — every save reflects in the graph within 80–150 ms
-- **Long-running agents** — instead of polling `index_directory`, the watcher pushes deltas
-
-## When NOT to Use
-
-- **One-shot batch edits** — running `index_directory --incremental` at the end is cheaper than spinning up a watcher
-- **Generated / build output trees** — exclude paths under `target/`, `dist/`, `node_modules/` (the watcher honours common ignore patterns but a noisy build can still saturate the debounce queue)
-- **CI / containerised runs** — file events are unreliable across container boundaries; index explicitly instead
-
-## Latency Expectations
-
-| Operation | Typical wall time |
+| Stage | Typical |
 |---|---|
-| File save → watcher fires | < 5 ms |
-| Debounce window | 50 ms |
-| Incremental parse + delta persist | ~80 ms |
-| `labels_updated` broadcast | < 1 ms after persist |
-| Total: save → queryable | ~80–150 ms |
+| Debounce | **500 ms** (MCP schema) |
+| Incremental persist | ~80 ms |
+| Save → queryable | ~80–150 ms after debounce |
 
-If you see `persist_ms` consistently above 500 ms, the saved files are larger than expected (e.g., generated bundles) — narrow the watch root or add ignore patterns.
+## Output
+
+`watch_directory` returns an immediate acknowledgment; the watcher runs in the background. `list_watched_paths` returns:
+
+```json
+{
+  "watches": [
+    { "path": "...", "repo_id": "...", "branch": "...", "started_at": "...", "origin": "..." }
+  ],
+  "count": 1
+}
+```
+
+There is **no `persist_ms`** field in this response.
 
 ## Common Mistakes
 
 | Mistake | Reality |
-|---|---|
-| Calling `watch_directory` on an unindexed repo | Returns an error — run `index_directory` first |
-| Watching `node_modules/` or `target/` | Saturates the watcher with build noise — point at the source root only |
-| Polling `find_symbol` every second to "wait" for indexing | Subscribe to the `labels_updated` WS event, or just call once after the save — the delta is already there |
-| Forgetting to `unwatch_directory` between sessions | Watchers are per-process; restarting `memtrace start` wipes them, but for hosted instances unwatching cleanly avoids leaks |
+|---------|---------|
+| `watch_directory(path=...)` without `repo_id` | **Both required** |
+| Watching unindexed repo | Index first |
+| Expecting `persist_ms` from `list_watched_paths` | Field not in MCP response |
+| Debounce "50 ms" | Schema documents **500 ms** |

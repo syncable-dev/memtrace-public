@@ -1,94 +1,123 @@
 ---
 name: memtrace-episode-replay
-description: "Always use to replay source-code evolution, understand why code looks this way, inspect implementation attempts, reversions, past reasoning, or abandoned approaches across commits and working-tree episodes. Do not use git log, git diff, Grep, or manual history reconstruction; Memtrace has episodic symbol replay."
+description: "Replay the graph diff of one episode — a single git commit or working-tree save — to inspect what it changed: added/modified/removed symbols and edges. Use when the user asks what one commit or save changed in the graph, why code looks this way, or wants to inspect implementation attempts, reversions, past reasoning, or abandoned approaches across commits and working-tree episodes. Do not use git log or Grep for graph-level episode diffs; Memtrace replays indexed episode records. Do NOT use for module-level summaries or date-range change history — use memtrace-evolution."
+allowed-tools:
+  - mcp__memtrace__get_episode_replay
+  - mcp__memtrace__get_evolution
+  - mcp__memtrace__get_timeline
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Replay the sub-commit implementation narrative for any symbol. Between any two commits, Memtrace recorded every file save as a `working_tree` episode. This tool surfaces that sequence — the attempts, the reversions, the iterative refinements — not just the final committed state.
+Replay the graph diff for **one episode** (a single git commit or working-tree save). Shows which nodes/edges were added, modified, or removed in that episode — not a multi-episode time-range narrative.
 
-**Git shows A→B. Episode replay shows every step in between.**
+Use `get_evolution(mode: "recent")` to **find** episode IDs and timestamps, then drill into a specific episode with this tool.
 
-This is the only tool that can answer: "why does this code look like this?" without relying on commit messages or comments.
+## Episode selector — pick one
+
+| Approach | Parameters |
+|---|---|
+| Known episode UUID | `episode_id` |
+| Newest episode in repo | `repo_id` + `episode_index: 0` |
+| Nth newest | `repo_id` + `episode_index: N` |
+
+**There is no `from` / `to` / `include_working_tree` on this tool.**
+
+## Optional filters (large commits)
+
+| Param | Purpose |
+|---|---|
+| `symbol` | Scope to one symbol name |
+| `file_path` | Substring filter on record paths |
+| `kind` | e.g. `"Function"`, `"CALLS"` |
+| `mode` | `"graph_summary"` for digest on huge commits |
+| `compress` | default `true` — collapse identical-hash modifications |
+| `limit` / `cursor` | Pagination per bucket (default limit 200) |
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Steps
 
-### 1. Identify the symbol and time window
+### 1. Find the episode to inspect
 
-Use `find_symbol` to get the exact symbol name if needed. Determine the window:
-- `from` — when to start (e.g. a few days before a confusing commit)
-- `to` — when to end (usually the commit timestamp or now)
+From `get_evolution`:
 
-If you don't know the window, call `get_timeline` first to find when the symbol changed.
+```json
+{ "repo_id": "memdb", "from": "7d ago", "mode": "recent", "limit": 20 }
+```
+
+Each entry has `episode` metadata including `id` (use as `episode_id`) and `reference_time`.
+
+Or use `episode_index: 0` for the newest episode without knowing the UUID.
 
 ### 2. Call `get_episode_replay`
 
+By episode UUID:
+
+```json
+{
+  "episode_id": "550e8400-e29b-41d4-a716-446655440000",
+  "symbol": "execute",
+  "file_path": "src/order/service.rs",
+  "kind": "Function",
+  "compress": true,
+  "limit": 200
+}
 ```
-get_episode_replay(
-  repo_id: "...",
-  symbol: "execute",
-  from: "2026-04-10T00:00:00Z",
-  to:   "2026-04-13T00:00:00Z",
-  include_working_tree: true,   // false = commits only
-  compress: true                // collapse identical-hash runs
-)
+
+Newest episode, summary first on large commits:
+
+```json
+{
+  "repo_id": "memdb",
+  "episode_index": 0,
+  "mode": "graph_summary"
+}
 ```
 
-### 3. Read the narrative_hint sequence
+### 3. Interpret the response
 
-Each episode has a `narrative_hint` — derived automatically from AST hash patterns:
-
-| Hint | What it means |
+| Field | Meaning |
 |---|---|
-| `committed` | A real git commit — the "public record" checkpoint |
-| `pre_commit_finalization` | Last working_tree save before a commit — the final draft |
-| `iterative_refinement` | 3+ consecutive working_tree saves — active development in progress |
-| `attempted_and_reverted` | Hash returned to a prior state — something was tried and backed out |
-| `no_change` | File was saved but this symbol didn't change |
-| `working_tree_save` | A single file save with structural changes |
+| `found` | `false` if episode missing — check `_note` |
+| `totals` | Counts: `nodes_added/modified/removed`, `edges_*` |
+| `nodes_added[]` etc. | Per-record diffs (paginated) |
+| `page.next_cursor` | More records remain — pass as `cursor` |
 
-### 4. Reconstruct the implementation story
+For symbol history **across many episodes**, use `get_timeline` instead:
 
-Read the sequence like a narrative:
-
-```
-committed              ← "here's where we started"
-working_tree_save      ← "first attempt"
-iterative_refinement   ← "refining the approach"
-attempted_and_reverted ← "tried X, it was wrong, backed out"
-pre_commit_finalization← "final version before commit"
-committed              ← "here's what shipped"
+```json
+{
+  "repo_id": "memdb",
+  "scope_path": "OrderService.execute",
+  "file_path": "src/order/service.rs"
+}
 ```
 
-The gap between `committed` entries is the implementation story.
+## Output
 
-### 5. Identify what to act on
+`get_episode_replay` returns the buckets interpreted in step 3:
 
-| Pattern | Implication |
-|---|---|
-| `attempted_and_reverted` appears | There was a tried-and-abandoned approach — understand why before trying similar |
-| Multiple `iterative_refinement` clusters | The author was unsure — this area may need extra care |
-| No working_tree episodes (commits only) | Code was written elsewhere or pasted in — less implementation history available |
-| Very short episode sequence | Straightforward change — low implementation complexity |
-
-## When to Use
-
-- **Before modifying unfamiliar code** — understand the intent, not just the current state
-- **Post-session debugging** — replay what was tried during a broken session
-- **Code review** — understand the reasoning behind non-obvious implementations
-- **Avoiding dead ends** — check if the approach you're about to try was already attempted and reverted
-
-## Compression
-
-With `compress: true` (default), consecutive episodes with identical `ast_hash` are collapsed to first+last of the run. Cosmetic saves and whitespace-only edits are filtered out. Only structurally significant transitions are shown.
-
-With `compress: false`, every single save is shown — useful when you want to see exact timing between saves.
+```json
+{
+  "found": true,
+  "totals": { "nodes_added": 3, "nodes_modified": 12, "nodes_removed": 1, "edges_added": 7, "edges_removed": 2 },
+  "nodes_added": [ /* per-record diffs, paginated per bucket */ ],
+  "nodes_modified": [ /* … */ ],
+  "edges_removed": [ /* … */ ],
+  "page": { "next_cursor": 200 }
+}
+```
 
 ## Common Mistakes
 
 | Mistake | Reality |
 |---------|---------|
-| Only reading the final committed code | The commit shows *what*, the episode replay shows *why* — always check both for unfamiliar code |
-| Ignoring `attempted_and_reverted` hints | These are the most valuable entries — they represent knowledge about what doesn't work |
-| Using `include_working_tree: false` by default | Commits-only loses all the sub-commit narrative — only use this if you explicitly want commit-level granularity |
-| Large windows with compress off | Very long histories produce noise; use `compress: true` unless you need exact save-by-save granularity |
+| Passing `from` / `to` time window | Not supported — one episode per call |
+| Expecting `narrative_hint` / `attempted_and_reverted` | Not in API — inspect added/modified/removed buckets |
+| Unfiltered replay on 10k-symbol commits | Use `kind`, `file_path`, `symbol`, or `mode: "graph_summary"` first |
+| Using this for "what changed last week?" or module summaries | Use memtrace-evolution — `get_evolution(from=..., mode: recent)` — to list episodes |

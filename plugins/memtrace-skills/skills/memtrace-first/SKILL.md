@@ -1,6 +1,35 @@
 ---
 name: memtrace-first
-description: "Always use first for indexed source-code repos before searching files, reading code for discovery, debugging, tracing flows, finding implementations, understanding behavior, or answering how code works. Do not use Grep, Glob, rg, find, or manual file browsing for code discovery when Memtrace is indexed. Zero results, missing languages, or partial-looking stats are not permission to grep; diagnose/reindex with Memtrace."
+description: "Route code discovery, debugging, flow tracing, and how-code-works questions in indexed source-code repos to Memtrace graph tools. Use first — before searching files, reading code for discovery, debugging, tracing flows, finding implementations, understanding behavior, or answering how code works. Do not use Grep, Glob, rg, find, or manual file browsing for code discovery when Memtrace is indexed. Zero results, missing languages, or partial-looking stats are not permission to grep; diagnose/reindex with Memtrace."
+allowed-tools:
+  - mcp__memtrace__list_indexed_repositories
+  - mcp__memtrace__index_directory
+  - mcp__memtrace__find_symbol
+  - mcp__memtrace__find_code
+  - mcp__memtrace__get_symbol_context
+  - mcp__memtrace__get_impact
+  - mcp__memtrace__analyze_relationships
+  - mcp__memtrace__get_process_flow
+  - mcp__memtrace__list_communities
+  - mcp__memtrace__find_central_symbols
+  - mcp__memtrace__find_api_endpoints
+  - mcp__memtrace__find_api_calls
+  - mcp__memtrace__get_service_diagram
+  - mcp__memtrace__get_api_topology
+  - mcp__memtrace__find_dependency_path
+  - mcp__memtrace__get_cochange_context
+  - mcp__memtrace__get_evolution
+  - mcp__memtrace__get_changes_since
+  - mcp__memtrace__get_style_fingerprint
+  - mcp__memtrace__find_most_complex_functions
+  - mcp__memtrace__get_source_window
+  - Read
+  - Grep
+  - Glob
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 # Memtrace First
@@ -19,7 +48,7 @@ the whole file when Memtrace has given you exact lines.
 
 Memtrace is the **memory layer** of the codebase, not a search engine that returns code. It has the full knowledge graph — every symbol, call, import, community, process, and API — with a time dimension. The point is to navigate that graph: who calls this, what's the blast radius, when did this change, what community is it part of. File tools are blind to all of that.
 
-**97% better accuracy. 83% fewer wasted tokens. No exceptions for what's in the graph.**
+**No exceptions for what's in the graph.**
 
 ## Value Tracking
 
@@ -68,13 +97,13 @@ For everything else inside the indexed repo, memtrace is the right tool.
 | Question Claude is asking | Right tool |
 |---|---|
 | "Where is symbol `foo` defined?" | `find_symbol(name="foo")` → then `get_symbol_context` for callers/callees/community, NOT a source read unless you're editing. |
-| "What calls `foo`?" | `get_symbol_context(name="foo")` → callers with file:line each. |
+| "What calls `foo`?" | `get_symbol_context(repo_id, symbol="foo")` → callers with file:line. |
 | "How does authentication work?" | `find_code(query="authentication")` → `get_symbol_context` on the top hit, NOT a source read. |
 | "Find behavior X" with multi-word phrase (3+ words) | `find_code(verbatim)` first; if low confidence, fan out with identifier-shaped reshapes (camelCase / snake_case). |
 | "Find the function that uses `STRIPE_KEY_FOO_BAR`" | `find_code(query="STRIPE_KEY_FOO_BAR")` → semantic finds it inside any embedded body. |
 | "Where's that error message `'connection refused for tenant'`?" | `find_code(query="connection refused for tenant")` → semantic catches it. |
-| "What breaks if I change `foo`?" | `get_impact(name="foo")` → blast radius with file:line. |
-| "What changed in `auth.ts` last week?" | `get_evolution(file_path="auth.ts", from="7d ago")`. |
+| "What breaks if I change `foo`?" | `get_impact(repo_id, target="foo")` → blast radius. |
+| "What changed in `auth.ts` last week?" | `get_evolution(repo_id, from="7d ago", mode="recent", file_path="auth.ts")`. |
 | "List all `*.test.ts` files." | `Glob` (file inventory, not symbol search). |
 | "Find this string in my `.env`." | `Grep` (non-source artifact). |
 | "I'm about to edit `foo` — show me its source." | Bounded `Read(file_path, offset=start_line, limit=end_line-start_line+8)`, or `get_source_window` if your harness lacks bounded reads. Never whole-file. |
@@ -89,8 +118,17 @@ All memtrace MCP tools are **strictly typed**. Pass JSON numbers (not strings) f
 | `limit`, `min_size`, `depth`, `max_depth`, `last_n` | `limit: 20` | `limit: "20"` |
 | `repo_id`, `branch`, `name`, `symbol_name`, `query` | `repo_id: "my-repo"` | `repo_id: my-repo` (unquoted) |
 | `fuzzy`, `include_tests`, `invalidate` | `fuzzy: true` | `fuzzy: "true"` |
+| `get_evolution.from` | `from: "90d ago"` | `days: 90` (wrong param — use `from`, not `days`) |
+| `get_changes_since.since` | `since: "2026-04-13T10:43:00Z"` | `last_episode_id: "..."` (wrong param) |
+| `get_impact.target` / `get_symbol_context.symbol` | `target: "foo"` / `symbol: "foo"` | `symbol_id: "..."` (wrong — use name) |
+| `find_most_complex_functions` | `top_n: 10` | `limit: 10` (wrong param name) |
+| `get_cochange_context` | `target: "execute"` | `symbol: "execute"` (wrong param name) |
 
 If you see `failed to deserialize parameters: invalid type: string "N", expected usize`, remove the quotes from the number and retry.
+
+If you see `missing field 'from'`, you called `get_evolution` without `from` — pass e.g. `"90d ago"`, never `days`.
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Check Indexing First (Once Per Session)
 
@@ -136,8 +174,8 @@ If not indexed → offer to index with `mcp__memtrace__index_directory`, then fo
 1. `find_symbol` → locate the broken thing
 2. `get_symbol_context` → understand its role
 3. `get_impact` → blast radius (what else breaks)
-4. `get_evolution` → what changed recently (mode: `recent`)
-5. `get_changes_since` → confirm timing vs incident
+4. `get_evolution(from=<lookback>, mode: recent)` → per-episode changelog near the incident
+5. `get_changes_since(since=<anchor>)` → catch-up since last session (requires stored `since` timestamp)
 
 ### "Where is X defined / called?"
 1. `find_symbol` with `fuzzy: true`
@@ -192,3 +230,21 @@ When this skill applies, it overrides default file-search behavior. Use the spec
 - Incident investigation → `memtrace-incident-investigation`
 - Architecture overview → `memtrace-codebase-exploration`
 - Refactoring → `memtrace-refactoring-guide`
+
+## Output
+
+`find_symbol` / `find_code` return ranked symbol entries (`score` only with `include_diagnostics: true`):
+
+```json
+{ "name": "handleAuth", "kind": "Function", "file_path": "src/auth.ts",
+  "start_line": 42, "end_line": 87 }
+```
+
+`get_symbol_context` returns the graph neighborhood: `symbol`, `callers`, `callees`, `type_references`, `community`, `processes`, `api_callers_cross_repo`. Feed `start_line`/`end_line` into a bounded `Read` or `get_source_window` — never a whole-file read.
+
+## Success criteria
+
+- The answer is grounded in Memtrace graph results (search hit → `get_symbol_context` / `get_impact`), not file-tool discovery.
+- Grep/Glob/Read appear only via the documented narrow exceptions (non-source artifacts, paths outside every indexed root, file inventory, bounded span reads).
+- Zero-result queries were diagnosed (`list_indexed_repositories` → broaden → reindex), not bypassed to grep.
+- Any source read was bounded to the span Memtrace returned.

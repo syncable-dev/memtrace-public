@@ -1,11 +1,24 @@
 ---
 name: memtrace-incident-investigation
-description: "Always use for source-code bugs, incidents, regressions, production issues, failures, root cause analysis, what broke, or what changed when debugging. Do not start with Grep, Glob, rg, find, or manual file search for code causes; Memtrace combines symbol search, impact, call graph, and temporal history."
+description: "Investigate source-code bugs, incidents, regressions, production issues, and failures to root cause with Memtrace symbol search, impact, call graph, and temporal history. Use when the user asks about root cause analysis, what broke, or what changed when debugging a failure. Do not start with Grep, Glob, rg, find, or manual file search for code causes. For plain what-changed questions without a failure, use memtrace-evolution."
+allowed-tools:
+  - mcp__memtrace__get_evolution
+  - mcp__memtrace__get_impact
+  - mcp__memtrace__get_symbol_context
+  - mcp__memtrace__get_cochange_context
+  - mcp__memtrace__get_timeline
+  - mcp__memtrace__get_episode_replay
+  - mcp__memtrace__find_symbol
+  - mcp__memtrace__list_indexed_repositories
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Root cause investigation workflow for incidents, regressions, and production issues. Uses temporal analysis with the `recent` scoring mode to surface changes closest to the incident time, then traces blast radius and execution flows to identify the likely cause.
+Root cause investigation workflow for incidents, regressions, and production issues. Uses `get_evolution` to list changes near the incident time, then traces blast radius and execution flows to identify the likely cause.
 
 ## Steps
 
@@ -16,97 +29,154 @@ Determine:
 - **Lookback window** — how far back to search? Start with 24 hours, expand if needed.
 - **Repo(s)** — which services are affected? Call `list_indexed_repositories` to get repo_ids.
 
-### 2. Surface recent changes near the incident
+### 2. List changes near the incident
 
-Call `get_evolution` with:
-- `mode: "recent"` — temporal proximity weighting: `impact × exp(−0.5 × Δhours)`
-- `from` — lookback start (e.g., 24 hours before incident)
-- `to` — the incident timestamp
-- `repo_id` — the affected repo
+Call `get_evolution`:
 
-**Why `recent` mode?** It exponentially amplifies changes close to the incident time while still weighting by structural impact. A high-impact change made 1 hour before the incident scores much higher than the same change made 20 hours before.
+```json
+{
+  "repo_id": "<affected-repo>",
+  "from": "<incident_time minus lookback, e.g. 24h before>",
+  "to": "<incident_time ISO-8601>",
+  "mode": "recent",
+  "limit": 100
+}
+```
 
-**Success criteria:** A ranked list of changes, with the most likely culprits at the top.
+**Why `recent` mode?** Returns a chronological per-episode changelog. Focus on episodes whose `reference_time` is closest to the incident — especially those with high `nodes_added` + `nodes_removed` or that touch files in the failure area.
 
-### 3. Check for unexpected changes
+Paginate with `cursor` if `next_cursor` is present in the response.
 
-Call `get_evolution` again with `mode: "novel"` on the same time window:
-- Flags changes to rarely-modified code (high in_degree, low change frequency)
-- A core utility that hasn't changed in 90 days suddenly changing near an incident is a strong signal
+**Success criteria:** A list of episodes in the window, with touched files and change counts for each.
 
-**Decision:** If `novel` mode surfaces different symbols than `recent` mode, investigate both — the root cause may be an unexpected change to stable infrastructure.
+### 3. Identify hotspot files and symbols
 
-### 4. Trace the blast radius of top suspects
+Call `get_evolution` again on the same window with `mode: "compound"`:
 
-For the top 3–5 symbols from steps 2–3, call `get_impact` with `direction: upstream`:
+```json
+{
+  "repo_id": "<affected-repo>",
+  "from": "<same as step 2>",
+  "to": "<same as step 2>",
+  "mode": "compound"
+}
+```
+
+Review `top_changed_files` and `top_touched_symbols`. Cross-reference with the failure area (endpoint, module, error stack).
+
+**Decision:** Prioritize symbols/files that appear in both the recent episode list (step 2) and the compound hotspots (step 3).
+
+### 4. Check for unexpected changes to stable code
+
+For hotspot symbols from step 3, resolve each with `find_symbol`:
+
+```json
+{ "repo_id": "<affected-repo>", "name": "<symbol>", "limit": 10 }
+```
+
+Then call `get_timeline` — stable code that suddenly changed is suspect:
+
+```json
+{ "repo_id": "<affected-repo>", "scope_path": "<from find_symbol>", "file_path": "<from find_symbol>" }
+```
+
+### 5. Assess the blast radius
+
+For the top 3–5 symbols, call `get_impact`:
+
+```json
+{ "repo_id": "<affected-repo>", "target": "<symbol>", "direction": "upstream" }
+```
 - How many downstream consumers were affected?
 - What execution flows pass through this symbol?
 
 **Decision:** Prioritize symbols where the blast radius overlaps with the reported failure area.
 
-### 5. Trace execution flows
+### 6. Trace execution flows
 
 Use `get_symbol_context` on the top suspects to see which processes (HTTP handlers, background jobs, etc.) they participate in.
 
 **Decision:** If the incident is in a specific endpoint/flow, focus on suspects that are members of that process.
 
-### 6. Build the full timeline for the suspect
+### 7. Build the full timeline for the suspect
 
-Once you have a primary suspect, call `get_timeline` with the symbol name to see its full version history:
-- What changed in each commit?
+Once you have a primary suspect, call `get_timeline` with `repo_id`, `scope_path`, and `file_path`:
+- What changed in each episode?
 - When was the last "stable" version?
 - Was the change a modification, or was it newly added?
 
-### 7. Correlate with surrounding changes
+### 8. Correlate adds vs removes per episode
 
-Call `get_evolution` with mode `directional` to separate:
-- **Added symbols** — new code introduced (potential new bugs)
-- **Removed symbols** — deleted code (potential missing functionality)
-- **Modified symbols** — changed behaviour (potential regressions)
+From the step 2 `recent` response, inspect each episode's `nodes_added` and `nodes_removed`:
+- High `nodes_added` — new code introduced (potential new bugs)
+- High `nodes_removed` — deleted code (potential missing functionality)
+- Both moderate — changed behaviour (potential regressions)
 
-### 8. Check historical coupling (cochange)
+### 9. Check historical coupling (cochange)
 
 For the primary suspect, call `get_cochange_context`:
+
+```json
+{ "repo_id": "<affected-repo>", "target": "<symbol>", "limit": 10 }
+```
 - Which symbols historically co-change with this one?
 - If the blast radius from `get_impact` doesn't explain the failure area, check cochange partners — the coupling may be behavioral, not structural.
 
 **Decision:** If a cochange partner is in the failure area but has no direct call relationship to the suspect, it's a hidden dependency — investigate both.
 
-### 9. Replay the sub-commit implementation history (if needed)
+### 10. Replay the sub-commit implementation history (if needed)
 
-If the suspect's commit history doesn't explain the intent, call `get_episode_replay`:
-- What was tried before the final committed state?
-- Was any approach attempted and reverted in the same session?
-- The `attempted_and_reverted` hint often explains why seemingly-correct code was changed to something subtler.
+If the suspect's episode isn't clear, call `get_episode_replay`:
+
+```json
+{
+  "repo_id": "<affected-repo>",
+  "episode_index": 0,
+  "symbol": "<suspect>",
+  "mode": "graph_summary"
+}
+```
+
+- Look for `attempted_and_reverted` hints — approaches tried and rolled back within the episode often explain why the committed state looks the way it does.
 
 ## Report: Root Cause Analysis
 
 1. **Incident Timeline** — when it started, what was observed
-2. **Most Likely Cause** — the top-ranked change(s) by `recent` mode with blast radius confirmation
-3. **Supporting Evidence** — novelty signal (was this an unexpected change?), blast radius overlap with failure area, process membership overlap
+2. **Most Likely Cause** — episodes and symbols closest to the incident with blast radius confirmation
+3. **Supporting Evidence** — timeline sparsity (stable code suddenly changed?), blast radius overlap, process membership overlap
 4. **Change History** — full timeline of the suspect symbol
 5. **Affected Scope** — all processes and downstream consumers impacted
 6. **Remediation** — revert the change, fix forward, or mitigate
 
-## Algorithm Selection Guide for Incidents
+## Tool selection guide for incidents
 
-| Phase | Tool / Mode | Why |
-|-------|-------------|-----|
-| Initial triage | `get_evolution` `recent` | Time-weighted ranking surfaces changes near the incident |
-| Anomaly detection | `get_evolution` `novel` | Catches unexpected changes to stable code |
-| Scope assessment | `get_impact` | Ranks by structural significance (blast radius) |
-| Hidden coupling | `get_cochange_context` | Surfaces behavioral coupling not in the call graph |
-| Direction analysis | `get_evolution` `directional` | Separates added/removed/modified |
-| Sub-commit intent | `get_episode_replay` | Reveals what was tried before the committed state |
-| Quick summary | `get_evolution` `overview` | Fast module-level scan before deep-diving |
+| Phase | Tool / mode | Why |
+|---|---|---|
+| Initial triage | `get_evolution` `recent` | Per-episode changelog near the incident |
+| Hotspot identification | `get_evolution` `compound` | Top changed files and symbols in the window |
+| Scope assessment | `get_impact` | Blast radius of suspect symbols |
+| Hidden coupling | `get_cochange_context` | Behavioral coupling not in the call graph |
+| Symbol history | `get_timeline` | Full version history of a suspect |
+| Sub-commit intent | `get_episode_replay` | What was tried before the committed state |
+| Quick window check | `get_evolution` `overview` | Totals only — use before narrowing the window |
 
-## Common Mistakes
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
+## Output
+
+The deliverable is the RCA report above. Abridged example (3 of 6 sections filled):
+
+- **Most Likely Cause** — episode `2026-07-01T14:22Z` modified `AuthService::validateToken`; upstream blast radius reaches the failing `/api/login` process
+- **Supporting Evidence** — symbol was stable for 90 days before this episode; cochange partner `token_cache.rs` changed in the same window despite no call edge
+- **Remediation** — revert the episode, or fix forward with an expiry guard
+
+## Common mistakes
 
 | Mistake | Reality |
-|---------|---------|
-| Starting with `impact` mode | Use `recent` first — time proximity is the strongest signal for incidents |
-| Only looking at the most recent commit | The root cause may be from an earlier change whose effects were delayed |
-| Ignoring `novel` mode | Unexpected changes to stable code are often the root cause |
+|---|---|
+| Omitting `from` or passing `days` | Always pass `from` (e.g. `"24 hours ago"`) — never `days` |
+| Using `mode: "novel"` or `"directional"` | Not implemented — use `compound` + `get_timeline` + `get_cochange_context` |
+| Only looking at the most recent commit | The root cause may be from an earlier episode whose effects were delayed |
 | Not checking blast radius overlap | A change is only a suspect if its blast radius reaches the failure area |
 | Stopping at call graph analysis | `get_cochange_context` finds hidden coupling — symbols that move together without calling each other |
 | Reading only committed code | `get_episode_replay` reveals tried-and-reverted approaches that explain the current implementation |

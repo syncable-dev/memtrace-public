@@ -1,6 +1,19 @@
 ---
 name: memtrace-fleet-first
-description: "Always use FIRST when more than one coding agent works the same repo+branch at once (a 'fleet'), before reading code, planning a refactor, or making an edit. Triggered by: 'I'm about to edit X', 'rename Y across the codebase', joining a running fleet/session branch, coordinating with other agents, prose hand-offs. Do not grep for 'who else is touching this' and do not skip fleet_publish_intent because 'it's a small change'. Fleet coordination is branch-scoped: pass your session branch so your fleet coordinates and stays isolated from agents on other branches. Skip ONLY for genuinely solo sessions or pure docs-only edits where coordination has zero value."
+description: "Coordinate fleets of coding agents sharing one repo+branch: declare typed intents, classify edit episodes, and resolve conflicts before they collide. Use FIRST when more than one coding agent works the same repo+branch at once (a 'fleet'), before reading code, planning a refactor, or making an edit — triggered by 'I'm about to edit X', 'rename Y across the codebase', joining a running fleet/session branch, coordinating with other agents, or prose hand-offs. Do not grep for 'who else is touching this' and do not skip fleet_publish_intent because 'it's a small change'. Fleet coordination is branch-scoped: pass your session branch so your fleet coordinates and stays isolated from agents on other branches. Skip ONLY for genuinely solo sessions or pure docs-only edits where coordination has zero value."
+allowed-tools:
+  - mcp__memtrace__fleet_status
+  - mcp__memtrace__fleet_branch_context
+  - mcp__memtrace__fleet_preflight
+  - mcp__memtrace__fleet_publish_intent
+  - mcp__memtrace__fleet_record_episode
+  - mcp__memtrace__fleet_get_escalation
+  - mcp__memtrace__fleet_submit_verdict
+  - mcp__memtrace__fleet_get_node_state
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 # Fleet First
@@ -45,15 +58,24 @@ branch* is how a group of agents opts into one coordinating fleet.
 Always include **`assignment`** — your natural-language task. When a conflict
 happens, that's what the judge (another agent) or a human reads to reconcile.
 
-## Check the fleet first (once per session)
+## Check the fleet first (once per session and after idle)
+
+Set a stable identity before any fleet call:
 
 ```
+MEMTRACE_AGENT_ID=<your-agent-id>   # required in fleet / hosted environments
+```
+
+```
+fleet_branch_context({repo_id, branch, agent_id})
+  → you, peers[], pending_escalations, recent_peer_episodes, graph_revision
 fleet_status()        → live_intents, active_agents, pending_escalations, mediator_mode
 ```
 
-If it responds, fleet coordination is active — follow this skill for every edit.
-An empty fleet is **not** permission to skip: it just means you're the first agent
-in this window.
+Call **`fleet_branch_context`** at session start and after idle periods so you do not
+confuse peer WIP with settled graph truth. If fleet tools respond, coordination is
+active — follow this skill for every edit. An empty peer list is **not** permission
+to skip: it just means you're the first agent in this window.
 
 ## The protocol, step by step
 
@@ -118,8 +140,23 @@ degrades to "a human reviews a suggestion," never a silent bad merge.
 - `touched` is a list of qualified symbol identities (e.g. `"module::Symbol"`).
 - Always include `branch` (your session branch) and `assignment` (your task).
 
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
 ## When to skip
 
 Skip the protocol only for a genuinely **solo** session (you're the only agent and
 no one else shares your branch) or **pure docs-only** edits where coordination has
 zero value. Everything else in a fleet goes through the protocol.
+
+## Output
+
+Key return shapes (fields documented above):
+
+```jsonc
+// fleet_record_episode →
+{ "conflict_class": "C", "escalation_id": "…", "mediation_request": { /* every agent's assignment */ } }
+// fleet_get_escalation →
+{ "your_directive": "wait | proceed | defer | review", "resolution": "free text (read on review)" }
+// fleet_status →
+{ "live_intents": [ /* … */ ], "active_agents": [ /* … */ ], "pending_escalations": [ /* … */ ], "mediator_mode": "…" }
+```

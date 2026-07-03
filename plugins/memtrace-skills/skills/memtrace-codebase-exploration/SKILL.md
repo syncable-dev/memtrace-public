@@ -1,6 +1,23 @@
 ---
 name: memtrace-codebase-exploration
-description: "Always use when the user wants to explore, understand, onboard to, map, or get an overview of an indexed source-code repo, architecture, modules, or major flows. Do not use Glob, find, tree, rg, or manual file browsing as the first exploration path; Memtrace provides structured graph briefing."
+description: "Map an indexed source-code repo into a structured overview — scale, communities, central symbols, execution flows, API surface, recent activity. Use when the user wants to explore, understand, onboard to, map, or get an overview of an indexed source-code repo, architecture, modules, or major flows. Do not use Glob, find, tree, rg, or manual file browsing as the first exploration path; Memtrace provides structured graph briefing. Do NOT use for change history / what-changed questions — use memtrace-evolution."
+allowed-tools:
+  - mcp__memtrace__index_directory
+  - mcp__memtrace__check_job_status
+  - mcp__memtrace__list_indexed_repositories
+  - mcp__memtrace__get_repository_stats
+  - mcp__memtrace__list_communities
+  - mcp__memtrace__list_processes
+  - mcp__memtrace__find_central_symbols
+  - mcp__memtrace__find_bridge_symbols
+  - mcp__memtrace__find_api_endpoints
+  - mcp__memtrace__get_api_topology
+  - mcp__memtrace__get_evolution
+  - mcp__memtrace__find_most_complex_functions
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
@@ -36,7 +53,11 @@ Each community represents a cohesive module — these are the "areas" of the cod
 
 ### 4. Find the most important symbols
 
-Call `find_central_symbols` with `limit: 15`. It ranks symbols by PageRank over the repo's CALLS / REFERENCES edges (default `method: "pagerank"`, 0.85 damping factor).
+Call `find_central_symbols` — PageRank over CALLS/REFERENCES edges (no `method` param):
+
+```json
+{ "repo_id": "<repo>", "limit": 15 }
+```
 
 These are the symbols that the rest of the codebase depends on most heavily. They form the "skeleton" of the architecture.
 
@@ -64,13 +85,29 @@ Call `find_api_endpoints` to list all HTTP routes.
 
 ### 8. Recent activity
 
-Call `get_evolution` with mode `overview` and a 30-day window to see which modules have been most active recently.
+Call `get_evolution` to see recent activity:
 
-**Decision:** If the user asks about specific recent changes, switch to mode `compound` for symbol-level detail.
+```json
+{ "repo_id": "<repo>", "from": "30d ago", "mode": "overview" }
+```
+
+Check `totals.episode_count` and episode boundaries. For file/symbol hotspots, switch to `compound`:
+
+```json
+{ "repo_id": "<repo>", "from": "30d ago", "mode": "compound" }
+```
+
+Review `top_changed_files` and `top_touched_symbols`.
 
 ### 9. Complexity hotspots
 
-Call `find_most_complex_functions` with `limit: 10` to identify potential technical debt.
+Call `find_most_complex_functions`:
+
+```json
+{ "repo_id": "<repo>", "top_n": 10 }
+```
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Report Synthesis
 
@@ -83,6 +120,18 @@ Synthesize findings into a structured overview:
 5. **API Surface** — endpoints and service dependencies
 6. **Recent Activity** — what's been changing in the last 30 days
 7. **Technical Debt** — complexity hotspots and potential dead code
+
+## Output
+
+The deliverable is the 7-part overview above. Skeleton (one headline per part):
+
+1. Scale — 2 languages, 4,812 symbols, 19,344 relationships
+2. Architecture — 12 communities; top 5: auth, indexing, api, ui, billing
+3. Critical Infrastructure — `EngineHandle::open` (central AND bridge — flag it)
+4. Execution Flows — 14 processes: 9 HTTP handlers, 3 CLI commands, 2 jobs
+5. API Surface — 42 endpoints; 2 cross-repo service dependencies
+6. Recent Activity — 31 episodes in 30d; hottest file per `top_changed_files`
+7. Technical Debt — top-10 complex functions, highest complexity first
 
 ## Common Mistakes
 

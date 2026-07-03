@@ -1,67 +1,92 @@
 ---
 name: memtrace-graph
-description: "Always use for source-code architecture, important symbols, centrality, PageRank, bridge functions, communities, logical modules, chokepoints, service boundaries, or dependency path questions. Do not use Glob, find, tree, or directory browsing to infer architecture; Memtrace runs graph algorithms over the AST graph."
+description: "Map source-code architecture with graph algorithms — PageRank centrality, bridge symbols, Louvain communities, dependency paths, and execution flows over the AST graph. Use when the user asks about source-code architecture, important symbols, centrality, PageRank, bridge functions, communities, logical modules, chokepoints, service boundaries, or dependency path questions. Do not use Glob, find, tree, or directory browsing to infer architecture; Memtrace runs graph algorithms over the AST graph."
+allowed-tools:
+  - mcp__memtrace__find_central_symbols
+  - mcp__memtrace__find_bridge_symbols
+  - mcp__memtrace__find_dependency_path
+  - mcp__memtrace__list_communities
+  - mcp__memtrace__list_processes
+  - mcp__memtrace__get_process_flow
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
 
-Graph algorithms that reveal the structural architecture of a codebase — community detection (Louvain), centrality ranking (PageRank), bridge symbol identification (Tarjan articulation points), shortest-path discovery, and execution flow tracing.
-
-All four algorithm tools (`find_central_symbols`, `find_bridge_symbols`, `find_dependency_path`, `list_communities`) run natively against the MemDB-backed knowledge graph — no Cypher required.
+Graph algorithms over the knowledge graph — communities (Louvain), PageRank centrality, bridge symbols (articulation points), shortest paths, and execution flows.
 
 ## Quick Reference
 
-| Tool | Purpose |
-|------|---------|
-| `find_bridge_symbols` | Architectural chokepoints — symbols whose removal disconnects the graph (Tarjan articulation points) |
-| `find_central_symbols` | Most important symbols by **PageRank** (default) or degree centrality |
-| `find_dependency_path` | Shortest call/import path between two symbols (BFS over typed edges) |
-| `list_communities` | Louvain-detected logical modules/services |
-| `list_processes` | Execution flows: HTTP handlers, background jobs, CLI commands, event handlers |
-| `get_process_flow` | Trace a single process step-by-step |
+| Tool | Required params | Key optional |
+|------|-----------------|--------------|
+| `find_central_symbols` | `repo_id` | `limit` (def 25), `kinds[]` |
+| `find_bridge_symbols` | `repo_id` | `limit` |
+| `find_dependency_path` | `repo_id`, `source`, `target` | `max_depth` (def 20), `edge_type` |
+| `list_communities` | `repo_id` | `min_size`, `limit` |
+| `list_processes` | `repo_id` | `limit` |
+| `get_process_flow` | `repo_id`, `process` | `branch` |
+
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
 
 ## Steps
 
 ### 1. Understand the architecture
 
-Start with `list_communities` to see how the codebase is naturally partitioned into logical modules. Each community has a name, member count, and representative symbols.
+`list_communities` — natural module partitions.
 
 ### 2. Find critical infrastructure
 
-Use `find_central_symbols` to identify the most important symbols:
-- `method: "pagerank"` — importance by link structure (default; same algorithm Google uses)
-- `method: "degree"` — importance by direct connection count
-- `limit` — how many to return
+`find_central_symbols` runs **PageRank** internally. There is **no `method` param** (no degree-centrality switch).
 
-The PageRank pass walks every CALLS / REFERENCES edge in the repo, distributes rank with the standard 0.85 damping factor, and converges on a stable ordering. The output is sorted by score descending, with each entry carrying `name`, `kind`, `file_path`, `score`, and the `in_degree`/`out_degree` it accumulated during the walk.
+```json
+{ "repo_id": "memdb", "limit": 25, "kinds": ["Function", "Method"] }
+```
 
-### 3. Find architectural chokepoints
+### 3. Find chokepoints
 
-Use `find_bridge_symbols` to find symbols that, if removed, would disconnect parts of the graph (Tarjan articulation points). These are:
-- **Single points of failure** — if they break, cascading failures occur
-- **Integration points** — good places for interfaces/contracts
-- **Refactoring targets** — often too much responsibility concentrated in one place
+```json
+{ "repo_id": "memdb", "limit": 15 }
+```
 
-### 4. Discover the path between two symbols
+### 4. Path between two symbols
 
-Use `find_dependency_path` to answer "how does symbol A reach symbol B?" — returns the shortest call/import chain via BFS over typed edges. Useful for:
-- "Why does the auth handler depend on the database client?"
-- "How does this CLI command reach the logging subsystem?"
-- "Confirm symbol X actually transitively depends on Y."
+```json
+{
+  "repo_id": "memdb",
+  "source": "handleLogin",
+  "target": "DatabaseClient.query",
+  "max_depth": 20
+}
+```
 
-### 5. Trace execution flows
+Params are **`source`** and **`target`** (symbol names) — not `from`/`to`.
 
-Use `list_processes` to see all entry points (HTTP handlers, background jobs, CLI commands, event handlers).
+### 5. Execution flows
 
-Use `get_process_flow` with a process name to trace a specific flow step-by-step — shows the full call chain from entry point through business logic to data access, ordered by the indexed `step` property on each STEP_IN_PROCESS edge.
+```json
+{ "repo_id": "memdb" }
+{ "repo_id": "memdb", "process": "POST /login" }
+```
 
-## Decision Points
+## Output
 
-| Question | Tool |
-|----------|------|
-| "What are the main modules?" | `list_communities` |
-| "What are the most important functions?" | `find_central_symbols` with method=pagerank |
-| "Where are the bottlenecks?" | `find_bridge_symbols` |
-| "How does symbol A reach symbol B?" | `find_dependency_path` |
-| "How does a request flow through the system?" | `list_processes` → `get_process_flow` |
-| "What's the entry point for feature X?" | `list_processes`, then filter by name |
+`find_central_symbols` — each result carries the PageRank `score` plus degree counts:
+
+```json
+[
+  { "name": "DatabaseClient.query", "score": 0.0142, "in_degree": 38, "out_degree": 5 },
+  { "name": "handleLogin", "score": 0.0097, "in_degree": 21, "out_degree": 9 }
+]
+```
+
+`find_dependency_path` returns the ordered symbol chain from `source` to `target`; `list_communities` returns module partitions with their member symbols.
+
+## Common Mistakes
+
+| Mistake | Reality |
+|---------|---------|
+| `find_central_symbols(method: "degree")` | **No `method` param** — always PageRank |
+| `find_dependency_path(from=..., to=...)` | Use **`source`** and **`target`** |

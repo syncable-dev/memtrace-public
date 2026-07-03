@@ -1,6 +1,14 @@
 ---
 name: memtrace-style-fingerprint
-description: "Always use before writing or editing source code in an indexed repo when choosing between competing idioms (ternary vs if-else, arrow vs function declaration, const vs let, await vs .then, early-return vs nested-return). Pull the codebase's empirical style norm from Memtrace and match it instead of re-deriving style from training priors. Do not maintain a markdown style guide for the project; the fingerprint is sampled live from the actual code."
+description: "Pull the codebase's empirical style norm from Memtrace and match it when writing or editing source code in an indexed repo. Use when choosing between competing idioms (ternary vs if-else, arrow vs function declaration, const vs let, await vs .then, early-return vs nested-return), matching naming case, or when the user asks what the convention here is. Do not re-derive style from training priors or maintain a markdown style guide for the project; the fingerprint is sampled live from the actual code."
+allowed-tools:
+  - mcp__memtrace__get_style_fingerprint
+  - mcp__memtrace__get_codebase_briefing
+  - mcp__memtrace__list_indexed_repositories
+metadata:
+  author: "Syncable <support@syncable.dev>"
+  version: "1.0.0"
+  category: development
 ---
 
 ## Overview
@@ -9,7 +17,7 @@ Every indexed Memtrace repository carries an empirical **style fingerprint** —
 
 The fingerprint is **descriptive, not prescriptive**. It reports what the codebase actually does, not what a style guide says it should do. If the codebase deviates from a popular convention for some reason, the fingerprint captures the deviation and you should match the deviation — that's the whole point. For prescriptive bug/security/perf rules, use `find_code_review_issues` instead.
 
-## When to use this workflow
+## Best Fit
 
 | Situation | Action |
 |---|---|
@@ -22,11 +30,13 @@ The fingerprint is **descriptive, not prescriptive**. It reports what the codeba
 
 If the repo is not indexed in Memtrace, this workflow does not apply — fall back to your default behavior.
 
+Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+
 ## Steps
 
 ### 1. Get the codebase's overall norm
 
-Call `get_style_fingerprint(repo_id)` with no `file_path`. The response includes:
+Call `get_style_fingerprint(repo_id)` with no `file_path` (`repo_id` comes from `list_indexed_repositories` if not already known). The response includes:
 
 - `histogram` — raw counts (e.g. `ternary_count: 1005, if_stmt_count: 8087`)
 - `ratios` — computed shares for each competing pair (e.g. `ternary_share: 0.11`)
@@ -74,6 +84,24 @@ You should already be reading the briefing at session start (per `memtrace-codeb
 | `ratio` is `null` (below sample threshold) | No signal — don't assume a norm; pick the idiom that fits the immediate context |
 | `delta_from_codebase_norm` shows your target file already diverges from the norm | Don't amplify the divergence with your edits — match the codebase, not the outlier file |
 | `file_fingerprint` is empty (file has no functions yet, or is a config file) | Use the language slice or repo aggregate; this is creation territory |
+
+## Output
+
+Repo-mode `get_style_fingerprint` (field meanings in Steps 1–2):
+
+```json
+{
+  "histogram": { "ternary_count": 1005, "if_stmt_count": 8087 },
+  "ratios": { "ternary_share": 0.11, "naming_variables_snake_share": 0.89 },
+  "dominant_idioms": [
+    { "dimension": "ternary_share", "ratio": 0.11, "interpretation": "strongly prefers if-else over ternaries" }
+  ],
+  "function_count": 4211,
+  "sample_threshold": 20
+}
+```
+
+File mode adds `file_fingerprint`, `codebase_fingerprint`, `language`, `language_fingerprint`, and `delta_from_language_norm` (entries: `dimension`, `file_ratio`, `codebase_ratio`, `abs_delta`, `note`).
 
 ## Anti-patterns — do not do these
 

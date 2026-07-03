@@ -1,7 +1,7 @@
 {
   "name": "memtrace-skills",
-  "description": "Memtrace skills for codebase exploration, code search, relationship analysis, temporal evolution, blast radius impact, code quality, graph algorithms, API topology, GitHub PR code review, multi-agent fleet coordination (branch-scoped intents, conflict classification, and agent-judged Class C resolution), and multi-step workflows for change impact, incident investigation, refactoring, session continuity, co-change analysis, and episode replay.",
-  "version": "0.2.0",
+  "description": "Memtrace skills for codebase exploration, code search, relationship analysis, temporal evolution, blast radius impact, code quality, graph algorithms, API topology, GitHub PR code review, multi-agent fleet coordination (branch-scoped intents, conflict classification, and agent-judged Class C resolution), and multi-step workflows for change impact, incident investigation, refactoring, session continuity, co-change analysis, and episode replay, Cortex decision memory (decision recall, provenance, intent verification), session bookends (daily briefing, hotspots, self-audit), and single-symbol pre-edit preflight checks.",
+  "version": "0.3.0",
   "author": {
     "name": "Syncable",
     "email": "support@syncable.dev"

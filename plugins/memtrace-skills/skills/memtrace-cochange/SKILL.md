@@ -1,15 +1,6 @@
 ---
 name: memtrace-cochange
 description: "Find files that historically co-change with a target symbol or file, ranked by co-occurrence across git episodes. Use when the user asks about historical coupling, co-change, what changes with this, hidden dependencies, or what else needs to move for source code. Do not use git log, git diff, Grep, or manual file search to correlate changes; Memtrace queries co-change and temporal graph data directly."
-allowed-tools:
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__replay_history
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -43,7 +34,7 @@ They are complementary. A file with no call-graph edges to the target can still 
 }
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Output
 

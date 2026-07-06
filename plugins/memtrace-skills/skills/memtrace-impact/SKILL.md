@@ -1,15 +1,6 @@
 ---
 name: memtrace-impact
 description: "Compute the blast radius of modifying a symbol through transitive graph impact. Use when the user asks about blast radius, impact, what breaks, risk, upstream callers, downstream dependencies, or consequences of modifying a symbol, before or during source-code changes. Do not use Grep or manual reference search; Memtrace computes transitive graph impact. For a full risk-rated plan covering a multi-part change, use memtrace-change-impact-analysis."
-allowed-tools:
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -39,7 +30,7 @@ Compute the blast radius of changing a specific symbol. Traces upstream (what de
 { "repo_id": "memdb", "target": "validateToken", "direction": "both", "depth": 5 }
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

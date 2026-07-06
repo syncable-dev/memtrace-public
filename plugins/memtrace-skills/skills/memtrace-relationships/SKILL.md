@@ -1,18 +1,6 @@
 ---
 name: memtrace-relationships
 description: "Map source-code relationships between symbols. Use when the user asks about callers, callees, references, imports, exports, type usages, class hierarchy, inheritance, implementations, overrides, or dependencies between symbols. Do not use Grep, Glob, rg, find, or manual text search for references; Memtrace traverses typed AST graph edges."
-allowed-tools:
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__get_evolution
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -64,7 +52,7 @@ Required: `repo_id`, `target`, `query_type`
 | `depth` | **3** (max 10) | Not 2 |
 | `file_path` | — | Disambiguates overloaded names |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

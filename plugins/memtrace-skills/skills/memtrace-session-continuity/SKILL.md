@@ -1,14 +1,6 @@
 ---
 name: memtrace-session-continuity
 description: "Catch up on everything that changed in an indexed source-code repo since the last session, using stored session anchors and Memtrace change memory. Use when the user asks to continue, catch up, resume, see what changed while away, recover prior context, or orient at session start without guessing timestamps. Do not use git log, Grep, or manual file search for catch-up; Memtrace provides session anchors and change memory."
-allowed-tools:
-  - mcp__memtrace__get_changes_since
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_evolution
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -45,7 +37,7 @@ Optional: pass `until` to cap the upper bound (defaults to now).
 
 **Required param is `since`** — not `last_episode_id`, not `days`. Same time formats as `get_evolution.from` (`"7d ago"`, ISO-8601, etc.).
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ### 3. Interpret the response
 

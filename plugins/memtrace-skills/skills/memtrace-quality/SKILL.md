@@ -1,16 +1,6 @@
 ---
 name: memtrace-quality
 description: "Find dead code, complexity hotspots, and refactoring candidates in indexed source code. Use when the user asks about source-code quality, dead code, unused functions, zero callers, complexity, cyclomatic complexity, hotspots, refactoring candidates, or code smell questions. Do not use Grep, Glob, rg, or manual reference search for unused code; Memtrace uses graph reachability and complexity metrics."
-allowed-tools:
-  - mcp__memtrace__find_dead_code
-  - mcp__memtrace__calculate_cyclomatic_complexity
-  - mcp__memtrace__find_most_complex_functions
-  - mcp__memtrace__get_repository_stats
-  - mcp__memtrace__get_evolution
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -28,7 +18,7 @@ Code quality via graph analysis — dead code, complexity hotspots, repository s
 
 > **Parameter types:** numbers must be JSON numbers — `limit: 20`, never `"20"` (MCP error -32602).
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

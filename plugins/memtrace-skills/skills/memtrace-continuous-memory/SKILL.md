@@ -1,17 +1,6 @@
 ---
 name: memtrace-continuous-memory
 description: "Keep the Memtrace index fresh while editing by watching a repo for live, incremental re-indexing. Use when the user asks to keep Memtrace fresh while editing, watch a repo, enable live or incremental indexing, set up always-on memory (meaning Memtrace index watching, not generic agent memory), or make just-saved source code queryable immediately. Do not fall back to repeated Grep or manual rescans; configure Memtrace watching."
-allowed-tools:
-  - mcp__memtrace__watch_directory
-  - mcp__memtrace__list_watched_paths
-  - mcp__memtrace__unwatch_directory
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__check_job_status
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -30,7 +19,7 @@ Keep the knowledge graph live while editing. `watch_directory` triggers incremen
 { "path": "/abs/path/to/repo", "repo_id": "memdb" }
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

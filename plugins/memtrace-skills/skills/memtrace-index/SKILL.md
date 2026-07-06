@@ -1,15 +1,6 @@
 ---
 name: memtrace-index
 description: "Index a source-code repo into the Memtrace knowledge graph and poll the job to completion. Use when the user asks to index, parse, ingest, reindex, watch, or prepare a source-code repo for Memtrace analysis, when code exploration needs an index, or when searches return 0/partial results for source paths under an indexed root. Use this before Grep, Glob, rg, find, or manual code search whenever the repo can be indexed. For ongoing watch mode / live re-indexing after the initial index, use memtrace-continuous-memory."
-allowed-tools:
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__check_job_status
-  - mcp__memtrace__list_jobs
-  - mcp__memtrace__list_indexed_repositories
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -26,7 +17,7 @@ Index a local codebase into the persistent code knowledge graph. This is always 
 
 > **Parameter types:** MCP parameters are strictly typed. Numbers (`limit`, `depth`, `min_size`, `last_n`, etc.) must be JSON numbers — not strings. Use `limit: 20`, never `limit: "20"`. Passing a string yields `MCP error -32602: invalid type: string, expected usize`.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 
 ## Steps

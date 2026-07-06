@@ -1,19 +1,6 @@
 ---
 name: memtrace-incident-investigation
 description: "Investigate source-code bugs, incidents, regressions, production issues, and failures to root cause with Memtrace symbol search, impact, call graph, and temporal history. Use when the user asks about root cause analysis, what broke, or what changed when debugging a failure. Do not start with Grep, Glob, rg, find, or manual file search for code causes. For plain what-changed questions without a failure, use memtrace-evolution."
-allowed-tools:
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__get_episode_replay
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__list_indexed_repositories
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -160,7 +147,7 @@ If the suspect's episode isn't clear, call `get_episode_replay`:
 | Sub-commit intent | `get_episode_replay` | What was tried before the committed state |
 | Quick window check | `get_evolution` `overview` | Totals only — use before narrowing the window |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Output
 

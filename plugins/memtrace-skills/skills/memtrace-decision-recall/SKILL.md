@@ -1,14 +1,6 @@
 ---
 name: memtrace-decision-recall
 description: "Recall ranked decisions, bans, and conventions from Cortex decision memory by free-text query. Use when the user asks what was decided, what was chosen or rejected, whether there's a convention/ban/policy on something, or before re-picking a library, pattern, or approach that may already be settled. Do not reconstruct past decisions from git log or guesswork. To verify whether a known decision held, use memtrace-intent-verification; for symbol-scoped decision lineage/contracts, use memtrace-provenance."
-allowed-tools:
-  - mcp__memtrace__recall_decision
-  - mcp__memtrace__verify_intent
-  - mcp__memtrace__get_arc
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -21,7 +13,7 @@ Use it before re-litigating a settled choice or contradicting a convention.
 This is the one decision-memory tool that takes plain text. The ranked decisions it
 returns carry the `decision_id`s the other tools (`verify_intent`, `get_arc`) need.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Quick Reference
 

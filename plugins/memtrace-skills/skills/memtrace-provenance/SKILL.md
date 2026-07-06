@@ -1,15 +1,6 @@
 ---
 name: memtrace-provenance
 description: "Retrieve the governing decision lineage (why is this here) and the contracts that bind a symbol, from Cortex decision memory. Use before deleting, rewriting, or 'cleaning up' code that looks unused, odd, or redundant, and when the user asks why a symbol exists or what rules constrain it. Symbol-scoped; for free-text decision search use memtrace-decision-recall. Do not infer intent from the diff or assume unfamiliar code is safe to remove."
-allowed-tools:
-  - mcp__memtrace__why_is_this_here
-  - mcp__memtrace__governing_contracts
-  - mcp__memtrace__verify_intent
-  - mcp__memtrace__recall_decision
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -20,7 +11,7 @@ it. `why_is_this_here` returns the decision/conversation lineage that governs a 
 that constrain it. Together they stop you from deleting code that closes a past issue
 or violating an invariant nothing in the AST advertises.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Quick Reference
 

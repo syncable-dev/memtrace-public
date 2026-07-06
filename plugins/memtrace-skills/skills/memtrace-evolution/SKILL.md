@@ -1,19 +1,6 @@
 ---
 name: memtrace-evolution
 description: "Trace source-code change history from Memtrace's symbol-level temporal memory. Use when the user asks about change history, recent modifications, what changed since a date, symbol timeline, evolution, unexpected changes, or incident timelines. Do not use git log, git diff, Grep, or manual file search to reconstruct history. Do NOT use for current-state architecture overviews (use memtrace-codebase-exploration) or for replaying one commit/save's graph diff (use memtrace-episode-replay)."
-allowed-tools:
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__detect_changes
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_changes_since
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__get_episode_replay
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -73,7 +60,7 @@ Modes **`impact`**, **`novel`**, and **`directional`** are **not implemented** â
 | `limit` | page size (default 100 episodes) |
 | `cursor` | pagination offset; follow `next_cursor` in response |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

@@ -1,23 +1,6 @@
 ---
 name: memtrace-codebase-exploration
 description: "Map an indexed source-code repo into a structured overview — scale, communities, central symbols, execution flows, API surface, recent activity. Use when the user wants to explore, understand, onboard to, map, or get an overview of an indexed source-code repo, architecture, modules, or major flows. Do not use Glob, find, tree, rg, or manual file browsing as the first exploration path; Memtrace provides structured graph briefing. Do NOT use for change history / what-changed questions — use memtrace-evolution."
-allowed-tools:
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__check_job_status
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__get_repository_stats
-  - mcp__memtrace__list_communities
-  - mcp__memtrace__list_processes
-  - mcp__memtrace__find_central_symbols
-  - mcp__memtrace__find_bridge_symbols
-  - mcp__memtrace__find_api_endpoints
-  - mcp__memtrace__get_api_topology
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__find_most_complex_functions
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -107,7 +90,7 @@ Call `find_most_complex_functions`:
 { "repo_id": "<repo>", "top_n": 10 }
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Report Synthesis
 

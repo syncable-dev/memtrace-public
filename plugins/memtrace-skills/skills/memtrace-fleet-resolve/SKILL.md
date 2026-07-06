@@ -1,15 +1,6 @@
 ---
 name: memtrace-fleet-resolve
 description: "Resolve a Class C fleet decision: submit your verdict as an agent judge (fleet_submit_verdict), poll your own directive (fleet_get_escalation), see the needs-human queue (fleet_list_escalations), or record a human decision (fleet_resolve_escalation). Use when the user says 'a decision is waiting' or 'who should proceed', when you are handed a mediation_request, when acting as a mediator between two agents, or when a human chooses a winner in the dashboard. For the underlying conflict-class model and decision loop, see memtrace-fleet-coordination."
-allowed-tools:
-  - mcp__memtrace__fleet_submit_verdict
-  - mcp__memtrace__fleet_get_escalation
-  - mcp__memtrace__fleet_list_escalations
-  - mcp__memtrace__fleet_resolve_escalation
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -34,7 +25,7 @@ fleet_submit_verdict({
 // kinds: reconcile {merge_plan} | recommend {winner, rationale, confidence} | defer_to_human {question}
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 The response tells you the `outcome` (`auto_apply` | `human_confirm` |
 `human_required` | `pending`) and `your_directive`.

@@ -1,16 +1,6 @@
 ---
 name: memtrace-decision-memory
 description: "Check Cortex decision memory — the umbrella entry point for decision recall, provenance (why is this here), intent verification, and governing contracts. Use before assuming WHY code exists, before making a choice that may contradict a past one, or before deleting/rewriting code that looks odd or redundant. Route: free-text what-was-decided → memtrace-decision-recall; why does this symbol exist / what constrains it → memtrace-provenance; did the decision hold → memtrace-intent-verification. Do not guess rationale from the diff or git log; Cortex remembers the decision, the ban, and whether it still holds."
-allowed-tools:
-  - mcp__memtrace__recall_decision
-  - mcp__memtrace__why_is_this_here
-  - mcp__memtrace__verify_intent
-  - mcp__memtrace__get_arc
-  - mcp__memtrace__governing_contracts
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 # Decision Memory First
@@ -36,7 +26,7 @@ still holds* — extracted from real coding conversations and decisions, not the
 The graph can tell you a function exists and who calls it. Only decision memory can
 tell you that three weeks ago you **banned** the approach you're about to reintroduce.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## The honesty contract — read this first
 

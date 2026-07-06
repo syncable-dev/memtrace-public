@@ -1,15 +1,6 @@
 ---
 name: memtrace-daily
 description: "Orient at the start of a coding session, review what recently changed in a repository, and self-audit after completing work. Use when the user wants the daily briefing (what changed in the last 24h with complexity deltas), hotspots (complexity × churn refactor priorities), or a session review (clean/review/risky verdicts per editing session). For catching up after time away or resuming a prior session, use memtrace-session-continuity; daily is the last-24h briefing + hotspots + self-audit. Do not reconstruct recent activity from git log; Memtrace diffs the graph at save granularity."
-allowed-tools:
-  - mcp__memtrace__get_daily_briefing
-  - mcp__memtrace__find_hotspots
-  - mcp__memtrace__review_agent_sessions
-  - mcp__memtrace__preflight_check
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -29,7 +20,7 @@ code better or worse".
 
 > **Parameter types:** MCP parameters are strictly typed. Numbers
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 > (`window_hours`, `window_days`, `top_n`) must be JSON numbers.
 
 ## Steps

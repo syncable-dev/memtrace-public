@@ -1,16 +1,6 @@
 ---
 name: memtrace-api-topology
 description: "Map API endpoints, outbound HTTP calls, and cross-repo service topology in indexed source code. Use when the user asks about API endpoints, HTTP routes, fetch/client calls, REST surface, service dependencies, cross-repo dependencies, or API topology. Do not use Grep, Glob, rg, find, or manual file search for routes or HTTP calls; Memtrace maps endpoints and call edges from the indexed AST graph."
-allowed-tools:
-  - mcp__memtrace__get_api_topology
-  - mcp__memtrace__find_api_endpoints
-  - mcp__memtrace__find_api_calls
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__link_repositories
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -25,7 +15,7 @@ Map HTTP API surface — endpoints, outbound calls, cross-repo topology.
 | `find_api_calls` | `repo_id` | `method`, `path_contains`, `limit`, `branch` |
 | `get_api_topology` | — | `repo_id`, `min_confidence`, `include_external` |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

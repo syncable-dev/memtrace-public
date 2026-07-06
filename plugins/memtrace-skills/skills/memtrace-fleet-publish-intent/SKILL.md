@@ -1,14 +1,6 @@
 ---
 name: memtrace-fleet-publish-intent
 description: "Declare a structural intent BEFORE editing in a fleet — what symbols you'll touch and why — so other agents on your branch coordinate around you. Use when the user says 'I'm about to edit/rename/refactor X', or when starting any non-trivial edit while other agents share your repo+branch. Returns the graph blast radius, overlapping live intents on your branch, and a shift-left coordination/partition hint. Do not start editing shared symbols without publishing first."
-allowed-tools:
-  - mcp__memtrace__fleet_publish_intent
-  - mcp__memtrace__fleet_preflight
-  - mcp__memtrace__fleet_record_episode
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -30,7 +22,7 @@ fleet_publish_intent({
 })
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Output
 

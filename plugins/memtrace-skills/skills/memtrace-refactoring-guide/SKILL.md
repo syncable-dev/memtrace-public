@@ -1,19 +1,6 @@
 ---
 name: memtrace-refactoring-guide
 description: "Build a phased, risk-scored refactoring plan from Memtrace complexity, dead-code, bridge, and impact analysis. Use when the user wants to refactor source code, reduce complexity, clean technical debt, split large functions, extract modules, reorganize code, or choose refactoring priorities. Do not use Grep or manual reference search to plan refactors; Memtrace provides complexity, dead-code, relationships, and impact context."
-allowed-tools:
-  - mcp__memtrace__find_most_complex_functions
-  - mcp__memtrace__find_dead_code
-  - mcp__memtrace__find_bridge_symbols
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__list_communities
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -69,7 +56,7 @@ For each refactoring target, call `analyze_relationships`:
 - `find_callers` — what depends on it? These need updating after refactoring
 - `class_hierarchy` — is it part of an inheritance chain? Liskov concerns
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ### 5. Check community boundaries
 

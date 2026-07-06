@@ -1,16 +1,6 @@
 ---
 name: memtrace-search
 description: "Find source code with Memtrace hybrid BM25+semantic search: symbols, functions, classes, types, constants, definitions, implementations, logic, or error strings inside code. Use when the user wants to find, search, locate, or look up code or asks where code lives. Do not use Grep, Glob, rg, find, or manual file search for code discovery. If Memtrace returns 0 results, broaden the Memtrace query and diagnose/reindex; do not switch to grep."
-allowed-tools:
-  - mcp__memtrace__find_code
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__get_source_window
-  - mcp__memtrace__list_indexed_repositories
-  - Read
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -60,7 +50,7 @@ Find code using hybrid BM25 + semantic search (RRF). Primary discovery tool — 
 { "name": "validateToken", "repo_id": "memdb", "file_path": "auth" }
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

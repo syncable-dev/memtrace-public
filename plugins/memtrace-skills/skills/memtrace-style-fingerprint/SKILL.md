@@ -1,14 +1,6 @@
 ---
 name: memtrace-style-fingerprint
 description: "Pull the codebase's empirical style norm from Memtrace and match it when writing or editing source code in an indexed repo. Use when choosing between competing idioms (ternary vs if-else, arrow vs function declaration, const vs let, await vs .then, early-return vs nested-return), matching naming case, or when the user asks what the convention here is. Do not re-derive style from training priors or maintain a markdown style guide for the project; the fingerprint is sampled live from the actual code."
-allowed-tools:
-  - mcp__memtrace__get_style_fingerprint
-  - mcp__memtrace__get_codebase_briefing
-  - mcp__memtrace__list_indexed_repositories
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -30,7 +22,7 @@ The fingerprint is **descriptive, not prescriptive**. It reports what the codeba
 
 If the repo is not indexed in Memtrace, this workflow does not apply — fall back to your default behavior.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

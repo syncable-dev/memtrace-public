@@ -1,35 +1,6 @@
 ---
 name: memtrace-first
 description: "Route code discovery, debugging, flow tracing, and how-code-works questions in indexed source-code repos to Memtrace graph tools. Use first — before searching files, reading code for discovery, debugging, tracing flows, finding implementations, understanding behavior, or answering how code works. Do not use Grep, Glob, rg, find, or manual file browsing for code discovery when Memtrace is indexed. Zero results, missing languages, or partial-looking stats are not permission to grep; diagnose/reindex with Memtrace."
-allowed-tools:
-  - mcp__memtrace__list_indexed_repositories
-  - mcp__memtrace__index_directory
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__analyze_relationships
-  - mcp__memtrace__get_process_flow
-  - mcp__memtrace__list_communities
-  - mcp__memtrace__find_central_symbols
-  - mcp__memtrace__find_api_endpoints
-  - mcp__memtrace__find_api_calls
-  - mcp__memtrace__get_service_diagram
-  - mcp__memtrace__get_api_topology
-  - mcp__memtrace__find_dependency_path
-  - mcp__memtrace__get_cochange_context
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_changes_since
-  - mcp__memtrace__get_style_fingerprint
-  - mcp__memtrace__find_most_complex_functions
-  - mcp__memtrace__get_source_window
-  - Read
-  - Grep
-  - Glob
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 # Memtrace First
@@ -128,7 +99,7 @@ If you see `failed to deserialize parameters: invalid type: string "N", expected
 
 If you see `missing field 'from'`, you called `get_evolution` without `from` — pass e.g. `"90d ago"`, never `days`.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Check Indexing First (Once Per Session)
 
@@ -210,6 +181,7 @@ Use Grep/Glob/Read ONLY for:
 - Non-source files or paths outside every indexed source repo
 - Files that are config, data, or docs (not source code symbols)
 - Repos or paths confirmed outside every Memtrace indexed root
+- **Official Memtrace product documentation** — use `memtrace-docs` (`ask_docs` / `search_docs` / `read_doc`), not file tools or web search
 
 For source-code spans already located by Memtrace, use a **bounded** read —
 your harness's `Read(file, offset, limit)` with the returned `start_line` /
@@ -230,6 +202,7 @@ When this skill applies, it overrides default file-search behavior. Use the spec
 - Incident investigation → `memtrace-incident-investigation`
 - Architecture overview → `memtrace-codebase-exploration`
 - Refactoring → `memtrace-refactoring-guide`
+- Memtrace **product docs** (install, CLI, MCP, enterprise) → `memtrace-docs`
 
 ## Output
 

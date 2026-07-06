@@ -1,18 +1,6 @@
 ---
 name: memtrace-change-impact-analysis
 description: "Compute what a planned source-code change will break — blast radius, affected processes, cross-repo callers — and produce a risk-rated change plan. Use when the user needs to know what will break before a change: edits, refactors, API changes, renames, removals, PR reviews, or risk assessments. Do not manually grep references or browse files for impact; this workflow uses Memtrace graph context, impact, and change history. For a quick blast-radius check on one symbol, use memtrace-impact."
-allowed-tools:
-  - mcp__memtrace__find_symbol
-  - mcp__memtrace__find_code
-  - mcp__memtrace__get_symbol_context
-  - mcp__memtrace__get_impact
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_timeline
-  - mcp__memtrace__analyze_relationships
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -65,7 +53,7 @@ Call `get_evolution` (`repo_id`, `from: "30d ago"`, `mode: "compound"`), then `g
 From step 2, you already know which processes are affected. For critical changes, use `analyze_relationships` (`repo_id`, `target`) with `query_type: "find_callers"` at `depth: 3` to trace the full transitive caller chain.
 
 `depth: 3` is a JSON number, not a string — the validator rejects `"3"`.
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ### 6. Produce the risk assessment
 

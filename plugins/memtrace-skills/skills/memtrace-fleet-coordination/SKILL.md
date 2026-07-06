@@ -1,17 +1,6 @@
 ---
 name: memtrace-fleet-coordination
 description: "Resolve fleet conflicts between coordinated agents: what conflict class A/B/C means, how a Class C destructive overlap gets decided (by an agent judge or a human), how to be the judge (fleet_submit_verdict), how to read your directive after a decision, and how branch-scoping isolates fleets. Use when the user says 'two agents are changing the same thing', 'resolve this conflict', 'who should proceed', 'a decision is waiting', or asks you to act as a mediator between agents. This skill explains the conflict model and decision loop; for just the verdict/directive/resolution tool calls on a specific escalation, use memtrace-fleet-resolve."
-allowed-tools:
-  - mcp__memtrace__fleet_record_episode
-  - mcp__memtrace__fleet_submit_verdict
-  - mcp__memtrace__fleet_get_escalation
-  - mcp__memtrace__fleet_list_escalations
-  - mcp__memtrace__fleet_resolve_escalation
-  - mcp__memtrace__fleet_get_node_state
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 # Fleet Coordination
@@ -56,7 +45,7 @@ fleet_submit_verdict({
 Verdict kinds: `reconcile {merge_plan}` · `recommend {winner, rationale, confidence}`
 · `defer_to_human {question}`.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 The referee then decides the outcome:
 - **Auto-apply** only when safe: the clear machine case, or ≥2 independent agents

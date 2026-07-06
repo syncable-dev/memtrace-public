@@ -1,17 +1,6 @@
 ---
 name: memtrace-graph
 description: "Map source-code architecture with graph algorithms — PageRank centrality, bridge symbols, Louvain communities, dependency paths, and execution flows over the AST graph. Use when the user asks about source-code architecture, important symbols, centrality, PageRank, bridge functions, communities, logical modules, chokepoints, service boundaries, or dependency path questions. Do not use Glob, find, tree, or directory browsing to infer architecture; Memtrace runs graph algorithms over the AST graph."
-allowed-tools:
-  - mcp__memtrace__find_central_symbols
-  - mcp__memtrace__find_bridge_symbols
-  - mcp__memtrace__find_dependency_path
-  - mcp__memtrace__list_communities
-  - mcp__memtrace__list_processes
-  - mcp__memtrace__get_process_flow
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -29,7 +18,7 @@ Graph algorithms over the knowledge graph — communities (Louvain), PageRank ce
 | `list_processes` | `repo_id` | `limit` |
 | `get_process_flow` | `repo_id`, `process` | `branch` |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

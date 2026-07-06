@@ -1,12 +1,6 @@
 ---
 name: memtrace-code-review
 description: "Review GitHub pull requests with Memtrace's local graph-backed review engine. Use when the user asks to review a GitHub pull request, run Memtrace code review, post Memtrace review comments, create a PR with a review step, or publish local graph-backed review findings to GitHub. Prefer the review_github_pr MCP tool over manual diff inspection. Do not use for local working-tree diffs — that is the built-in /code-review; this skill is for GitHub PRs via review_github_pr."
-allowed-tools:
-  - mcp__memtrace__review_github_pr
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -21,7 +15,7 @@ Use Memtrace's local-first PR review workflow. The agent should call the `review
 4. Default to `minSeverity: "high"` and `maxComments: 5` when posting. For previews, `maxComments: 10` is acceptable.
 5. Pass `repoRoot` when the PR checkout is not the current working directory. Pass `repoId` when the indexed repository id is known.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Example User Prompts
 

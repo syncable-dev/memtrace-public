@@ -1,14 +1,6 @@
 ---
 name: memtrace-episode-replay
 description: "Replay the graph diff of one episode — a single git commit or working-tree save — to inspect what it changed: added/modified/removed symbols and edges. Use when the user asks what one commit or save changed in the graph, why code looks this way, or wants to inspect implementation attempts, reversions, past reasoning, or abandoned approaches across commits and working-tree episodes. Do not use git log or Grep for graph-level episode diffs; Memtrace replays indexed episode records. Do NOT use for module-level summaries or date-range change history — use memtrace-evolution."
-allowed-tools:
-  - mcp__memtrace__get_episode_replay
-  - mcp__memtrace__get_evolution
-  - mcp__memtrace__get_timeline
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -38,7 +30,7 @@ Use `get_evolution(mode: "recent")` to **find** episode IDs and timestamps, then
 | `compress` | default `true` — collapse identical-hash modifications |
 | `limit` / `cursor` | Pagination per bucket (default limit 200) |
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Steps
 

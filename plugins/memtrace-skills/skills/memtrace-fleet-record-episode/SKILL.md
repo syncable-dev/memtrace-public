@@ -1,15 +1,6 @@
 ---
 name: memtrace-fleet-record-episode
 description: "Record an edit you just made in a fleet and get its conflict class (A/B/C) against agents on your branch. Use when you have just finished an edit, when the user says 'I just changed X', or when completing a refactor step while other agents share your repo+branch. Returns conflict_class + replan_hint; a Class C returns an escalation_id and mediation_request that starts the decision loop. Do not finish a coordinated edit without recording it."
-allowed-tools:
-  - mcp__memtrace__fleet_record_episode
-  - mcp__memtrace__fleet_get_escalation
-  - mcp__memtrace__fleet_query_episodes
-  - mcp__memtrace__fleet_submit_verdict
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -29,7 +20,7 @@ fleet_record_episode({
 })
 ```
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## The result: conflict_class
 

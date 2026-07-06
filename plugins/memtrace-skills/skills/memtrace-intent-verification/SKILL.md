@@ -1,15 +1,6 @@
 ---
 name: memtrace-intent-verification
 description: "Verify whether a past decision actually held or was violated, and surface the arc of episodes that implemented that specific decision. Returns a Held | ViolatedAt | CannotProve verdict and the implementing arc from Cortex decision memory. Use when the user asks whether a decision held, was followed, or drifted, or before relying on a decision or reporting drift. Requires a decision_id (from memtrace-decision-recall); do NOT use for free-text decision lookup — use memtrace-decision-recall first. Do not assume a decision was followed; verify it."
-allowed-tools:
-  - mcp__memtrace__verify_intent
-  - mcp__memtrace__get_arc
-  - mcp__memtrace__recall_decision
-  - mcp__memtrace__why_is_this_here
-metadata:
-  author: "Syncable <support@syncable.dev>"
-  version: "1.0.0"
-  category: development
 ---
 
 ## Overview
@@ -19,7 +10,7 @@ whether a decision held across its arc; `get_arc` returns the episodes that impl
 it. Use these to confirm a rationale is still in force before relying on it, and to
 detect drift where the code quietly diverged from what was decided.
 
-Full parameter spec for every Memtrace tool: [references/mcp-parameters.md](../../references/mcp-parameters.md).
+Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
 ## Quick Reference
 

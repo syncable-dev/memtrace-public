@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.log
+runs/
+results/
+work/
+.memdb/
+.memtrace/
+.codex/
+.agents/

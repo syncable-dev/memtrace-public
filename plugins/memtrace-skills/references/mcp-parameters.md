@@ -372,8 +372,9 @@ No parameters. Returns `{ watches: [{ path, repo_id, branch, started_at, origin 
 
 ## Cortex decision memory
 
-Proxied to memcortex-serve; available when the Cortex store is enabled. Ids are
-**JSON numbers** (Cortex node ids), not strings — `decision_id: 1`, never `"1"`.
+Exposed on the normal `memtrace` MCP server and proxied to the local MemCortex
+sidecar when Cortex is enabled. Ids are **JSON numbers** (Cortex node ids), not
+strings — `decision_id: 1`, never `"1"`.
 An unknown or empty query/id returns an explicit **CannotProve**, never a
 fabricated result.
 
@@ -381,6 +382,8 @@ fabricated result.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `query` | string | yes | Free text; drives the lexical lane, decisions ranked first |
+| `top_k` | integer | no | Optional result cap; must be > 0 |
+| `min_score` | number | no | Optional finite score floor |
 
 (A tier-based decision cap is applied server-side; it is not a caller parameter.)
 
@@ -397,7 +400,7 @@ fabricated result.
 ## When this file is wrong
 
 It's drift-prone. Regenerate by grepping `crates/memtrace-mcp/src/tools/*.rs`
-for `^pub struct.*Params` — the Rust declarations are the source of truth
-(Cortex decision tools: `MemCortex/crates/memcortex-mcp/src/request.rs`).
+and `crates/memtrace-mcp/src/cortex_client.rs` for `Params` declarations — the
+Rust declarations are the source of truth.
 If a live tool call rejects with `-32602`, trust the Rust struct over this
 doc and file a fix PR.

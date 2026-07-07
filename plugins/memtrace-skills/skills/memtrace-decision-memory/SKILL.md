@@ -1,6 +1,6 @@
 ---
 name: memtrace-decision-memory
-description: "Check Cortex decision memory — the umbrella entry point for decision recall, provenance (why is this here), intent verification, and governing contracts. Use before assuming WHY code exists, before making a choice that may contradict a past one, or before deleting/rewriting code that looks odd or redundant. Route: free-text what-was-decided → memtrace-decision-recall; why does this symbol exist / what constrains it → memtrace-provenance; did the decision hold → memtrace-intent-verification. Do not guess rationale from the diff or git log; Cortex remembers the decision, the ban, and whether it still holds."
+description: "Check Cortex decision memory through the normal Memtrace MCP tools — the umbrella entry point for decision recall, provenance (why is this here), intent verification, and governing contracts. Use before assuming WHY code exists, before any non-trivial edit/refactor/delete of existing code, before re-picking a library/pattern/architecture, or before contradicting an apparent convention. Route: free-text decisions/bans/conventions → memtrace-decision-recall; symbol lineage/contracts → memtrace-provenance; did the decision hold → memtrace-intent-verification. Do not guess rationale from the diff or git log."
 ---
 
 # Decision Memory First
@@ -42,12 +42,14 @@ These five tools are **deterministic, zero-LLM**. Every call returns a labeled
 `CannotProve` is a real, trustworthy answer ("memory has nothing on this"), not a
 failure and not a green light. Never invent a rationale to fill the gap.
 
-## Server check (once per session)
+## Tool availability (once per session)
 
-These tools are served by the **`memcortex`** MCP server (decision memory), separate
-from the `memtrace` code-graph server. If `recall_decision` isn't available, decision
-memory isn't wired in this environment — say so and use `memtrace-first` instead;
-don't fabricate decisions.
+These tools are exposed on the normal **`memtrace` MCP server**:
+`recall_decision`, `why_is_this_here`, `verify_intent`, `get_arc`, and
+`governing_contracts`. Hosts do not need a second MemCortex MCP connection. If a
+tool call returns CannotProve because Cortex is unavailable (for example native
+Windows without WSL2), say decision memory was unavailable/unknown and continue
+with `memtrace-first`; do not fabricate decisions.
 
 ## The decision rule
 
@@ -55,9 +57,9 @@ don't fabricate decisions.
 |---|---|---|
 | "Did we already decide/choose/reject X?" "What's our convention on Y?" | `recall_decision("X")` | `memtrace-decision-recall` |
 | "Is there a ban / a 'don't do this' on Z?" | `recall_decision("Z")` — bans surface as decisions | `memtrace-decision-recall` |
-| About to re-pick a library/pattern/approach | `recall_decision` FIRST — don't re-litigate a settled call | `memtrace-decision-recall` |
+| About to edit behavior, re-pick a library/pattern/architecture, or change a subsystem policy | `recall_decision` FIRST — don't re-litigate a settled call | `memtrace-decision-recall` |
 | "Why is this code here?" "Why is it done this odd way?" | `why_is_this_here(symbol_id)` | `memtrace-provenance` |
-| About to delete/refactor code that looks unused or strange | `why_is_this_here` + `governing_contracts` before touching it | `memtrace-provenance` |
+| About to delete/refactor/clean up existing code, especially odd or "dead" code | `why_is_this_here` + `governing_contracts` before touching it | `memtrace-provenance` |
 | "What rules/contracts constrain this symbol?" | `governing_contracts(symbol_id)` | `memtrace-provenance` |
 | "Did decision D actually hold, or did we drift?" | `verify_intent(decision_id)` | `memtrace-intent-verification` |
 | "What commits/episodes implemented decision D?" | `get_arc(decision_id)` | `memtrace-intent-verification` |
@@ -85,10 +87,11 @@ have a name or a free-text question, start with `recall_decision`.** Do not inve
 ## Standard workflows
 
 ### "Why does this code exist / can I delete it?"
-1. `why_is_this_here(symbol_id)` → the governing decision, if any
-2. `governing_contracts(symbol_id)` → constraints that must survive a rewrite
-3. If a decision governs it → `verify_intent(decision_id)` to see if it still holds
-4. **CannotProve on all three ≠ safe to delete** — confirm with `memtrace-impact` (blast radius) and the user
+1. If you only have a name/free-text target, `recall_decision("<symbol/subsystem>")` first.
+2. If you have a `symbol_id`, `why_is_this_here(symbol_id)` → the governing decision, if any.
+3. `governing_contracts(symbol_id)` → constraints that must survive a rewrite.
+4. If a decision governs it → `verify_intent(decision_id)` to see if it still holds.
+5. **CannotProve on all checks ≠ safe to delete** — confirm with `memtrace-impact` (blast radius) and the user.
 
 ### "Should I do X?" (about to make a choice)
 1. `recall_decision("X")` → did we already decide or ban this?
@@ -104,6 +107,7 @@ have a name or a free-text question, start with `recall_decision`.** Do not inve
 | Thought | Reality |
 |---|---|
 | "This code looks unused, I'll delete it" | `why_is_this_here` first — a decision may govern it; deletion may reopen a closed issue |
+| "I'll just edit/refactor this existing behavior" | `recall_decision("<behavior/subsystem>")` first — the change may violate a recorded decision or ban |
 | "I'll just use library/pattern X" | `recall_decision("X")` — you may be undoing a deliberate ban |
 | "The diff/git log will tell me why" | Git shows *what changed*, not *what was decided or rejected*. Decision memory has the rationale and the bans. |
 | "CannotProve, so it's fine/approved" | CannotProve = unknown, not approved. Don't treat absence of a record as permission. |

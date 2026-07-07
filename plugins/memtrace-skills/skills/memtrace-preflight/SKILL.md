@@ -1,6 +1,6 @@
 ---
 name: memtrace-preflight
-description: "Run a one-call pre-flight check on a single existing symbol before editing it: blast radius (who depends on it), co-change partners (files that historically change with it), complexity, 30-day churn, and a generated verification checklist. Use before modifying any existing function or symbol you did not just write. Do not start editing a non-trivial existing function without a pre-flight check; Memtrace knows the dependency graph and change history. For a full multi-symbol change plan or what-will-break analysis, use memtrace-change-impact-analysis."
+description: "Run a one-call pre-flight check on a single existing symbol before editing it: blast radius, co-change partners, complexity, 30-day churn, and verification checklist, then check Cortex decision memory for rationale/bans when intent may matter. Use before modifying any existing function or symbol you did not just write. Do not start editing a non-trivial existing function without pre-flight plus decision-memory recall/provenance; Memtrace knows the dependency graph, change history, and recorded decisions."
 ---
 
 ## Overview
@@ -17,6 +17,8 @@ symbol.
 | `preflight_check` | Full radar for one symbol: blast radius + co-change + churn + checklist |
 | `get_impact` | Deeper blast-radius walk when the radar flags HIGH/CRITICAL |
 | `get_cochange_context` | Wider co-change window when partners look surprising |
+| `recall_decision` | Recorded choices, bans, and conventions for the symbol/subsystem/behavior |
+| `why_is_this_here` / `governing_contracts` | Symbol-scoped rationale and constraints when a symbol id is available |
 
 > **Parameter types:** MCP parameters are strictly typed. Numbers must be
 
@@ -56,12 +58,23 @@ frequent partner, say so explicitly and why.
 - The complexity number should not have grown without a stated reason;
   if it did, simplify before declaring the work done.
 
+### Cortex gate before editing
+
+Before changing behavior, deleting code, or refactoring odd/legacy code:
+
+1. Run `recall_decision("<symbol/subsystem/behavior>")`.
+2. If the preflight/graph result gives you a numeric `symbol_id`, run
+   `why_is_this_here(symbol_id)` and `governing_contracts(symbol_id)`.
+3. Honor matching held decisions/bans. Treat CannotProve as unknown, not approval.
+
 ## Verdict guidance
 
 - `risk: CRITICAL/HIGH` — propose the change plan before editing; consider
   a feature flag or staged rollout.
 - `dependents: 0` — edit freely; note the symbol may be newly added or an
   entry point.
+- A matching Cortex decision/ban — surface it before editing and do not
+  contradict it without explicit user sign-off.
 
 ## Output
 

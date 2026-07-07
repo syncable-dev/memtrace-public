@@ -1,6 +1,6 @@
 ---
 name: memtrace-decision-recall
-description: "Recall ranked decisions, bans, and conventions from Cortex decision memory by free-text query. Use when the user asks what was decided, what was chosen or rejected, whether there's a convention/ban/policy on something, or before re-picking a library, pattern, or approach that may already be settled. Do not reconstruct past decisions from git log or guesswork. To verify whether a known decision held, use memtrace-intent-verification; for symbol-scoped decision lineage/contracts, use memtrace-provenance."
+description: "Recall ranked decisions, bans, and conventions from Cortex decision memory by free-text query through the normal Memtrace MCP server. Use when the user asks what was decided/chosen/rejected, whether there is a convention/ban/policy, and before any non-trivial edit/refactor/delete or re-picking a library, pattern, architecture, or subsystem behavior that may already be settled. Do not reconstruct decisions from git log or guesswork. To verify whether a known decision held, use memtrace-intent-verification; for symbol lineage/contracts, use memtrace-provenance."
 ---
 
 ## Overview
@@ -8,7 +8,8 @@ description: "Recall ranked decisions, bans, and conventions from Cortex decisio
 `recall_decision` is the **free-text entry point** to decision memory. Given a query,
 it returns the statistically-ranked set of decisions/conversations that bear on it —
 including **bans** ("never use X", "don't do Y"), which are recorded as decisions.
-Use it before re-litigating a settled choice or contradicting a convention.
+Use it before re-litigating a settled choice, changing existing behavior, or
+contradicting a convention.
 
 This is the one decision-memory tool that takes plain text. The ranked decisions it
 returns carry the `decision_id`s the other tools (`verify_intent`, `get_arc`) need.
@@ -33,7 +34,8 @@ Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bun
 
 `recall_decision(query)` — `query` is free text. Use the noun phrase of the thing in
 question: a library (`"redis vs in-memory cache"`), a pattern (`"error handling
-strategy"`), a subsystem (`"auth tokens"`), or the exact thing you're about to do.
+strategy"`), a subsystem (`"auth tokens"`), a symbol, or the exact edit/refactor/delete
+you are about to do.
 
 ### 2. Read the ranked result
 
@@ -63,7 +65,8 @@ require a Decision node and will honestly return CannotProve. See
 
 | Situation | Action |
 |-----------|--------|
-| About to choose a library/pattern/approach | `recall_decision` FIRST — you may be undoing a deliberate choice or ban |
+| About to edit/refactor/delete existing code where intent may matter | `recall_decision("<symbol/subsystem/behavior>")` FIRST — you may be crossing a recorded decision, ban, or convention |
+| About to choose or replace a library/pattern/architecture | `recall_decision` FIRST — you may be undoing a deliberate choice or ban |
 | User asks "did we decide X?" / "what's our convention on Y?" | `recall_decision("X" / "Y")` |
 | You suspect a "don't do this" rule exists | `recall_decision` — bans are decisions and will surface |
 | Recall returns a decision you're about to contradict | Surface it to the user verbatim; don't silently override |

@@ -1,6 +1,6 @@
 ---
 name: memtrace-provenance
-description: "Retrieve the governing decision lineage (why is this here) and the contracts that bind a symbol, from Cortex decision memory. Use before deleting, rewriting, or 'cleaning up' code that looks unused, odd, or redundant, and when the user asks why a symbol exists or what rules constrain it. Symbol-scoped; for free-text decision search use memtrace-decision-recall. Do not infer intent from the diff or assume unfamiliar code is safe to remove."
+description: "Retrieve the governing decision lineage (why is this here) and contracts that bind a symbol from Cortex decision memory through the normal Memtrace MCP server. Use before deleting, rewriting, refactoring, or 'cleaning up' existing code that looks unused, odd, redundant, legacy, or policy-sensitive, and when the user asks why a symbol exists or what rules constrain it. Symbol-scoped; for free-text decision search use memtrace-decision-recall first. Do not infer intent from the diff or assume unfamiliar code is safe to remove."
 ---
 
 ## Overview
@@ -37,7 +37,10 @@ Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bun
 ### 1. Get the symbol_id
 
 If you have a name or a "why" question, run `recall_decision(...)` first and take the
-`symbol_id` from the result (or the Cortex view). The id-based tools need a numeric id.
+`symbol_id` from the result if present, or use the id returned by a graph/Cortex view.
+The id-based tools need a numeric id. If you cannot get a symbol id, do not skip
+decision memory entirely: use `recall_decision("<symbol/subsystem/behavior>")` and
+report any matching decision/bans before changing the code.
 
 ### 2. Ask why it's here
 
@@ -62,8 +65,8 @@ was superseded via `recall_decision`) changes whether the code should still look
 | Situation | Action |
 |-----------|--------|
 | Code looks unused/dead and you want to delete it | `why_is_this_here` + `governing_contracts` BEFORE deleting; CannotProve is not a green light |
-| Code is written in a strange/non-obvious way | `why_is_this_here` — there's likely a decision explaining the oddity |
-| About to refactor a symbol's internals | `governing_contracts` — preserve every constraint, not just the test surface |
+| Code is written in a strange/non-obvious way | `why_is_this_here` if you have a symbol id; otherwise `recall_decision` for the symbol/subsystem |
+| About to refactor a symbol's internals | `why_is_this_here` + `governing_contracts` — preserve the rationale and every constraint, not just the test surface |
 | User asks "why is this here?" | `why_is_this_here(symbol_id)`; if you only have a name, `recall_decision` first |
 | All provenance returns CannotProve | Treat as unknown; combine with `memtrace-impact` (blast radius) and ask the user before removing |
 

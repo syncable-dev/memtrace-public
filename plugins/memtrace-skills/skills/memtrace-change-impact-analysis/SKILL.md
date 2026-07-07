@@ -1,11 +1,11 @@
 ---
 name: memtrace-change-impact-analysis
-description: "Compute what a planned source-code change will break — blast radius, affected processes, cross-repo callers — and produce a risk-rated change plan. Use when the user needs to know what will break before a change: edits, refactors, API changes, renames, removals, PR reviews, or risk assessments. Do not manually grep references or browse files for impact; this workflow uses Memtrace graph context, impact, and change history. For a quick blast-radius check on one symbol, use memtrace-impact."
+description: "Compute what a planned source-code change will break — blast radius, affected processes, cross-repo callers, temporal stability, and Cortex decision-memory constraints — and produce a risk-rated change plan. Use before edits, refactors, API changes, renames, removals, PR reviews, or risk assessments, especially when changing established behavior or deleting code. Do not manually grep references or browse files for impact; use Memtrace graph context, change history, and decision recall/provenance."
 ---
 
 ## Overview
 
-Pre-change risk assessment workflow. Before modifying code, this workflow maps the full blast radius, identifies affected processes, checks recent change history for instability signals, and produces a risk-rated change plan.
+Pre-change risk assessment workflow. Before modifying code, this workflow maps the full blast radius, identifies affected processes, checks recent change history for instability signals, checks Cortex decision memory for recorded decisions/bans/contracts, and produces a risk-rated change plan.
 
 ## Steps
 
@@ -42,20 +42,30 @@ For each target, call `get_impact` (`repo_id`, `target`) with `direction: "both"
 | High | Plan incremental migration; consider feature flags |
 | Critical | Full migration strategy; backward-compatible changes required |
 
-### 4. Check temporal stability
+### 4. Check Cortex decision memory
+
+For each target or subsystem, call `recall_decision("<target/subsystem/approach>")`.
+If the graph result exposes a numeric `symbol_id`, also call
+`why_is_this_here(symbol_id)` and `governing_contracts(symbol_id)`.
+
+- Matching decision/ban/convention → include it in the plan before recommending a change.
+- Decision you intend to rely on → run `verify_intent(decision_id)` first.
+- CannotProve → record "no decision proven"; do not treat it as approval.
+
+### 5. Check temporal stability
 
 Call `get_evolution` (`repo_id`, `from: "30d ago"`, `mode: "compound"`), then `get_timeline` on each target symbol (requires `scope_path` + `file_path` from `find_symbol`):
 - Sparse timeline history + you're about to change it → structurally surprising; extra scrutiny warranted.
 - Target appears in `top_touched_symbols` → high churn + high impact = volatile hotspot.
 
-### 5. Map affected execution flows
+### 6. Map affected execution flows
 
 From step 2, you already know which processes are affected. For critical changes, use `analyze_relationships` (`repo_id`, `target`) with `query_type: "find_callers"` at `depth: 3` to trace the full transitive caller chain.
 
 `depth: 3` is a JSON number, not a string — the validator rejects `"3"`.
 Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bundled at the memtrace-skills plugin root).
 
-### 6. Produce the risk assessment
+### 7. Produce the risk assessment
 
 Synthesize into a change plan:
 
@@ -64,8 +74,9 @@ Synthesize into a change plan:
 3. **Affected Processes** — which execution flows will be impacted
 4. **Cross-Service Impact** — any external callers or consumers
 5. **Stability Signal** — sparse `get_timeline` history (stable) vs frequent appearance in `top_touched_symbols` (volatile)
-6. **Recommended Approach** — based on risk: direct change, incremental migration, or backward-compatible evolution
-7. **Test Coverage** — which callers/processes to verify after the change
+6. **Decision Memory** — relevant decisions/bans/contracts, or CannotProve as unknown
+7. **Recommended Approach** — based on risk and decision constraints: direct change, incremental migration, or backward-compatible evolution
+8. **Test Coverage** — which callers/processes to verify after the change
 
 ## Decision Points
 
@@ -76,6 +87,7 @@ Synthesize into a change plan:
 | Symbol has sparse timeline but high impact | Extra review — this rarely changes; make sure the change is intentional |
 | Multiple processes affected | List each affected flow; recommend testing each one |
 | Symbol is a bridge point | Change may disconnect parts of the architecture — verify alternative paths exist |
+| Cortex returns a held ban/contract | Do not recommend contradicting it without explicit user sign-off |
 
 ## Output
 

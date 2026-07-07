@@ -1,6 +1,6 @@
 ---
 name: memtrace-first
-description: "Route code discovery, debugging, flow tracing, and how-code-works questions in indexed source-code repos to Memtrace graph tools. Use first — before searching files, reading code for discovery, debugging, tracing flows, finding implementations, understanding behavior, or answering how code works. Do not use Grep, Glob, rg, find, or manual file browsing for code discovery when Memtrace is indexed. Zero results, missing languages, or partial-looking stats are not permission to grep; diagnose/reindex with Memtrace."
+description: "Route code discovery, debugging, flow tracing, how-code-works questions, and pre-edit rationale checks in indexed source-code repos to Memtrace graph plus Cortex decision tools. Use first before searching/reading code, and before editing, refactoring, deleting, or re-picking an approach that may have a recorded decision, ban, convention, or contract. Do not use Grep, Glob, rg, find, or manual file browsing for code discovery when Memtrace is indexed. Zero results are not permission to grep; diagnose/reindex with Memtrace."
 ---
 
 # Memtrace First
@@ -15,6 +15,12 @@ ONLY when you're about to edit or quote, and read only the bounded span
 returned by Memtrace (start_line .. end_line + small context). Do not
 Grep/Glob/Find to "locate" anything already in the graph, and do not read
 the whole file when Memtrace has given you exact lines.
+
+BEFORE you edit/refactor/delete existing code or choose/re-pick a pattern,
+call Cortex decision memory: recall_decision for the symbol/subsystem/approach,
+and use provenance/contracts when a symbol_id is available. Use Memtrace's graph
+tools for structure and blast radius; use Cortex for rationale, bans, and
+contracts.
 ```
 
 Memtrace is the **memory layer** of the codebase, not a search engine that returns code. It has the full knowledge graph — every symbol, call, import, community, process, and API — with a time dimension. The point is to navigate that graph: who calls this, what's the blast radius, when did this change, what community is it part of. File tools are blind to all of that.
@@ -74,6 +80,8 @@ For everything else inside the indexed repo, memtrace is the right tool.
 | "Find the function that uses `STRIPE_KEY_FOO_BAR`" | `find_code(query="STRIPE_KEY_FOO_BAR")` → semantic finds it inside any embedded body. |
 | "Where's that error message `'connection refused for tenant'`?" | `find_code(query="connection refused for tenant")` → semantic catches it. |
 | "What breaks if I change `foo`?" | `get_impact(repo_id, target="foo")` → blast radius. |
+| "Should I change/delete/refactor `foo`?" | `find_symbol`/`get_symbol_context` → `recall_decision("foo / subsystem / approach")`; if a symbol id is available, `why_is_this_here` + `governing_contracts`; then `get_impact`. |
+| "Can I use/switch to pattern or library X?" | `recall_decision("X")` FIRST; bans and conventions are decisions. Verify a matching decision with `verify_intent(decision_id)` before relying on it. |
 | "What changed in `auth.ts` last week?" | `get_evolution(repo_id, from="7d ago", mode="recent", file_path="auth.ts")`. |
 | "List all `*.test.ts` files." | `Glob` (file inventory, not symbol search). |
 | "Find this string in my `.env`." | `Grep` (non-source artifact). |
@@ -131,6 +139,8 @@ If not indexed → offer to index with `mcp__memtrace__index_directory`, then fo
 | What files change together? | `get_cochange_context` |
 | Architecture overview | `list_communities` + `find_central_symbols` |
 | About to edit / quote — need exact lines | Bounded `Read(file, offset=start_line, limit=N)` (preferred), or `get_source_window` for path-resolution parity |
+| About to edit/refactor/delete existing code | `recall_decision` for the intent + `why_is_this_here`/`governing_contracts` when a symbol id is available, then `get_impact` |
+| About to choose or replace a library/pattern/architecture | `recall_decision` first; use `verify_intent` on any matching decision before contradicting it |
 | About to choose between competing idioms (ternary vs if-else, arrow vs fn-decl, const vs let, await vs `.then`) | `get_style_fingerprint(repo_id, file_path)` — empirical codebase norm; see `memtrace-style-fingerprint` workflow |
 
 ## Standard Workflows
@@ -156,8 +166,10 @@ If not indexed → offer to index with `mcp__memtrace__index_directory`, then fo
 ### Before any code modification
 1. `find_symbol` → confirm you have the right target
 2. `get_symbol_context` → understand full context
-3. `get_impact` → know blast radius before touching anything
-4. `get_style_fingerprint(repo_id, file_path=<file>)` → match the codebase's empirical idiom (ternary vs if-else, arrow vs fn-decl, etc.) — see `memtrace-style-fingerprint` workflow for the full decision rule
+3. `recall_decision("<symbol/subsystem/approach>")` → surface recorded choices, bans, and conventions before deciding what to do
+4. If a `symbol_id` is available, `why_is_this_here(symbol_id)` + `governing_contracts(symbol_id)` before deleting, rewriting, or "cleaning up" odd code
+5. `get_impact` → know blast radius before touching anything
+6. `get_style_fingerprint(repo_id, file_path=<file>)` → match the codebase's empirical idiom (ternary vs if-else, arrow vs fn-decl, etc.) — see `memtrace-style-fingerprint` workflow for the full decision rule
 
 ## Red Flags — STOP, Use Memtrace Instead
 
@@ -168,6 +180,9 @@ You are violating this skill if you think:
 | "Let me grep for this" | `find_code` or `find_symbol` is faster and structurally aware |
 | "Let me glob for the file" | `find_symbol` returns exact location with context |
 | "Let me read the whole file" | `get_symbol_context` for the WHY (callers/callees/community); a bounded source read at start_line..end_line for the WHAT |
+| "I know why this is written this way" | Check Cortex first. Use `recall_decision`; use `why_is_this_here`/`governing_contracts` when you have a symbol id. |
+| "This looks unused/weird; I'll remove it" | `why_is_this_here` + `governing_contracts` first, then blast radius. CannotProve is unknown, not permission. |
+| "I'll just switch to library/pattern X" | `recall_decision("X")` first — you may be reintroducing a banned approach. |
 | "It's just a quick search" | Grep has no understanding of call graphs, communities, or time |
 | "I don't know if it's indexed" | Check with `list_indexed_repositories` first — takes 1 second |
 | "Memtrace returned 0 results" | Broaden the Memtrace query, check repo_id/path coverage, then reindex if needed |
@@ -199,6 +214,7 @@ When this skill applies, it overrides default file-search behavior. Use the spec
 - Discovery → `memtrace-search`
 - Impact analysis → `memtrace-impact`
 - Temporal / change analysis → `memtrace-evolution`
+- Rationale / prior decisions / bans / contracts → `memtrace-decision-memory`
 - Incident investigation → `memtrace-incident-investigation`
 - Architecture overview → `memtrace-codebase-exploration`
 - Refactoring → `memtrace-refactoring-guide`

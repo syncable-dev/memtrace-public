@@ -41,6 +41,13 @@ Use the `index_directory` MCP tool:
 - Set `incremental: true` if re-indexing after changes
 - Set `clear_existing: true` only if a full rebuild is needed
 
+If the selected path is just a folder containing multiple independent git repos,
+do not index that parent folder unless the user explicitly wants a shared
+workspace. For separate repos, index each repo root separately. For intentional
+sharing, ask the user to bless the parent explicitly with
+`memtrace start --bless-workspace` first, then verify the boundary with
+`memtrace workspace status <path>`.
+
 **Success criteria:** You receive a `job_id` immediately.
 
 ### 3. Poll for completion

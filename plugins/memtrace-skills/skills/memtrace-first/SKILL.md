@@ -51,6 +51,24 @@ Memtrace:
    root with `incremental: true` (or ask before `clear_existing: true`).
 5. Report the indexing coverage problem instead of silently switching to grep.
 
+### Workspace Boundary Check
+
+Before indexing or reindexing, make sure the target path is the repo the user
+asked about. If the current folder is only a parent that contains multiple
+independent git repos, do **not** index the parent just because it is the open
+editor folder. That creates or reuses a shared `.memdb` and can make agents
+answer from stale repos.
+
+- For separate repos: use the actual git repo root as the `index_directory`
+  path, or ask the user to open/run the agent from that repo root.
+- For an intentional shared workspace: the user should bless it explicitly with
+  `memtrace start --bless-workspace`, then verify it with
+  `memtrace workspace status <path>`; the workspace marker should be present.
+- If `list_indexed_repositories` returns empty or its metadata says the MCP
+  child resolved a data dir from cwd because no workspace marker/git root was
+  found, surface the workspace mismatch. Do not "fix" it by indexing the broad
+  parent folder.
+
 **Never say "the index only covers X, so grep is right" when the target path is
 inside the indexed repository.** That is an indexing freshness/coverage issue,
 not permission to abandon Memtrace.

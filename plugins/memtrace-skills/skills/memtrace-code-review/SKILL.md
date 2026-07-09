@@ -31,7 +31,10 @@ Full parameter spec for every Memtrace tool: `references/mcp-parameters.md` (bun
 - Do not create benchmark-specific or PR-specific findings. The review must come from general Memtrace detectors, graph evidence, and policy ranking.
 - If the tool reports missing auth, tell the user to run `memtrace auth login`.
 - If the tool reports missing GitHub App installation, tell the user to install Memtrace Code Reviewer on that repository.
-- If the tool reports missing local graph context, tell the user to run `memtrace index .` at the workspace root.
+- If the tool reports missing local graph context, tell the user to run
+  `memtrace index .` from the actual repo root. If the open folder is a parent
+  containing multiple independent repos, do not index the parent unless the user
+  explicitly wants a shared workspace.
 
 ## Output
 

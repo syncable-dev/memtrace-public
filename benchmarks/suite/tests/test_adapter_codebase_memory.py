@@ -20,3 +20,26 @@ def test_absolute_path_is_normalized_under_corpus(tmp_path):
     adapter = CodebaseMemoryAdapter(binary="definitely-not-installed")
     adapter._corpus_path = tmp_path
     assert adapter._relative_path(str(tmp_path / "src" / "app.py")) == f"{tmp_path.name}/src/app.py"
+
+
+def test_relative_path_is_normalized_under_corpus(tmp_path):
+    adapter = CodebaseMemoryAdapter(binary="definitely-not-installed")
+    adapter._corpus_path = tmp_path
+    assert adapter._relative_path("src/app.py") == f"{tmp_path.name}/src/app.py"
+
+
+def test_cli_uses_documented_tool_position(monkeypatch):
+    seen = {}
+
+    class Result:
+        returncode = 0
+        stdout = '{"results": []}'
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        return Result()
+
+    monkeypatch.setattr("benchmarks.suite.adapters.codebase_memory.subprocess.run", fake_run)
+    adapter = CodebaseMemoryAdapter(binary="codebase-memory-mcp")
+    assert adapter._run("search_graph", {"name_pattern": "^thing$"}, timeout=30) == {"results": []}
+    assert seen["command"][:3] == ["codebase-memory-mcp", "cli", "search_graph"]

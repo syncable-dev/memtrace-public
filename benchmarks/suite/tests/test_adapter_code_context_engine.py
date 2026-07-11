@@ -16,3 +16,4 @@ def test_result_output_paths_are_normalized_under_corpus(tmp_path):
     assert match.group(1) == str(tmp_path / "src" / "app.py")
     assert match.group(2) == "7"
     assert adapter._relative_path(str(tmp_path / "src" / "app.py")) == f"{tmp_path.name}/src/app.py"
+    assert adapter._relative_path("src/app.py") == f"{tmp_path.name}/src/app.py"

@@ -72,7 +72,10 @@ class CodeContextEngineAdapter(Adapter):
     def _relative_path(self, path: str) -> str:
         if self._corpus_path is None:
             return path
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            return f"{self._corpus_path.name}/{candidate.as_posix().removeprefix(self._corpus_path.name + '/')}"
         try:
-            return f"{self._corpus_path.name}/{Path(path).resolve().relative_to(self._corpus_path.resolve())}"
+            return f"{self._corpus_path.name}/{candidate.resolve().relative_to(self._corpus_path.resolve())}"
         except ValueError:
             return path

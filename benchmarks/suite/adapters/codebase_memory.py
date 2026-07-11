@@ -17,7 +17,7 @@ def _default_binary() -> str:
 
 class CodebaseMemoryAdapter(Adapter):
     name = "codebase-memory"
-    description = "Codebase Memory MCP local CLI (--raw search_graph)"
+    description = "Codebase Memory MCP local CLI (search_graph)"
     version = "codebase-memory-mcp@external"
 
     def __init__(self, binary: str | None = None) -> None:
@@ -34,10 +34,11 @@ class CodebaseMemoryAdapter(Adapter):
         if result is None:
             return SetupReport(wall_ms=(time.time() - t0) * 1000)
         projects = self._run("list_projects", {}, timeout=30) or {}
-        entries = projects.get("results", projects) if isinstance(projects, dict) else projects
+        entries = projects.get("projects", projects.get("results", projects)) if isinstance(projects, dict) else projects
         if isinstance(entries, list):
             for entry in entries:
-                if isinstance(entry, dict) and entry.get("path") == str(corpus.path):
+                root_path = entry.get("root_path") or entry.get("path") if isinstance(entry, dict) else None
+                if root_path and Path(root_path).resolve() == corpus.path.resolve():
                     self._project = entry.get("name")
                     break
         return SetupReport(wall_ms=(time.time() - t0) * 1000)
@@ -77,7 +78,7 @@ class CodebaseMemoryAdapter(Adapter):
 
     def _run(self, tool: str, args: dict, timeout: int):
         try:
-            result = subprocess.run([self.binary, "cli", "--raw", tool, json.dumps(args)],
+            result = subprocess.run([self.binary, "cli", tool, json.dumps(args)],
                                     capture_output=True, text=True, timeout=timeout)
             if result.returncode:
                 return None
@@ -88,7 +89,10 @@ class CodebaseMemoryAdapter(Adapter):
     def _relative_path(self, path: str) -> str:
         if self._corpus_path is None:
             return path
+        candidate = Path(path)
+        if not candidate.is_absolute():
+            return f"{self._corpus_path.name}/{candidate.as_posix().removeprefix(self._corpus_path.name + '/')}"
         try:
-            return f"{self._corpus_path.name}/{Path(path).resolve().relative_to(self._corpus_path.resolve())}"
+            return f"{self._corpus_path.name}/{candidate.resolve().relative_to(self._corpus_path.resolve())}"
         except ValueError:
             return path

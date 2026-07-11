@@ -28,6 +28,9 @@ def _resolve_adapter(name: str):
     if name == "cgc":
         from benchmarks.suite.adapters.cgc import CGCAdapter
         return CGCAdapter()
+    if name == "codebase-memory":
+        from benchmarks.suite.adapters.codebase_memory import CodebaseMemoryAdapter
+        return CodebaseMemoryAdapter()
     raise SystemExit(f"unknown adapter: {name}")
 
 
@@ -38,7 +41,7 @@ def main() -> int:
     rp = sub.add_parser("run", help="Run a bench against one or more adapters")
     rp.add_argument("--bench", required=True, choices=["0", "3", "4", "5"])
     rp.add_argument("--adapters", required=True,
-                    help="comma-separated: memtrace,chromadb,gitnexus,cgc")
+                    help="comma-separated: memtrace,chromadb,gitnexus,cgc,codebase-memory")
     rp.add_argument("--limit", type=int, default=10)
     rp.add_argument("--max-queries", type=int,
                     default=int(os.environ.get("MAX_QUERIES", "1000")))

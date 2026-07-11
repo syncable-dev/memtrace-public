@@ -210,7 +210,15 @@ sessions concurrently against the same repo, this just works — but:
 1. Memtrace **automatically skips** `.claude/worktrees/` so worktrees
    don't double-index your codebase. If your worktree directory has
    a non-standard name, add it to `.memtraceignore`.
-2. After merging a long-running worktree, ask your agent:
+2. If you deliberately register sibling worktrees with
+   `watch_directory`, use the same `repo_id` that
+   `list_indexed_repositories` returns. A made-up or stale id is rejected
+   instead of quietly creating a watch that cannot index anywhere useful.
+   `list_watched_paths` is the quick way to check the live list.
+3. `git worktree remove` does not need a manual restart. The watcher drops a
+   vanished root from memory and `~/.memtrace/watches.json` within 30 seconds.
+   Call `unwatch_directory` first if you want it gone immediately.
+4. After merging a long-running worktree, ask your agent:
 
    > "Some files were removed from this branch. Can you have Memtrace
    > clean up the orphan symbols?"

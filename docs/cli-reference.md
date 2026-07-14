@@ -23,7 +23,7 @@ memtrace --help
 | `memtrace doctor [--fix] [--repair-install] [--purge-legacy]` | Diagnose runtime, stale locks, process conflicts, agent skills, and MCP registration. With flags, clean stale runtime state and reinstall local skills/MCP config. |
 | `memtrace mcp` | Run the MCP server for Claude, Cursor, Codex, and other MCP-compatible agents. It attaches to an existing workspace owner or becomes the owner if none is running. |
 | `memtrace index <path>` | Index a repository or workspace into MemDB, then exit. |
-| `memtrace govern <path|glob> [--accept-all]` | Classify governance candidates for review. With `--accept-all`, persist the classifier's include/exclude recommendation for every candidate in the current run. |
+| `memtrace govern <path|glob> [--accept-all]` | Classify governance candidates for review. With `--accept-all`, persist the classifier's recommendation for each governance candidate shown in the preview; `NotGovernance` rows are omitted. |
 | `memtrace govern add|edit <path> ...` | Manually assert or replace one governance document in Cortex decision memory. |
 | `memtrace code-review setup` | Choose the default headless agent for `@memtrace fix this`. |
 | `memtrace code-review --pr <url>` | Review a GitHub pull request using local Memtrace context. |
@@ -67,9 +67,9 @@ See [`cortex.md`](cortex.md).
 
 ## Governance intake
 
-The sweep command classifies files for review. It does not persist a
-preview unless you confirm candidates in the Cortex Governance view or
-pass `--accept-all`:
+The sweep command classifies matched files and shows the governance candidates
+it recognizes. It does not persist a preview unless you confirm candidates in
+the Cortex Governance view or pass `--accept-all`:
 
 ```bash
 memtrace start
@@ -77,9 +77,11 @@ memtrace govern docs/adr
 memtrace govern docs/adr --accept-all
 ```
 
-`--accept-all` accepts the classification rather than blindly including every
-file: effective ADRs and rules are included; obsolete or classifier-excluded
-documents are persisted as excluded.
+`--accept-all` accepts the classifier's recommendation for each governance
+candidate shown in the preview. Effective ADRs, agent rules, and included
+standing rules are persisted as `include`; ineffective ADRs and excluded
+standing rules are persisted as `exclude`. Rows classified as `NotGovernance`
+are omitted.
 
 Use `add` or `edit` to make an exact manual assertion about one file:
 

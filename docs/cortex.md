@@ -66,20 +66,22 @@ distinctive phrase from a known decision before changing runtime state.
 
 ## Governance intake must be confirmed
 
-Pointing `memtrace govern` at a file, directory, or glob discovers and classifies
-candidates. A preview alone does not add those candidates to decision memory.
+Pointing `memtrace govern` at a file, directory, or glob classifies the matched
+files and shows the governance candidates it recognizes. A preview alone does
+not add those candidates to decision memory.
 
 ```bash
 # Preview and classify candidates for review
 memtrace govern docs/adr
 
-# Persist all candidates classified by this run
+# Persist every governance candidate shown by this run
 memtrace govern docs/adr --accept-all
 ```
 
-`--accept-all` persists the classifier's recommendation for each candidate.
-Effective ADRs and rules are included; obsolete or classifier-excluded docs are
-recorded as excluded rather than being forced into governance.
+`--accept-all` persists the classifier's recommendation for each governance
+candidate shown in the preview. Effective ADRs, agent rules, and included
+standing rules are written as `include`; ineffective ADRs and excluded standing
+rules are written as `exclude`. Rows classified as `NotGovernance` are omitted.
 
 You can also review and confirm candidates in the dashboard's Cortex Governance
 view. Use `govern add` or `govern edit` when you need to assert one exact document

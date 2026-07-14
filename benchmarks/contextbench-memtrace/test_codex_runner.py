@@ -165,6 +165,18 @@ class CodexRunnerTests(unittest.TestCase):
                 ["memtrace-first", "memtrace-search"],
             )
 
+    def test_memtrace_environment_is_self_contained_for_benchmark_auth(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            env = codex_runner.memtrace_environment(
+                root / "repo",
+                root / "cache",
+                root / "reranker",
+                root / "memtrace",
+            )
+            self.assertEqual(env["MEMTRACE_DEV"], "1")
+            self.assertEqual(env["MEMTRACE_TELEMETRY"], "off")
+
     def test_prompt_sets_task_agnostic_memtrace_discovery_budget(self):
         prompt = codex_runner.render_prompt(
             {"problem_statement": "Fix the broken parser."}, 200

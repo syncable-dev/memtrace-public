@@ -59,6 +59,10 @@ SOURCE_SUFFIXES = {
 }
 
 
+class CacheValidationError(RuntimeError):
+    """The opened graph is readable but does not match its sealed identity."""
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -211,6 +215,11 @@ def memtrace_environment(
         cache_entry,
         walker_include_dirs=walker_include_dirs,
     )
+    # ContextBench runs the exact local product build without a customer
+    # license. Keep this in the runner rather than relying on a parent shell so
+    # direct smoke tests and fleet runs exercise the same authenticated mode.
+    env["MEMTRACE_DEV"] = "1"
+    env["MEMTRACE_TELEMETRY"] = "off"
     env["PATH"] = f"{memtrace_binary.parent}:{env.get('PATH', '')}"
     return env
 
@@ -261,13 +270,17 @@ def verify_index(
     finally:
         client.close()
     if not isinstance(repositories, list) or len(repositories) != 1:
-        raise RuntimeError(f"cache expected one indexed repository, got {repositories}")
+        raise CacheValidationError(
+            f"cache expected one indexed repository, got {repositories}"
+        )
     repository = repositories[0]
     if int(repository.get("nodes", 0) or 0) <= 0:
-        raise RuntimeError(f"cache repository has no nodes: {repository}")
+        raise CacheValidationError(f"cache repository has no nodes: {repository}")
     commit = str(repository.get("commit_sha") or "")
     if commit and commit != base_commit:
-        raise RuntimeError(f"cache commit mismatch: expected {base_commit}, got {commit}")
+        raise CacheValidationError(
+            f"cache commit mismatch: expected {base_commit}, got {commit}"
+        )
     return repository
 
 
@@ -368,7 +381,7 @@ def prepare_cache(
                     base_commit,
                 )
                 cache_hit = True
-            except RuntimeError:
+            except CacheValidationError:
                 cache_hit = False
 
     index_result: Any = {"cache_hit": True, "embeddings_reused": True}

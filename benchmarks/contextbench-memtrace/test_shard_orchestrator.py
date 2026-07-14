@@ -133,13 +133,15 @@ class ShardOrchestratorTests(unittest.TestCase):
                 mock.patch.object(orchestrator, "sh", side_effect=fake_sh),
             ):
                 orchestrator.save_fleet("test", fleet)
-                orchestrator.cmd_collect(argparse.Namespace(run_tag="test", parallel=2))
+                orchestrator.cmd_collect(
+                    argparse.Namespace(run_tag="test", parallel=2, lane="codex")
+                )
 
             snapshot = json.loads(
                 (
                     fleet_state
                     / "test"
-                    / "aggregate"
+                    / "aggregate-codex"
                     / "snapshots"
                     / "terminal-0010.json"
                 ).read_text()

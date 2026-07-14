@@ -870,7 +870,7 @@ def cmd_run(args):
         "codex-memtrace-skills-v1" if lane == "codex" else "hierarchy-listwise-v2"
     )
     projection_policy = (
-        "codex-structured-final-v1"
+        "codex-hierarchical-recall-floor-v1"
         if lane == "codex"
         else "rank-plus-scoped-recall-floor-v1"
     )
@@ -880,6 +880,7 @@ def cmd_run(args):
         "benchmark_lane": lane,
         "agent_policy": agent_policy,
         "projection_policy": projection_policy,
+        "projection_variant": "precision-90" if lane == "codex" else None,
         "line_budget": LINE_BUDGET,
         "selector_model": SELECTOR_MODEL,
         "agent_model": agent_model,

@@ -38,7 +38,11 @@ AWS_DIR = Path(__file__).resolve().parent
 ADAPTER_DIR = AWS_DIR.parent
 REPO_ROOT = ADAPTER_DIR.parent.parent  # memtrace-public
 ENV_FILE = REPO_ROOT / ".env"
-MEMTRACE_SOURCE_DIR = Path("/Users/alexholmberg/Desktop/Memtrace/memtrace")
+MEMTRACE_SOURCE_DIR = Path(
+    os.environ.get(
+        "CB_MEMTRACE_SOURCE_DIR", "/Users/alexholmberg/Desktop/Memtrace/memtrace"
+    )
+).resolve()
 DATA_LOCAL = Path("/tmp/contextbench/data")
 FLEET_STATE_DIR = AWS_DIR / "state" / "fleet"
 

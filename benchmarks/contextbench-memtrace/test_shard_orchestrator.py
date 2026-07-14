@@ -21,6 +21,41 @@ SPEC.loader.exec_module(orchestrator)
 
 
 class ShardOrchestratorTests(unittest.TestCase):
+    def test_source_payload_rejects_uninitialized_submodules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            fleet_state = root / "fleet"
+            command = [
+                "git",
+                "--no-optional-locks",
+                "-C",
+                str(source),
+                "submodule",
+                "status",
+                "--recursive",
+            ]
+
+            def fake_sh(actual, **_kwargs):
+                self.assertEqual(actual, command)
+                return subprocess.CompletedProcess(
+                    actual,
+                    0,
+                    "-66a396b9de3520fa9d92aedb6b7d59d8ff867bc5 vendor/tantivy-memtrace\n",
+                    "",
+                )
+
+            with (
+                mock.patch.object(orchestrator, "MEMTRACE_SOURCE_DIR", source),
+                mock.patch.object(orchestrator, "FLEET_STATE_DIR", fleet_state),
+                mock.patch.object(orchestrator, "sh", side_effect=fake_sh),
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError, "uninitialized submodules: vendor/tantivy-memtrace"
+                ):
+                    orchestrator.prepare_source_payload("test", {"dirty_file_count": 0})
+
     def test_build_shards_uses_only_the_exact_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

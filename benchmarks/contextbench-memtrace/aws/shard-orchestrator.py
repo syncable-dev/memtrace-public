@@ -264,6 +264,25 @@ def prepare_source_payload(run_tag, provenance):
     archive = payload_dir / "source.tar.gz"
     manifest = payload_dir / "source-manifest.json"
 
+    submodules = sh(
+        [
+            "git",
+            "--no-optional-locks",
+            "-C",
+            str(MEMTRACE_SOURCE_DIR),
+            "submodule",
+            "status",
+            "--recursive",
+        ]
+    ).stdout.splitlines()
+    uninitialized_submodules = [line for line in submodules if line.startswith("-")]
+    if uninitialized_submodules:
+        names = ", ".join(line[41:].strip() for line in uninitialized_submodules)
+        raise RuntimeError(
+            "Memtrace source has uninitialized submodules: "
+            f"{names}. Run git submodule update --init --recursive first."
+        )
+
     tracked = sh(
         [
             "git",
@@ -321,17 +340,7 @@ def prepare_source_payload(run_tag, provenance):
         "source_dir_local": str(MEMTRACE_SOURCE_DIR),
         "source_payload_sha256": payload_sha,
         "source_file_count": len(paths),
-        "submodules": sh(
-            [
-                "git",
-                "--no-optional-locks",
-                "-C",
-                str(MEMTRACE_SOURCE_DIR),
-                "submodule",
-                "status",
-                "--recursive",
-            ]
-        ).stdout.splitlines(),
+        "submodules": submodules,
         "publishable_source": provenance["dirty_file_count"] == 0,
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "captured_on": socket.gethostname(),

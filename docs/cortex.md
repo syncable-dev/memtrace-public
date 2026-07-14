@@ -77,6 +77,10 @@ memtrace govern docs/adr
 memtrace govern docs/adr --accept-all
 ```
 
+`--accept-all` persists the classifier's recommendation for each candidate.
+Effective ADRs and rules are included; obsolete or classifier-excluded docs are
+recorded as excluded rather than being forced into governance.
+
 You can also review and confirm candidates in the dashboard's Cortex Governance
 view. Use `govern add` or `govern edit` when you need to assert one exact document
 and its meaning without relying on classification:

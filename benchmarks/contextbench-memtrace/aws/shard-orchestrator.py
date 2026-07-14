@@ -1015,7 +1015,11 @@ def write_json_atomic(path, payload):
 def cmd_collect(args):
     run_tag = args.run_tag
     fleet = load_fleet(run_tag)
-    aggregate = AWS_DIR / "state" / "fleet" / run_tag / "aggregate"
+    # A warm fleet can host more than one sealed treatment over its lifetime
+    # (for example the rejected agent lane followed by the Codex lane). Keep
+    # local mirrors and immutable checkpoint receipts lane-scoped so an older
+    # terminal-0010.json can never be mistaken for the current treatment.
+    aggregate = AWS_DIR / "state" / "fleet" / run_tag / f"aggregate-{args.lane}"
     aggregate_runs = aggregate / "runs"
     aggregate_runs.mkdir(parents=True, exist_ok=True)
     shard_ids = [sid for sid, info in fleet["shards"].items() if info.get("run_id")]
@@ -1025,7 +1029,9 @@ def cmd_collect(args):
         ip = info["public_ip"]
         run_id = info["run_id"]
         results_dir = f"/srv/contextbench/results/{run_id}"
-        local_dir = AWS_DIR / "state" / "fleet" / run_tag / "pulled" / sid
+        local_dir = (
+            AWS_DIR / "state" / "fleet" / run_tag / f"pulled-{args.lane}" / sid
+        )
         local_dir.mkdir(parents=True, exist_ok=True)
         # Pull only immutable terminal/evaluation artifacts. Worktrees and
         # generated agent configs are both huge and may contain ephemeral
@@ -1155,7 +1161,7 @@ def cmd_collect(args):
             snapshot_path,
             {
                 "schema_version": 1,
-                "run_id": f"fleet-{run_tag}",
+                "run_id": f"fleet-{run_tag}-{args.lane}",
                 "manifest_sha256": sha256_file(aggregate / "manifest.json"),
                 "captured_at_unix_ns": time.time_ns(),
                 "terminals": selected,

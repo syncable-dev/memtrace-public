@@ -130,6 +130,23 @@ its stdio". Per-tool config locations:
 The Memtrace installer handles this for you — most users never edit
 these files.
 
+### Cortex uses the same MCP entry
+
+Cortex decision-memory tools are exposed by the normal `memtrace mcp`
+server. Configure the `memtrace` entry above once. Do not add a second
+entry for `memcortex-mcp`, manually link a bundled Node path, or set a
+socket/named-pipe flag. The internal Cortex sidecars and OS transport are
+managed by Memtrace.
+
+Run `memtrace start` before using Cortex so its decision-capture service
+and local endpoint are available. If the MCP client was already open,
+restart or reconnect it after starting Memtrace. The five Cortex tools,
+including `recall_decision`, should then appear in the ordinary Memtrace
+tool list.
+
+For status checks, governance confirmation, and the difference between
+code reindexing and decision memory, see [`cortex.md`](cortex.md).
+
 ## Streamable-HTTP transport
 
 ### How it looks

@@ -262,6 +262,58 @@ bad replay or to apply a different time window.
 Delete episodes + their historical snapshots. Run before
 `replay_history` if you want to redo replay from scratch.
 
+## Cortex decision memory
+
+These tools are published by the normal `memtrace mcp` server. Never
+configure an MCP client to launch `memcortex-mcp` directly. Start the
+workspace with `memtrace start` so the local Cortex endpoint is available.
+
+### `recall_decision`
+
+Free-text recall over decisions, bans, and conventions. Returns ranked
+evidence or an honest `CannotProve` result.
+
+| Arg | Type | Required | Notes |
+|---|---|---|---|
+| `query` | string | yes | Must not be empty. Use a phrase that describes the decision rather than a symbol id. |
+| `top_k` | positive integer | no | Result cap. The server applies a small bounded default when omitted. Zero is invalid. |
+| `min_score` | finite number | no | Exclude results below this score. |
+
+Example:
+
+```json
+{
+  "query": "why do we avoid raw SQL in request handlers?",
+  "top_k": 5,
+  "min_score": 0.05
+}
+```
+
+### `verify_intent`
+
+Check whether a recalled decision held across its implementation arc.
+Pass the positive `decision_id` returned by `recall_decision`, not a
+symbol name.
+
+### `get_arc`
+
+Return the episodes connected to a recalled decision. Takes the positive
+`decision_id` returned by `recall_decision`.
+
+### `why_is_this_here`
+
+Return decision/conversation provenance governing a symbol. Takes a
+positive Cortex `symbol_id`.
+
+### `governing_contracts`
+
+Return contracts that constrain a symbol, or `CannotProve` when Cortex
+has no such evidence. Takes a positive Cortex `symbol_id`.
+
+`index_directory`, `clear_existing`, and the source-code reset commands
+do not rebuild these tools' decision store. See [`cortex.md`](cortex.md)
+for the governance and recovery flow.
+
 ## Processes + flows
 
 ### `list_processes`

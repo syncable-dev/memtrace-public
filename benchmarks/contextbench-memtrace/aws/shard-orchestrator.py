@@ -29,6 +29,7 @@ import hashlib
 import json
 import os
 import shutil
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -253,6 +254,96 @@ def local_git_provenance():
 
 def local_adapter_provenance():
     return git_provenance(REPO_ROOT, "benchmarks/contextbench-memtrace")
+
+
+def prepare_source_payload(run_tag, provenance):
+    payload_dir = FLEET_STATE_DIR / run_tag / "source-payload"
+    payload_dir.mkdir(parents=True, exist_ok=True)
+    file_list = payload_dir / "source-files.list0"
+    checksums = payload_dir / "source-files.sha256"
+    archive = payload_dir / "source.tar.gz"
+    manifest = payload_dir / "source-manifest.json"
+
+    tracked = sh(
+        [
+            "git",
+            "--no-optional-locks",
+            "-C",
+            str(MEMTRACE_SOURCE_DIR),
+            "ls-files",
+            "--recurse-submodules",
+            "-z",
+        ]
+    ).stdout
+    untracked = sh(
+        [
+            "git",
+            "--no-optional-locks",
+            "-C",
+            str(MEMTRACE_SOURCE_DIR),
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ]
+    ).stdout
+    paths = [path for path in (tracked + untracked).split("\0") if path]
+    if not paths:
+        raise RuntimeError("source payload file list is empty")
+    file_list.write_bytes(("\0".join(paths) + "\0").encode())
+
+    checksum_lines = []
+    for relative in paths:
+        source = MEMTRACE_SOURCE_DIR / relative
+        checksum_lines.append(f"{sha256_file(source)}  {relative}\n")
+    checksums.write_text("".join(checksum_lines))
+    payload_sha = sha256_file(checksums)
+
+    environment = os.environ.copy()
+    environment["COPYFILE_DISABLE"] = "1"
+    subprocess.run(
+        [
+            "tar",
+            "--no-xattrs",
+            "--null",
+            "-T",
+            str(file_list),
+            "-czf",
+            str(archive),
+        ],
+        cwd=MEMTRACE_SOURCE_DIR,
+        env=environment,
+        check=True,
+    )
+    source_manifest = {
+        "install_mode": "source",
+        **provenance,
+        "source_dir_local": str(MEMTRACE_SOURCE_DIR),
+        "source_payload_sha256": payload_sha,
+        "source_file_count": len(paths),
+        "submodules": sh(
+            [
+                "git",
+                "--no-optional-locks",
+                "-C",
+                str(MEMTRACE_SOURCE_DIR),
+                "submodule",
+                "status",
+                "--recursive",
+            ]
+        ).stdout.splitlines(),
+        "publishable_source": provenance["dirty_file_count"] == 0,
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "captured_on": socket.gethostname(),
+    }
+    write_json_atomic(manifest, source_manifest)
+    return {
+        "archive": archive,
+        "checksums": checksums,
+        "manifest": manifest,
+        "payload_sha256": payload_sha,
+        "file_count": len(paths),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -595,8 +686,15 @@ def cmd_bootstrap(args):
     print(
         f"[bootstrap] adapter HEAD={adapter_prov['head_sha'][:12]} dirty_files={adapter_prov['dirty_file_count']} diff_sha={adapter_prov['dirty_diff_sha256_16'] or 'clean'}"
     )
+    payload = prepare_source_payload(run_tag, prov)
+    print(
+        f"[bootstrap] sealed source payload={payload['payload_sha256'][:16]} "
+        f"files={payload['file_count']}"
+    )
     fleet["memtrace_source_provenance"] = prov
     fleet["adapter_provenance"] = adapter_prov
+    fleet["source_payload_sha256"] = payload["payload_sha256"]
+    fleet["source_file_count"] = payload["file_count"]
     save_fleet(run_tag, fleet)
 
     shard_ids = args.only.split(",") if args.only else list(fleet["shards"].keys())
@@ -646,51 +744,43 @@ def cmd_bootstrap(args):
 
             remote_src = "/srv/contextbench/memtrace-src"
             ssh_run(ip, f"mkdir -p {remote_src}")
-            rsync_to(
-                ip,
-                str(MEMTRACE_SOURCE_DIR) + "/",
-                remote_src + "/",
-                extra=[
-                    "--filter",
-                    ":- .gitignore",
-                    "--exclude",
-                    ".git/",
-                    "--exclude",
-                    "target/",
-                    "--exclude",
-                    "node_modules/",
-                    "--exclude",
-                    ".DS_Store",
-                    "--exclude",
-                    "__pycache__",
-                ],
-            )
-            manifest_local = FLEET_STATE_DIR / run_tag / f"{sid}-source-manifest.json"
-            manifest_local.write_text(
-                json.dumps(
-                    {
-                        "install_mode": "source",
-                        **prov,
-                        "source_dir_local": str(MEMTRACE_SOURCE_DIR),
-                        "captured_at": time.strftime(
-                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
-                        ),
-                        "captured_on": "Alexs-MacBook-Pro.local",
-                    },
-                    indent=2,
-                )
-                + "\n"
+            remote_archive = (
+                f"/tmp/contextbench-source-{payload['payload_sha256'][:16]}.tar.gz"
             )
             sh(
                 ["scp"]
                 + SSH_OPTS
                 + [
                     "-q",
-                    str(manifest_local),
-                    f"{REMOTE_USER}@{ip}:{remote_src}/source-manifest.json",
+                    str(payload["archive"]),
+                    f"{REMOTE_USER}@{ip}:{remote_archive}",
                 ]
             )
-            log.append("source rsynced")
+            ssh_run(
+                ip,
+                f"find {remote_src} -mindepth 1 -maxdepth 1 ! -name target -exec rm -rf -- {{}} +; "
+                f"tar -xzf {remote_archive} -C {remote_src}; rm -f {remote_archive}",
+                timeout=900,
+            )
+            for local_path, remote_name in (
+                (payload["manifest"], "source-manifest.json"),
+                (payload["checksums"], "source-files.sha256"),
+            ):
+                sh(
+                    ["scp"]
+                    + SSH_OPTS
+                    + [
+                        "-q",
+                        str(local_path),
+                        f"{REMOTE_USER}@{ip}:{remote_src}/{remote_name}",
+                    ]
+                )
+            ssh_run(
+                ip,
+                f"cd {remote_src} && sha256sum -c source-files.sha256 >/dev/null",
+                timeout=900,
+            )
+            log.append(f"source payload verified {payload['payload_sha256'][:16]}")
 
             ssh_run(
                 ip,

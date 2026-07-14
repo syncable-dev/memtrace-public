@@ -142,15 +142,49 @@ def prepare(args: argparse.Namespace) -> None:
                 if isinstance(agent, dict)
                 else None
             )
-            if (
-                not isinstance(localization, dict)
-                or localization.get("policy") != args.agent_policy
-                or not isinstance(projection, dict)
-                or projection.get("policy") != args.projection_policy
-                or projection.get("line_budget") != args.line_budget
-                or projection.get("unique_lines", args.line_budget + 1)
-                > args.line_budget
-            ):
+            legacy_agent_matches = (
+                isinstance(localization, dict)
+                and localization.get("policy") == args.agent_policy
+                and isinstance(projection, dict)
+                and projection.get("policy") == args.projection_policy
+                and projection.get("line_budget") == args.line_budget
+                and projection.get("unique_lines", args.line_budget + 1)
+                <= args.line_budget
+            )
+            codex = audit.get("codex")
+            final = codex.get("final") if isinstance(codex, dict) else None
+            contexts = final.get("contexts") if isinstance(final, dict) else None
+            context_lines: set[tuple[str, int]] = set()
+            codex_contexts_valid = isinstance(contexts, list)
+            if codex_contexts_valid:
+                for context in contexts:
+                    if not isinstance(context, dict):
+                        codex_contexts_valid = False
+                        break
+                    file = context.get("file")
+                    start = context.get("start")
+                    end = context.get("end")
+                    if (
+                        not isinstance(file, str)
+                        or not file
+                        or not isinstance(start, int)
+                        or isinstance(start, bool)
+                        or not isinstance(end, int)
+                        or isinstance(end, bool)
+                        or start < 1
+                        or end < start
+                    ):
+                        codex_contexts_valid = False
+                        break
+                    context_lines.update((file, line) for line in range(start, end + 1))
+            codex_agent_matches = (
+                audit.get("policy") == args.agent_policy
+                and audit.get("final_context_policy") == args.projection_policy
+                and audit.get("line_budget") == args.line_budget
+                and codex_contexts_valid
+                and len(context_lines) <= args.line_budget
+            )
+            if not legacy_agent_matches and not codex_agent_matches:
                 raise ValueError(
                     f"candidate agent policy audit mismatch: {instance_id}"
                 )

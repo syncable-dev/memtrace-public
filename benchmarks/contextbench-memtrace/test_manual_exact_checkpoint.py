@@ -130,6 +130,44 @@ class ManualExactCheckpointTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "agent policy audit mismatch"):
                 checkpoint.prepare(args)
 
+    def test_prepare_binds_the_codex_audit_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = self.fixture(Path(directory))
+            args.agent_policy = "codex-memtrace-skills-v1"
+            args.projection_policy = "codex-structured-final-v1"
+            audit = (
+                args.mirror
+                / "runs"
+                / "task-1"
+                / "prediction-audit"
+                / "task-1.json"
+            )
+            write_json(
+                audit,
+                {
+                    "policy": args.agent_policy,
+                    "final_context_policy": args.projection_policy,
+                    "line_budget": 200,
+                    "codex": {
+                        "final": {
+                            "contexts": [
+                                {"file": "src/main.py", "start": 10, "end": 24}
+                            ]
+                        }
+                    },
+                },
+            )
+            receipt = json.loads(args.snapshot_receipt.read_text())
+            receipt["files"][1]["sha256"] = checkpoint.sha256(audit)
+            write_json(args.snapshot_receipt, receipt)
+
+            checkpoint.prepare(args)
+
+            binding = json.loads((args.output / "binding.json").read_text())
+            self.assertEqual(
+                binding["treatment"]["agent_policy"], "codex-memtrace-skills-v1"
+            )
+
     def test_prepare_keeps_a_bound_harness_failure_in_the_denominator(self):
         with tempfile.TemporaryDirectory() as directory:
             args = self.fixture(Path(directory))

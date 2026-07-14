@@ -706,12 +706,22 @@ def write_agent_config(
     line_budget: int = 200,
 ) -> None:
     config = yaml.safe_load(base_config.read_text(encoding="utf-8"))
+    # MiniSWE renders instance_template with Jinja after this configuration is
+    # written. Seed context is arbitrary repository source, so JSX such as
+    # ``prop={{ value: true }}`` must remain literal instead of becoming a
+    # second template expression. Escape only Jinja opening delimiters; Jinja
+    # does not recursively parse the literal strings emitted by these nodes.
+    escaped_seed_context = re.sub(
+        r"{[{%#]",
+        lambda match: "{{ " + repr(match.group(0)) + " }}",
+        seed_context,
+    )
     seed_block = (
         "\n<memtrace_seed_context>\n"
         "Memtrace retrieved the following likely change surface before this run. "
         f"Use it as starting evidence, verify it against {container_root}, and continue exploring if needed. "
         "It is not a proposed patch and may be incomplete.\n\n"
-        f"{seed_context}\n"
+        f"{escaped_seed_context}\n"
         "</memtrace_seed_context>\n"
     )
     tool_block = ""

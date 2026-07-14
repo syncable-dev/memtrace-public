@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from jinja2 import StrictUndefined, Template
+
 
 MODULE_PATH = Path(__file__).with_name("agent_runner.py")
 SPEC = importlib.util.spec_from_file_location(
@@ -210,6 +212,34 @@ class AgentRunnerTests(unittest.TestCase):
                 "exact ranked production definitions",
                 generated["agent"]["context_request_template"],
             )
+
+    def test_agent_config_keeps_repository_jinja_delimiters_literal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            base = root / "base.yaml"
+            output = root / "generated.yaml"
+            base.write_text(
+                "agent:\n"
+                "  instance_template: 'Task: {{task}} </pr_description>'\n"
+                "  context_request_template: 'Give context.'\n"
+                "model: {}\n",
+                encoding="utf-8",
+            )
+            seed = (
+                "TabIndicatorProps={{ style: { backgroundColor: 'green' } }}\n"
+                "literal = '{% endraw %}'\n"
+                "comment = '{# not a template comment #}'"
+            )
+
+            agent_runner.write_agent_config(base, output, seed, "openai/gpt-5")
+
+            generated = agent_runner.yaml.safe_load(output.read_text(encoding="utf-8"))
+            rendered = Template(
+                generated["agent"]["instance_template"],
+                undefined=StrictUndefined,
+            ).render(task="typescript regression")
+            self.assertIn("Task: typescript regression", rendered)
+            self.assertIn(seed, rendered)
 
     def test_agent_config_registers_live_hierarchical_memtrace_protocol(self):
         with tempfile.TemporaryDirectory() as directory:

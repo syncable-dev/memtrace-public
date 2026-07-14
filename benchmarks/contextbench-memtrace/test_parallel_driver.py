@@ -170,6 +170,7 @@ class ParallelDriverTests(unittest.TestCase):
             self.assertEqual(prediction["harness_failure"]["kind"], "timeout")
             self.assertEqual(failure["run_fingerprint"], "fingerprint-a")
             self.assertEqual(record["status"], "failure")
+            self.assertIsInstance(record["completed_at_unix_ns"], int)
 
     def test_selector_policy_is_forwarded_to_the_runner(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -232,6 +233,8 @@ class ParallelDriverTests(unittest.TestCase):
             )
             prediction = json.loads((run_dir / "prediction.jsonl").read_text())
             self.assertEqual(results["task-1"]["status"], "success")
+            record = json.loads((run_dir / "run_record.json").read_text())
+            self.assertIsInstance(record["completed_at_unix_ns"], int)
             self.assertEqual(prediction["instance_id"], "task-1")
             self.assertEqual(
                 audit["agent"]["localization_protocol"]["policy"],

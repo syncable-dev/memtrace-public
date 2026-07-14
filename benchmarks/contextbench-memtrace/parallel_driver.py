@@ -505,6 +505,7 @@ def write_failure(
             "failure_sha256": artifact_hash(failure_path),
             "returncode": failure.get("returncode"),
             "seconds": failure.get("seconds"),
+            "completed_at_unix_ns": failure.get("completed_at_unix_ns"),
         },
     )
 
@@ -693,6 +694,10 @@ def run_one(
             failure_message = f"driver exception: {type(error).__name__}: {error}"
 
         seconds = round(time.monotonic() - started, 1)
+        # Fleet checkpoints merge terminal tasks from independent hosts. Record
+        # the wall-clock completion instant inside the terminal artifact so a
+        # globally ordered checkpoint does not depend on rsync or poll order.
+        completed_at_unix_ns = time.time_ns()
         if getattr(args, "lane", "retrieval") == "agent":
             source_prediction = run_dir / "agent-output" / "predictions.jsonl"
             source_audit = run_dir / "agent-output" / "audit" / f"{slug}.json"
@@ -729,6 +734,7 @@ def run_one(
                 "message": failure_message,
                 "returncode": returncode,
                 "seconds": seconds,
+                "completed_at_unix_ns": completed_at_unix_ns,
                 "timeout_seconds": args.timeout,
                 "run_fingerprint": args.run_fingerprint,
                 "command": cmd,
@@ -762,6 +768,7 @@ def run_one(
                 "query_plan_sha256": artifact_hash(query_plan),
                 "returncode": returncode,
                 "seconds": seconds,
+                "completed_at_unix_ns": completed_at_unix_ns,
             },
         )
         (run_dir / "failure.json").unlink(missing_ok=True)

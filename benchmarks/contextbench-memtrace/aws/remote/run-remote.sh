@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run-remote.sh — runs ON THE BOX inside tmux. Launched by 03-run.sh with env:
-#   RUN_ID DATASET CONCURRENCY LINE_BUDGET SELECTOR_MODEL SELECTOR_MODE
+#   RUN_ID DATASET BENCHMARK_LANE CONCURRENCY LINE_BUDGET SELECTOR_MODEL
+#   AGENT_MODEL AGENT_HISTORY_DAYS SELECTOR_MODE
 #   POST_SELECTOR_POLICY CACHE_NAMESPACE RUN_TIMEOUT WATCHDOG_MINUTES
 #   CB_SEARCH_LIMIT CB_PACK_POLICY CB_QUERY_STRATEGY
 #   MEMTRACE_INSTALL_MODE
@@ -13,6 +14,7 @@ set -euo pipefail
 
 : "${RUN_ID:?RUN_ID required}"
 : "${DATASET:=verified}"
+: "${BENCHMARK_LANE:=retrieval}"
 : "${MANIFEST_LIMIT:=0}"
 : "${MANIFEST_SOURCE_RUN_ID:=}"
 : "${CONCURRENCY:=auto}"
@@ -20,6 +22,8 @@ set -euo pipefail
 # the gitignored config.env; run_meta.json records the effective value.
 : "${LINE_BUDGET:=80}"
 : "${SELECTOR_MODEL:=gpt-5}"
+: "${AGENT_MODEL:=openai/gpt-5}"
+: "${AGENT_HISTORY_DAYS:=365}"
 : "${SELECTOR_MODE:=default}"
 : "${POST_SELECTOR_POLICY:=off}"
 : "${CACHE_NAMESPACE:=contextbench-v1}"
@@ -48,6 +52,15 @@ set -euo pipefail
 # CONCURRENCY>2 (see the thread-cap comment further down); only for
 # debugging on a box without taskset/flock.
 : "${MEMTRACE_PIN_ENABLE:=1}"
+
+case "$BENCHMARK_LANE" in
+    retrieval|agent) ;;
+    *) echo "ERROR: BENCHMARK_LANE must be retrieval or agent (got $BENCHMARK_LANE)" >&2; exit 2 ;;
+esac
+if [ "$BENCHMARK_LANE" = "agent" ] && { [ "$SELECTOR_MODE" != "default" ] || [ "$POST_SELECTOR_POLICY" != "off" ]; }; then
+    echo "ERROR: the agent lane requires SELECTOR_MODE=default and POST_SELECTOR_POLICY=off; its sealed ranked projection is built into agent_runner.py" >&2
+    exit 2
+fi
 
 DATA_ROOT=/srv/contextbench
 ADAPTER="$HOME/contextbench-adapter"
@@ -254,6 +267,14 @@ if [ -s "$META" ]; then
         echo "       Set DATASET=$STORED_DATASET to resume this run, or start a new run (fresh RUN_ID) for $DATASET."
         exit 2
     fi
+    STORED_LANE="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("benchmark_lane","retrieval"))' "$META")"
+    STORED_AGENT_MODEL="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_model","openai/gpt-5"))' "$META")"
+    STORED_AGENT_HISTORY_DAYS="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_history_days",365))' "$META")"
+    if [ "$STORED_LANE" != "$BENCHMARK_LANE" ] || { [ "$BENCHMARK_LANE" = "agent" ] && { [ "$STORED_AGENT_MODEL" != "$AGENT_MODEL" ] || [ "$STORED_AGENT_HISTORY_DAYS" != "$AGENT_HISTORY_DAYS" ]; }; }; then
+        echo "ERROR: run $RUN_ID is bound to lane=$STORED_LANE agent_model=$STORED_AGENT_MODEL history_days=$STORED_AGENT_HISTORY_DAYS."
+        echo "       Agent-policy changes require a fresh RUN_ID; they may not be mixed into a resumed run."
+        exit 2
+    fi
     STORED_POST_SELECTOR_POLICY="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("post_selector_policy","off"))' "$META")"
     if [ "$STORED_POST_SELECTOR_POLICY" != "$POST_SELECTOR_POLICY" ]; then
         echo "ERROR: run $RUN_ID was started with POST_SELECTOR_POLICY=$STORED_POST_SELECTOR_POLICY but the current config says POST_SELECTOR_POLICY=$POST_SELECTOR_POLICY."
@@ -453,7 +474,7 @@ if [ "$MEMTRACE_PIN_ENABLE" = "1" ] && [ "$_PAR" -gt 2 ]; then
     echo "pin floor: verified taskset shim active at $RESOLVED_MEMTRACE (independent check, install_mode=$MEMTRACE_INSTALL_MODE)"
 fi
 unset _PAR
-echo "locked policy: CB_SEARCH_LIMIT=$CB_SEARCH_LIMIT CB_PACK_POLICY=$CB_PACK_POLICY CB_QUERY_STRATEGY=$CB_QUERY_STRATEGY MEMTRACE_EMBED_INTRA_OP_THREADS=$MEMTRACE_EMBED_INTRA_OP_THREADS SELECTOR_MODEL=$SELECTOR_MODEL SELECTOR_MODE=$SELECTOR_MODE POST_SELECTOR_POLICY=$POST_SELECTOR_POLICY LINE_BUDGET=$LINE_BUDGET"
+echo "locked policy: lane=$BENCHMARK_LANE agent_model=$AGENT_MODEL agent_history_days=$AGENT_HISTORY_DAYS CB_SEARCH_LIMIT=$CB_SEARCH_LIMIT CB_PACK_POLICY=$CB_PACK_POLICY CB_QUERY_STRATEGY=$CB_QUERY_STRATEGY MEMTRACE_EMBED_INTRA_OP_THREADS=$MEMTRACE_EMBED_INTRA_OP_THREADS SELECTOR_MODEL=$SELECTOR_MODEL SELECTOR_MODE=$SELECTOR_MODE POST_SELECTOR_POLICY=$POST_SELECTOR_POLICY LINE_BUDGET=$LINE_BUDGET"
 
 completed_count() {
     find "$RESULTS/runs" -mindepth 2 -maxdepth 2 -name prediction.jsonl -size +0c 2>/dev/null | wc -l | tr -d ' '
@@ -468,23 +489,27 @@ echo "$(date +%s) $(completed_count)" > "$RESULTS/session_start"
 # recorded; in source mode the full build manifest (HEAD sha, git describe,
 # dirty state, binary sha256, rustc) is embedded under "memtrace_source".
 "$VENV_PY" - "$RESULTS/run_meta.json" "$RUN_ID" "$DATASET" "$GOLD" \
-    "$SELECTOR_MODEL" "$SELECTOR_MODE" "$CACHE_NAMESPACE" "$CONC" "$LINE_BUDGET" "$RUN_TIMEOUT" \
+    "$BENCHMARK_LANE" "$SELECTOR_MODEL" "$AGENT_MODEL" "$AGENT_HISTORY_DAYS" "$SELECTOR_MODE" "$CACHE_NAMESPACE" "$CONC" "$LINE_BUDGET" "$RUN_TIMEOUT" \
     "$WATCHDOG_MINUTES" "$MEMTRACE_INSTALL_MODE" "$MEMTRACE_VERSION_RUNTIME" \
     "$(command -v memtrace)" "$SOURCE_MANIFEST" \
     "$MEMTRACE_PIN_ENABLE" "$MEMTRACE_PIN_SLOTS" "$MEMTRACE_PIN_CORES_PER_SLOT" \
     "$MEMTRACE_MAX_THREADS" "$MEMTRACE_EMBED_INTRA_OP_THREADS" "$CB_SEARCH_LIMIT" "$CB_PACK_POLICY" "$CB_QUERY_STRATEGY" "$POST_SELECTOR_POLICY" \
     "$MANIFEST_LIMIT" "$MANIFEST_SOURCE_RUN_ID" "$TOTAL" <<'PY'
 import json, sys
-(path, run_id, dataset, gold, selector, selector_mode, namespace, conc, line_budget, timeout,
+(path, run_id, dataset, gold, benchmark_lane, selector, agent_model, agent_history_days,
+ selector_mode, namespace, conc, line_budget, timeout,
  watchdog_min, install_mode, mt_version, mt_binary, source_manifest,
  pin_enable, pin_slots, pin_cores_per_slot, max_threads, embed_threads,
  search_limit, pack_policy, query_strategy, post_selector_policy, manifest_limit,
- manifest_source_run_id, manifest_instances) = sys.argv[1:28]
+ manifest_source_run_id, manifest_instances) = sys.argv[1:31]
 meta = {
     "run_id": run_id,
     "dataset": dataset,
     "gold_parquet": gold,
+    "benchmark_lane": benchmark_lane,
     "selector_model": selector,
+    "agent_model": agent_model,
+    "agent_history_days": int(agent_history_days),
     "selector_mode": selector_mode,
     "cache_namespace": namespace,
     "concurrency": int(conc),
@@ -813,12 +838,26 @@ DRIVER_ARGS=(
     --dataset "$GOLD"
     --manifest "$MANIFEST"
     --output-dir "$RESULTS"
+    --lane "$BENCHMARK_LANE"
     --concurrency "$CONC"
     --line-budget "$LINE_BUDGET"
     --selector-model "$SELECTOR_MODEL"
     --rerank-model-dir "$DATA_ROOT/rerank-model"
     --reinclude-tracked-dirs
 )
+if [ "$BENCHMARK_LANE" = "agent" ]; then
+    BASE_AGENT_CONFIG="$DATA_ROOT/contextbench/agent-frameworks/mini-swe-agent/multi-poly-pro-verified/configs/swebench_following_context.yaml"
+    [ -f "$BASE_AGENT_CONFIG" ] \
+        || { echo "ERROR: ContextBench agent config missing: $BASE_AGENT_CONFIG"; exit 2; }
+    DRIVER_ARGS+=(
+        --contextbench-root "$DATA_ROOT/contextbench"
+        --base-agent-config "$BASE_AGENT_CONFIG"
+        --agent-model "$AGENT_MODEL"
+        --history-days "$AGENT_HISTORY_DAYS"
+        --graph-cache-dir "$DATA_ROOT/graph-cache-agent"
+        --cache-namespace "$CACHE_NAMESPACE-agent-hierarchy-v2"
+    )
+fi
 # Guarded selector: only forwarded when requested, and refuse to run silently
 # in default mode if the adapter on the box predates the flag.
 if [ "$SELECTOR_MODE" != "default" ]; then
@@ -839,15 +878,14 @@ DRIVER_ARGS+=(
 if grep -q -- '--resume' "$ADAPTER/parallel_driver.py"; then
     DRIVER_ARGS+=(--resume)
 fi
-# Graph-cache pass-through: the hardened parallel_driver.py does NOT yet forward these
-# to runner.py. If the flags ever land there, they get picked up automatically.
-if grep -q -- '--graph-cache-dir' "$ADAPTER/parallel_driver.py"; then
+# The two lanes keep separate graph-cache roots and policy namespaces.
+if [ "$BENCHMARK_LANE" = "retrieval" ]; then
+    grep -q -- '"--graph-cache-dir"' "$ADAPTER/parallel_driver.py" \
+        || { echo "ERROR: retrieval lane requires graph-cache pass-through in parallel_driver.py"; exit 2; }
     DRIVER_ARGS+=(--graph-cache-dir "$DATA_ROOT/graph-cache" --cache-namespace "$CACHE_NAMESPACE")
-else
-    echo "note: parallel_driver.py has no --graph-cache-dir pass-through; graph cache not in use"
 fi
 
-echo "driver: concurrency=$CONC total=$TOTAL timeout=${RUN_TIMEOUT}s selector=$SELECTOR_MODEL mode=$SELECTOR_MODE post_selector=$POST_SELECTOR_POLICY"
+echo "driver: lane=$BENCHMARK_LANE concurrency=$CONC total=$TOTAL timeout=${RUN_TIMEOUT}s selector=$SELECTOR_MODEL agent=$AGENT_MODEL history=${AGENT_HISTORY_DAYS}d mode=$SELECTOR_MODE post_selector=$POST_SELECTOR_POLICY"
 set +e
 "$VENV_PY" "${DRIVER_ARGS[@]}"
 DRIVER_RC=$?

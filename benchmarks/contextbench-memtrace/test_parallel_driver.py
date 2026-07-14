@@ -10,7 +10,9 @@ from unittest import mock
 
 
 MODULE_PATH = Path(__file__).with_name("parallel_driver.py")
-SPEC = importlib.util.spec_from_file_location("contextbench_parallel_driver", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location(
+    "contextbench_parallel_driver", MODULE_PATH
+)
 assert SPEC and SPEC.loader
 driver = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = driver
@@ -35,6 +37,8 @@ parser.add_argument("--post-selector-policy")
 parser.add_argument("--rerank-model-dir")
 parser.add_argument("--reinclude-tracked-dirs", action="store_true")
 parser.add_argument("--query-plan-file", type=Path)
+parser.add_argument("--graph-cache-dir")
+parser.add_argument("--cache-namespace")
 args = parser.parse_args()
 counter = args.output.parent / "invocations.txt"
 count = int(counter.read_text() or "0") if counter.exists() else 0
@@ -63,6 +67,59 @@ if args.query_plan_file:
 """
 
 
+AGENT_SUCCESS_RUNNER = r"""
+import argparse
+import json
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--dataset")
+parser.add_argument("--instance-id")
+parser.add_argument("--output-dir", type=Path)
+parser.add_argument("--work-dir", type=Path)
+parser.add_argument("--contextbench-root")
+parser.add_argument("--agent-python")
+parser.add_argument("--base-agent-config")
+parser.add_argument("--rerank-model-dir")
+parser.add_argument("--query-plan-file", type=Path)
+parser.add_argument("--selector-model")
+parser.add_argument("--agent-model")
+parser.add_argument("--line-budget", type=int)
+parser.add_argument("--timeout", type=int)
+parser.add_argument("--history-days", type=int)
+parser.add_argument("--cache-namespace")
+parser.add_argument("--graph-cache-dir")
+parser.add_argument("--fail-fast", action="store_true")
+args = parser.parse_args()
+args.output_dir.mkdir(parents=True, exist_ok=True)
+prediction = {
+    "instance_id": args.instance_id,
+    "traj_data": {
+        "pred_steps": [],
+        "pred_files": ["src/example.py"],
+        "pred_spans": {"src/example.py": [{"type": "line", "start": 1, "end": 2}]},
+        "pred_symbols": {},
+    },
+    "model_patch": "diff --git a/src/example.py b/src/example.py\n",
+}
+(args.output_dir / "predictions.jsonl").write_text(json.dumps(prediction) + "\n")
+audit_dir = args.output_dir / "audit"
+audit_dir.mkdir()
+(audit_dir / f"{args.instance_id}.json").write_text(json.dumps({
+    "agent": {
+        "localization_protocol": {"policy": "hierarchy-listwise-v2"},
+        "final_context_projection": {
+            "policy": "rank-plus-scoped-recall-floor-v1",
+            "line_budget": args.line_budget,
+            "unique_lines": 2,
+        },
+    },
+    "received_timeout": args.timeout,
+}) + "\n")
+args.query_plan_file.write_text(json.dumps({args.instance_id: ["query"]}) + "\n")
+"""
+
+
 def namespace(root: Path, fingerprint: str = "fingerprint-a") -> argparse.Namespace:
     dataset = root / "dataset.parquet"
     dataset.write_bytes(b"dataset")
@@ -75,6 +132,8 @@ def namespace(root: Path, fingerprint: str = "fingerprint-a") -> argparse.Namesp
         selector_policy=driver.DEFAULT_SELECTOR_POLICY,
         post_selector_policy="off",
         rerank_model_dir=None,
+        graph_cache_dir=None,
+        cache_namespace="contextbench-test-v1",
         reinclude_tracked_dirs=False,
         query_plans=False,
         timeout=5,
@@ -102,9 +161,7 @@ class ParallelDriverTests(unittest.TestCase):
             result = self.run_one(runner, args)
 
             run_dir = args.output_dir / "runs" / "task-1"
-            prediction = json.loads(
-                (run_dir / "prediction.jsonl").read_text().strip()
-            )
+            prediction = json.loads((run_dir / "prediction.jsonl").read_text().strip())
             failure = json.loads((run_dir / "failure.json").read_text())
             record = json.loads((run_dir / "run_record.json").read_text())
             self.assertEqual(result["status"], "failure")
@@ -143,6 +200,44 @@ class ParallelDriverTests(unittest.TestCase):
             )
             self.assertEqual(result["status"], "success")
             self.assertEqual(policy_path.read_text(), "offline-packing-v2")
+
+    def test_agent_lane_archives_prediction_and_sealed_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runner = root / "agent_success_runner.py"
+            runner.write_text(AGENT_SUCCESS_RUNNER)
+            args = namespace(root)
+            args.lane = "agent"
+            args.contextbench_root = root / "contextbench"
+            args.contextbench_root.mkdir()
+            args.base_agent_config = root / "agent.yaml"
+            args.base_agent_config.write_text("agent: test\n")
+            args.rerank_model_dir = root / "rerank"
+            args.rerank_model_dir.mkdir()
+            args.selector_model = "gpt-5"
+            args.agent_model = "openai/gpt-5"
+            args.history_days = 365
+            args.graph_cache_dir = root / "cache"
+            args.cache_namespace = "agent-test-v1"
+            args.query_plans = True
+            args.timeout = 300
+
+            results = {}
+            with mock.patch.object(driver, "AGENT_RUNNER", runner):
+                driver.run_one("task-1", args, threading.Semaphore(1), results)
+
+            run_dir = args.output_dir / "runs" / "task-1"
+            audit = json.loads(
+                (run_dir / "prediction-audit" / "task-1.json").read_text()
+            )
+            prediction = json.loads((run_dir / "prediction.jsonl").read_text())
+            self.assertEqual(results["task-1"]["status"], "success")
+            self.assertEqual(prediction["instance_id"], "task-1")
+            self.assertEqual(
+                audit["agent"]["localization_protocol"]["policy"],
+                "hierarchy-listwise-v2",
+            )
+            self.assertEqual(audit["received_timeout"], 180)
 
     def test_selector_policy_changes_the_resume_fingerprint(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -212,7 +307,9 @@ class ParallelDriverTests(unittest.TestCase):
             self.assertFalse(third.get("skipped", False))
             self.assertEqual(counter.read_text(), "2")
             self.assertTrue(
-                (args.output_dir / "runs" / "task-1" / "query-plan.stale.json").is_file()
+                (
+                    args.output_dir / "runs" / "task-1" / "query-plan.stale.json"
+                ).is_file()
             )
             record = json.loads(
                 (args.output_dir / "runs" / "task-1" / "run_record.json").read_text()
@@ -299,11 +396,16 @@ class ParallelDriverTests(unittest.TestCase):
             output_dir = root / "output"
             argv = [
                 "parallel_driver.py",
-                "--dataset", str(dataset),
-                "--manifest", str(manifest),
-                "--output-dir", str(output_dir),
-                "--rerank-model-dir", str(model_dir),
-                "--chdir", str(root),
+                "--dataset",
+                str(dataset),
+                "--manifest",
+                str(manifest),
+                "--output-dir",
+                str(output_dir),
+                "--rerank-model-dir",
+                str(model_dir),
+                "--chdir",
+                str(root),
             ]
             with (
                 mock.patch.object(driver, "RUNNER", runner),

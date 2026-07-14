@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Freeze and compare an exact completion-order checkpoint for small gates.
+"""Freeze and compare an exact completion-order ContextBench checkpoint.
 
 The N=100 comparator deliberately enforces a 100-task treatment contract.
-This utility is the narrower path for predeclared N=10/N=20 repair gates: it
-binds the authoritative monitor snapshot receipt, copies only those exact task
-predictions, and compares the official evaluator output with the same task IDs
-from two already sealed controls.
+This utility binds the authoritative monitor snapshot receipt for predeclared
+agent and repair gates, copies only the exact completion-order predictions, and
+compares official evaluator output with identical task IDs from two sealed
+controls.
 """
 
 from __future__ import annotations
@@ -41,7 +41,9 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
@@ -81,9 +83,13 @@ def prepare(args: argparse.Namespace) -> None:
         raise ValueError("snapshot completion order is malformed")
 
     source_manifest = read_json(mirror / "manifest.json")
-    if not isinstance(source_manifest, list) or not set(ids).issubset(set(source_manifest)):
+    if not isinstance(source_manifest, list) or not set(ids).issubset(
+        set(source_manifest)
+    ):
         raise ValueError("selected checkpoint IDs are not in the candidate manifest")
-    manifest_index = {instance_id: index for index, instance_id in enumerate(source_manifest)}
+    manifest_index = {
+        instance_id: index for index, instance_id in enumerate(source_manifest)
+    }
     for terminal, instance_id in zip(selected, ids):
         if terminal.get("manifest_index") != manifest_index[instance_id]:
             raise ValueError(f"snapshot manifest index mismatch: {instance_id}")
@@ -102,7 +108,10 @@ def prepare(args: argparse.Namespace) -> None:
         audit_path = run_dir / "prediction-audit" / f"{slug}.json"
         relative_prediction = prediction_path.relative_to(mirror).as_posix()
         relative_audit = audit_path.relative_to(mirror).as_posix()
-        for path, relative in ((prediction_path, relative_prediction), (audit_path, relative_audit)):
+        for path, relative in (
+            (prediction_path, relative_prediction),
+            (audit_path, relative_audit),
+        ):
             receipt_identity = receipt_files.get(relative)
             if not path.is_file() or not isinstance(receipt_identity, dict):
                 raise ValueError(f"snapshot omits bound artifact: {relative}")
@@ -112,18 +121,43 @@ def prepare(args: argparse.Namespace) -> None:
         if len(rows) != 1 or rows[0].get("instance_id") != instance_id:
             raise ValueError(f"candidate prediction is malformed: {instance_id}")
         audit = read_json(audit_path)
-        post_selector = audit.get("post_selector_policy")
-        if (
-            not isinstance(post_selector, dict)
-            or post_selector.get("policy_name") != args.treatment
-            or audit.get("pack_policy") != args.pack_policy
-            or audit.get("query_strategy") != args.query_strategy
-        ):
-            raise ValueError(f"candidate treatment audit mismatch: {instance_id}")
+        if args.agent_policy:
+            agent = audit.get("agent")
+            localization = (
+                agent.get("localization_protocol") if isinstance(agent, dict) else None
+            )
+            projection = (
+                agent.get("final_context_projection")
+                if isinstance(agent, dict)
+                else None
+            )
+            if (
+                not isinstance(localization, dict)
+                or localization.get("policy") != args.agent_policy
+                or not isinstance(projection, dict)
+                or projection.get("policy") != args.projection_policy
+                or projection.get("line_budget") != args.line_budget
+                or projection.get("unique_lines", args.line_budget + 1)
+                > args.line_budget
+            ):
+                raise ValueError(
+                    f"candidate agent policy audit mismatch: {instance_id}"
+                )
+        else:
+            post_selector = audit.get("post_selector_policy")
+            if (
+                not isinstance(post_selector, dict)
+                or post_selector.get("policy_name") != args.treatment
+                or audit.get("pack_policy") != args.pack_policy
+                or audit.get("query_strategy") != args.query_strategy
+            ):
+                raise ValueError(f"candidate treatment audit mismatch: {instance_id}")
         candidate_rows.append(rows[0])
         audits.append((audit_path, slug))
 
-    controls: dict[str, tuple[Path, dict[str, dict[str, Any]], dict[str, dict[str, Any]]]] = {}
+    controls: dict[
+        str, tuple[Path, dict[str, dict[str, Any]], dict[str, dict[str, Any]]]
+    ] = {}
     for label, root in (("previous", previous), ("old", old)):
         manifest = read_json(root / "manifest.json")
         if not isinstance(manifest, list) or not set(ids).issubset(set(manifest)):
@@ -143,24 +177,36 @@ def prepare(args: argparse.Namespace) -> None:
     for source, slug in audits:
         shutil.copy2(source, audit_output / f"{slug}.json")
     for label, (_, predictions, results) in controls.items():
-        write_jsonl(output / f"{label}-predictions.jsonl", (predictions[item] for item in ids))
+        write_jsonl(
+            output / f"{label}-predictions.jsonl", (predictions[item] for item in ids)
+        )
         write_jsonl(output / f"{label}-results.jsonl", (results[item] for item in ids))
 
     write_json(
         output / "binding.json",
         {
             "schema_version": 1,
-            "mode": "exact-completion-order-small-gate",
+            "mode": "exact-completion-order-gate",
             "count": args.count,
             "candidate_run_id": receipt.get("run_id"),
             "snapshot_receipt": str(receipt_path),
             "snapshot_receipt_sha256": sha256(receipt_path),
             "candidate_manifest_sha256": sha256(mirror / "manifest.json"),
-            "treatment": {
-                "post_selector_policy": args.treatment,
-                "pack_policy": args.pack_policy,
-                "query_strategy": args.query_strategy,
-            },
+            "treatment": (
+                {
+                    "mode": "agent",
+                    "agent_policy": args.agent_policy,
+                    "projection_policy": args.projection_policy,
+                    "line_budget": args.line_budget,
+                }
+                if args.agent_policy
+                else {
+                    "mode": "post-selector",
+                    "post_selector_policy": args.treatment,
+                    "pack_policy": args.pack_policy,
+                    "query_strategy": args.query_strategy,
+                }
+            ),
             "controls": {
                 label: {
                     "root": str(root),
@@ -175,7 +221,11 @@ def prepare(args: argparse.Namespace) -> None:
 
 
 def harmonic(recall: float, precision: float) -> float:
-    return 0.0 if recall + precision == 0 else 2 * recall * precision / (recall + precision)
+    return (
+        0.0
+        if recall + precision == 0
+        else 2 * recall * precision / (recall + precision)
+    )
 
 
 def line_metrics(row: dict[str, Any]) -> dict[str, float]:
@@ -185,7 +235,9 @@ def line_metrics(row: dict[str, Any]) -> dict[str, float]:
         line = row.get("final", {}).get("line", {})
         recall = float(line.get("coverage", 0.0))
         precision = float(line.get("precision", 0.0))
-    if not all(math.isfinite(value) and 0.0 <= value <= 1.0 for value in (recall, precision)):
+    if not all(
+        math.isfinite(value) and 0.0 <= value <= 1.0 for value in (recall, precision)
+    ):
         raise ValueError("official evaluator emitted invalid line metrics")
     return {"recall": recall, "precision": precision, "f1": harmonic(recall, precision)}
 
@@ -196,7 +248,9 @@ def compare(args: argparse.Namespace) -> None:
     if not isinstance(ids, list) or not ids:
         raise ValueError("checkpoint manifest is malformed")
     indexed = {
-        "candidate": index_rows(args.candidate_results.resolve(strict=True), "candidate results"),
+        "candidate": index_rows(
+            args.candidate_results.resolve(strict=True), "candidate results"
+        ),
         "previous": index_rows(root / "previous-results.jsonl", "previous results"),
         "old_control": index_rows(root / "old-results.jsonl", "old results"),
     }
@@ -207,16 +261,21 @@ def compare(args: argparse.Namespace) -> None:
     paired = []
     by_role: dict[str, list[dict[str, float]]] = {label: [] for label in indexed}
     for instance_id in ids:
-        metrics = {label: line_metrics(rows[instance_id]) for label, rows in indexed.items()}
+        metrics = {
+            label: line_metrics(rows[instance_id]) for label, rows in indexed.items()
+        }
         for label, value in metrics.items():
             by_role[label].append(value)
         paired.append(
             {
                 "instance_id": instance_id,
                 **metrics,
-                "delta_recall_vs_previous": metrics["candidate"]["recall"] - metrics["previous"]["recall"],
-                "delta_precision_vs_previous": metrics["candidate"]["precision"] - metrics["previous"]["precision"],
-                "delta_f1_vs_previous": metrics["candidate"]["f1"] - metrics["previous"]["f1"],
+                "delta_recall_vs_previous": metrics["candidate"]["recall"]
+                - metrics["previous"]["recall"],
+                "delta_precision_vs_previous": metrics["candidate"]["precision"]
+                - metrics["previous"]["precision"],
+                "delta_f1_vs_previous": metrics["candidate"]["f1"]
+                - metrics["previous"]["f1"],
             }
         )
 
@@ -243,7 +302,7 @@ def compare(args: argparse.Namespace) -> None:
         root / "comparison.json",
         {
             "schema_version": 1,
-            "mode": "exact-small-gate-no-regression",
+            "mode": "exact-gate-no-regression",
             "gate_pass": gate_pass,
             "ids_in_completion_order": ids,
             "inputs": {
@@ -269,9 +328,13 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--old-control", required=True, type=Path)
     freeze.add_argument("--output", required=True, type=Path)
     freeze.add_argument("--count", required=True, type=int)
-    freeze.add_argument("--treatment", required=True)
-    freeze.add_argument("--pack-policy", required=True)
-    freeze.add_argument("--query-strategy", required=True)
+    mode = freeze.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--treatment")
+    mode.add_argument("--agent-policy")
+    freeze.add_argument("--pack-policy")
+    freeze.add_argument("--query-strategy")
+    freeze.add_argument("--projection-policy")
+    freeze.add_argument("--line-budget", type=int)
     compare_parser = subparsers.add_parser("compare")
     compare_parser.add_argument("--checkpoint", required=True, type=Path)
     compare_parser.add_argument("--candidate-results", required=True, type=Path)
@@ -281,6 +344,19 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     if args.command == "prepare":
+        if args.agent_policy:
+            if (
+                not args.projection_policy
+                or not args.line_budget
+                or args.line_budget < 1
+            ):
+                raise SystemExit(
+                    "agent prepare requires --projection-policy and positive --line-budget"
+                )
+        elif not args.pack_policy or not args.query_strategy:
+            raise SystemExit(
+                "post-selector prepare requires --pack-policy and --query-strategy"
+            )
         prepare(args)
     else:
         compare(args)

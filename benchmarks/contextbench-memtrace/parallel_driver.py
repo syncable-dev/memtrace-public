@@ -39,11 +39,16 @@ from post_selector_policy import (
 )
 
 RUNNER = Path(__file__).resolve().parent / "runner.py"
+AGENT_RUNNER = Path(__file__).resolve().parent / "agent_runner.py"
 RUN_RECORD_SCHEMA_VERSION = 1
 PROCESS_TERMINATION_GRACE_SECONDS = 5.0
 DEFAULT_SELECTOR_POLICY = "replay-v1"
 SELECTOR_POLICY_CHOICES = (DEFAULT_SELECTOR_POLICY, "continuation-v2")
 SECRET_NAME_PARTS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
+
+
+def runner_path(args: argparse.Namespace) -> Path:
+    return AGENT_RUNNER if getattr(args, "lane", "retrieval") == "agent" else RUNNER
 
 
 def slugify(instance_id: str) -> str:
@@ -149,7 +154,7 @@ def build_run_provenance(args: argparse.Namespace) -> dict[str, Any]:
     payload = {
         "schema_version": RUN_RECORD_SCHEMA_VERSION,
         "driver": path_identity(Path(__file__)),
-        "runner": path_identity(RUNNER),
+        "runner": path_identity(runner_path(args)),
         "python": {
             "executable": str(Path(sys.executable).resolve()),
             "version": list(sys.version_info[:3]),
@@ -172,8 +177,30 @@ def build_run_provenance(args: argparse.Namespace) -> dict[str, Any]:
             "reinclude_tracked_dirs": args.reinclude_tracked_dirs,
             "query_plans": args.query_plans,
             "timeout_seconds": args.timeout,
+            "lane": getattr(args, "lane", "retrieval"),
+            "agent_model": getattr(args, "agent_model", None),
+            "history_days": getattr(args, "history_days", None),
+            "agent_localization_policy": (
+                "hierarchy-listwise-v2"
+                if getattr(args, "lane", "retrieval") == "agent"
+                else None
+            ),
         },
     }
+    if getattr(args, "lane", "retrieval") == "agent":
+        mini_agent_src = (
+            args.contextbench_root
+            / "agent-frameworks/mini-swe-agent/multi-poly-pro-verified/mini-swe-agent/src"
+        )
+        payload["agent"] = {
+            "contextbench_root": str(args.contextbench_root.resolve()),
+            "mini_agent_source": path_identity(mini_agent_src),
+            "base_agent_config": path_identity(args.base_agent_config),
+            "graph_cache_dir": (
+                str(args.graph_cache_dir.resolve()) if args.graph_cache_dir else None
+            ),
+            "cache_namespace": args.cache_namespace,
+        }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     payload["fingerprint"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return payload
@@ -215,7 +242,10 @@ def valid_prediction(path: Path, instance_id: str) -> tuple[bool, str | None]:
     except (OSError, json.JSONDecodeError) as error:
         return False, f"prediction is not valid JSONL: {error}"
     if len(rows) != 1 or not isinstance(rows[0], dict):
-        return False, f"prediction must contain exactly one object; found {len(rows)} rows"
+        return (
+            False,
+            f"prediction must contain exactly one object; found {len(rows)} rows",
+        )
     row = rows[0]
     if str(row.get("instance_id")) != instance_id:
         return False, "prediction instance_id does not match the manifest"
@@ -377,7 +407,9 @@ def terminate_process_group(
     grace_seconds: float | None = None,
 ) -> None:
     """Terminate the isolated runner session, including Memtrace descendants."""
-    grace = PROCESS_TERMINATION_GRACE_SECONDS if grace_seconds is None else grace_seconds
+    grace = (
+        PROCESS_TERMINATION_GRACE_SECONDS if grace_seconds is None else grace_seconds
+    )
     if os.name != "posix":
         if proc.poll() is not None:
             return
@@ -550,30 +582,82 @@ def run_one(
         )
         return
     discard_stale_query_plan(run_dir, args.run_fingerprint, args.resume)
-    cmd = [
-        sys.executable,
-        str(RUNNER),
-        "--dataset", str(args.dataset),
-        "--instance-id", instance_id,
-        "--output", str(output),
-        "--work-dir", str(run_dir / "work"),
-        "--line-budget", str(args.line_budget),
-    ]
-    if args.selector_model:
-        cmd += ["--selector-model", args.selector_model]
-    if args.selector_mode != "default":
-        cmd += ["--selector-mode", args.selector_mode]
-    if args.selector_policy != DEFAULT_SELECTOR_POLICY:
-        cmd += ["--selector-policy", args.selector_policy]
-    if args.post_selector_policy != "off":
-        cmd += ["--post-selector-policy", args.post_selector_policy]
-    if args.rerank_model_dir:
-        cmd += ["--rerank-model-dir", str(args.rerank_model_dir)]
-    if args.reinclude_tracked_dirs:
-        cmd += ["--reinclude-tracked-dirs"]
-    if args.query_plans:
-        # One plan file per instance run dir: no concurrent writers.
-        cmd += ["--query-plan-file", str(run_dir / "query-plan.json")]
+    if getattr(args, "lane", "retrieval") == "agent":
+        agent_output = run_dir / "agent-output"
+        cmd = [
+            sys.executable,
+            str(AGENT_RUNNER),
+            "--dataset",
+            str(args.dataset),
+            "--instance-id",
+            instance_id,
+            "--output-dir",
+            str(agent_output),
+            "--work-dir",
+            str(run_dir / "work"),
+            "--contextbench-root",
+            str(args.contextbench_root),
+            "--agent-python",
+            sys.executable,
+            "--base-agent-config",
+            str(args.base_agent_config),
+            "--rerank-model-dir",
+            str(args.rerank_model_dir),
+            "--query-plan-file",
+            str(run_dir / "query-plan.json"),
+            "--selector-model",
+            args.selector_model or "gpt-5",
+            "--agent-model",
+            args.agent_model,
+            "--line-budget",
+            str(args.line_budget),
+            "--timeout",
+            str(max(1, int(args.timeout) - 120)),
+            "--history-days",
+            str(args.history_days),
+            "--cache-namespace",
+            args.cache_namespace,
+            "--fail-fast",
+        ]
+        if args.graph_cache_dir:
+            cmd += ["--graph-cache-dir", str(args.graph_cache_dir)]
+    else:
+        cmd = [
+            sys.executable,
+            str(RUNNER),
+            "--dataset",
+            str(args.dataset),
+            "--instance-id",
+            instance_id,
+            "--output",
+            str(output),
+            "--work-dir",
+            str(run_dir / "work"),
+            "--line-budget",
+            str(args.line_budget),
+        ]
+        if args.selector_model:
+            cmd += ["--selector-model", args.selector_model]
+        if args.selector_mode != "default":
+            cmd += ["--selector-mode", args.selector_mode]
+        if args.selector_policy != DEFAULT_SELECTOR_POLICY:
+            cmd += ["--selector-policy", args.selector_policy]
+        if args.post_selector_policy != "off":
+            cmd += ["--post-selector-policy", args.post_selector_policy]
+        if args.rerank_model_dir:
+            cmd += ["--rerank-model-dir", str(args.rerank_model_dir)]
+        if args.reinclude_tracked_dirs:
+            cmd += ["--reinclude-tracked-dirs"]
+        if args.query_plans:
+            # One plan file per instance run dir: no concurrent writers.
+            cmd += ["--query-plan-file", str(run_dir / "query-plan.json")]
+        if args.graph_cache_dir:
+            cmd += [
+                "--graph-cache-dir",
+                str(args.graph_cache_dir),
+                "--cache-namespace",
+                args.cache_namespace,
+            ]
     with semaphore:
         started = time.monotonic()
         proc: subprocess.Popen[Any] | None = None
@@ -599,7 +683,9 @@ def run_one(
         except OSError as error:
             failure_kind = "spawn_error"
             failure_message = f"could not start runner: {error}"
-        except Exception as error:  # Keep one broken worker from shrinking the denominator.
+        except (
+            Exception
+        ) as error:  # Keep one broken worker from shrinking the denominator.
             if proc is not None:
                 terminate_process_group(proc)
                 returncode = proc.returncode
@@ -607,6 +693,15 @@ def run_one(
             failure_message = f"driver exception: {type(error).__name__}: {error}"
 
         seconds = round(time.monotonic() - started, 1)
+        if getattr(args, "lane", "retrieval") == "agent":
+            source_prediction = run_dir / "agent-output" / "predictions.jsonl"
+            source_audit = run_dir / "agent-output" / "audit" / f"{slug}.json"
+            audit_path = run_dir / "prediction-audit" / f"{slug}.json"
+            if source_prediction.is_file():
+                shutil.copy2(source_prediction, output)
+            if source_audit.is_file():
+                audit_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_audit, audit_path)
         if failure_kind is None and returncode != 0:
             failure_kind = "nonzero_exit"
             failure_message = f"runner exited with return code {returncode}"
@@ -683,13 +778,20 @@ def run_one(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
-    parser.add_argument("--manifest", type=Path, required=True,
-                        help="JSON with tasks[].instance_id, or a JSON list of ids")
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="JSON with tasks[].instance_id, or a JSON list of ids",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--lane", choices=("retrieval", "agent"), default="retrieval")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--line-budget", type=int, default=80)
     parser.add_argument("--selector-model")
-    parser.add_argument("--selector-mode", choices=("default", "guarded"), default="default")
+    parser.add_argument(
+        "--selector-mode", choices=("default", "guarded"), default="default"
+    )
     parser.add_argument(
         "--selector-policy",
         choices=SELECTOR_POLICY_CHOICES,
@@ -702,20 +804,36 @@ def main() -> int:
         help="next-run-only post-selector projection (default off)",
     )
     parser.add_argument("--rerank-model-dir", type=Path)
+    parser.add_argument("--contextbench-root", type=Path)
+    parser.add_argument("--base-agent-config", type=Path)
+    parser.add_argument("--agent-model", default="openai/gpt-5")
+    parser.add_argument("--history-days", type=int, default=365)
+    parser.add_argument("--graph-cache-dir", type=Path)
+    parser.add_argument("--cache-namespace", default="contextbench-agent-v1")
     parser.add_argument("--reinclude-tracked-dirs", action="store_true")
-    parser.add_argument("--query-plans", action="store_true",
-                        help="give each instance its own --query-plan-file")
+    parser.add_argument(
+        "--query-plans",
+        action="store_true",
+        help="give each instance its own --query-plan-file",
+    )
     parser.add_argument("--timeout", type=int, default=7200)
-    parser.add_argument("--resume", action="store_true",
-                        help="reuse validated terminal instances whose "
-                             "recorded provenance fingerprint still matches")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="reuse validated terminal instances whose "
+        "recorded provenance fingerprint still matches",
+    )
     parser.add_argument(
         "--provenance-file",
         type=Path,
         help="optional source/build manifest included in the resume fingerprint",
     )
-    parser.add_argument("--chdir", type=Path, default=Path.cwd(),
-                        help="cwd for runner.py (so its .env autoload works)")
+    parser.add_argument(
+        "--chdir",
+        type=Path,
+        default=Path.cwd(),
+        help="cwd for runner.py (so its .env autoload works)",
+    )
     args = parser.parse_args()
 
     loaded = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -730,6 +848,15 @@ def main() -> int:
         raise SystemExit("--concurrency must be at least 1")
     if args.timeout <= 0:
         raise SystemExit("--timeout must be greater than 0")
+    if args.lane == "agent":
+        if args.contextbench_root is None or not args.contextbench_root.is_dir():
+            raise SystemExit("--contextbench-root is required for the agent lane")
+        if args.base_agent_config is None or not args.base_agent_config.is_file():
+            raise SystemExit("--base-agent-config is required for the agent lane")
+        if args.rerank_model_dir is None:
+            raise SystemExit("--rerank-model-dir is required for the agent lane")
+        if not args.query_plans:
+            raise SystemExit("--query-plans is required for the agent lane")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     provenance = build_run_provenance(args)
     args.run_fingerprint = provenance["fingerprint"]
@@ -776,7 +903,9 @@ def main() -> int:
                 failure = {
                     "schema_version": RUN_RECORD_SCHEMA_VERSION,
                     "instance_id": iid,
-                    "kind": "worker_crash" if iid not in results else "invalid_merged_artifact",
+                    "kind": "worker_crash"
+                    if iid not in results
+                    else "invalid_merged_artifact",
                     "message": (
                         "worker exited without recording a result"
                         if iid not in results
@@ -807,12 +936,8 @@ def main() -> int:
             if per_audit.is_file():
                 shutil.copy(per_audit, audit_dir / f"{slug}.json")
 
-    completed = sum(
-        result.get("status") == "success" for result in results.values()
-    )
-    failures = sum(
-        result.get("status") == "failure" for result in results.values()
-    )
+    completed = sum(result.get("status") == "success" for result in results.values())
+    failures = sum(result.get("status") == "failure" for result in results.values())
     summary = {
         "run_fingerprint": args.run_fingerprint,
         "concurrency": args.concurrency,
@@ -828,14 +953,21 @@ def main() -> int:
     (args.output_dir / "driver_summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
-    print(json.dumps({k: summary[k] for k in (
-        "concurrency",
-        "wall_clock_seconds",
-        "completed",
-        "failed",
-        "prediction_records",
-        "total",
-    )}))
+    print(
+        json.dumps(
+            {
+                k: summary[k]
+                for k in (
+                    "concurrency",
+                    "wall_clock_seconds",
+                    "completed",
+                    "failed",
+                    "prediction_records",
+                    "total",
+                )
+            }
+        )
+    )
     return 0 if completed == len(instance_ids) and recorded == len(instance_ids) else 1
 
 

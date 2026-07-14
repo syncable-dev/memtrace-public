@@ -216,7 +216,11 @@ if [ ! -x "$VENV/bin/python" ]; then
 fi
 "$VENV/bin/pip" install -q --upgrade pip
 "$VENV/bin/pip" install -q -r "$CB_DIR/requirements.txt" pandas pyarrow
-"$VENV/bin/python" -c 'import tree_sitter_languages, pyarrow, pandas; print("evaluator deps OK")'
+MINI_AGENT="$CB_DIR/agent-frameworks/mini-swe-agent/multi-poly-pro-verified/mini-swe-agent"
+[ -f "$MINI_AGENT/pyproject.toml" ] \
+    || { echo "ERROR: vendored mini-SWE-agent is missing: $MINI_AGENT" >&2; exit 1; }
+"$VENV/bin/pip" install -q -e "$MINI_AGENT"
+"$VENV/bin/python" -c 'import tree_sitter_languages, pyarrow, pandas, litellm, minisweagent; print("evaluator + agent deps OK")'
 
 # --- 6. pre-warm the embedding model ONCE (before any parallel fan-out) --------------------
 # First index downloads jina-embeddings-v2-base-code (~640MB) into

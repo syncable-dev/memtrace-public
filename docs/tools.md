@@ -276,7 +276,7 @@ evidence or an honest `CannotProve` result.
 | Arg | Type | Required | Notes |
 |---|---|---|---|
 | `query` | string | yes | Must not be empty. Use a phrase that describes the decision rather than a symbol id. |
-| `top_k` | positive integer | no | Result cap. The server applies a small bounded default when omitted. Zero is invalid. |
+| `top_k` | positive integer | no | Result cap. Defaults to 10 when omitted. Zero is invalid. |
 | `min_score` | finite number | no | Exclude results below this score. |
 
 Example:

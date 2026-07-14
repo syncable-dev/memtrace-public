@@ -47,7 +47,7 @@ Then restart or reconnect the MCP client so it reloads the tool list. See
 | Argument | Type | Required | Notes |
 |---|---|---|---|
 | `query` | string | yes | Non-empty description of the decision, ban, or convention. |
-| `top_k` | positive integer | no | Maximum number of results. The server uses a small bounded default when omitted. |
+| `top_k` | positive integer | no | Maximum number of results. Defaults to 10 when omitted. |
 | `min_score` | finite number | no | Drop results below this score. |
 
 Example tool arguments:

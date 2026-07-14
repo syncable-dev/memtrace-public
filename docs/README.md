@@ -40,6 +40,7 @@ look up later":
 | [`environment-variables.md`](environment-variables.md) | The full env var reference — transport, ports, model selection, RAM tuning, embedding caps. |
 | [`mcp-and-transports.md`](mcp-and-transports.md) | How agents talk to Memtrace. stdio (per-session subprocess) vs streamable-HTTP (one server, many concurrent agents). When to pick which. |
 | [`tools.md`](tools.md) | The full MCP tool catalogue — `find_symbol`, `find_code`, `get_symbol_context`, `get_impact`, `get_evolution`, etc. Inputs, outputs, when to use which. |
+| [`cortex.md`](cortex.md) | Cortex decision memory: supported MCP setup, `recall_decision`, governance confirmation, status checks, and recovery without deleting the store. |
 | [`workflows.md`](workflows.md) | Common patterns: starting a new project, onboarding to an unfamiliar codebase, debugging an incident, refactoring safely, time-travel queries. |
 | [`performance-tuning.md`](performance-tuning.md) | Fitting Memtrace to your machine. Auto-tuning by RAM, model selection, batch sizes, RSS guardrails. |
 | [`troubleshooting.md`](troubleshooting.md) | Concrete fixes for the most common failure modes — slow startup, swap blowouts, MCP not appearing in your client, indexing hangs. |

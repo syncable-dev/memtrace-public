@@ -63,6 +63,7 @@ class ManualExactCheckpointTests(unittest.TestCase):
                         "instance_id": instance_id,
                         "slug": instance_id,
                         "manifest_index": 0,
+                        "status": "success",
                     }
                 ],
                 "files": [
@@ -128,6 +129,42 @@ class ManualExactCheckpointTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "agent policy audit mismatch"):
                 checkpoint.prepare(args)
+
+    def test_prepare_keeps_a_bound_harness_failure_in_the_denominator(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = self.fixture(Path(directory))
+            terminal = json.loads(args.snapshot_receipt.read_text())
+            terminal["terminals"][0]["status"] = "failure"
+            prediction = args.mirror / "runs" / "task-1" / "prediction.jsonl"
+            audit = (
+                args.mirror
+                / "runs"
+                / "task-1"
+                / "prediction-audit"
+                / "task-1.json"
+            )
+            failure = {"kind": "nonzero_exit", "message": "runner exited"}
+            write_jsonl(
+                prediction,
+                [
+                    {
+                        "instance_id": "task-1",
+                        "traj_data": {},
+                        "model_patch": "",
+                        "harness_failure": failure,
+                    }
+                ],
+            )
+            write_json(audit, {"harness_failure": failure})
+            for item in terminal["files"]:
+                source = args.mirror / item["path"]
+                item["sha256"] = checkpoint.sha256(source)
+            write_json(args.snapshot_receipt, terminal)
+
+            checkpoint.prepare(args)
+
+            rows = checkpoint.read_jsonl(args.output / "candidate-predictions.jsonl")
+            self.assertEqual(rows[0]["harness_failure"], failure)
 
 
 if __name__ == "__main__":

@@ -121,7 +121,18 @@ def prepare(args: argparse.Namespace) -> None:
         if len(rows) != 1 or rows[0].get("instance_id") != instance_id:
             raise ValueError(f"candidate prediction is malformed: {instance_id}")
         audit = read_json(audit_path)
-        if args.agent_policy:
+        terminal_status = terminal.get("status")
+        is_failure = terminal_status == "failure"
+        if is_failure:
+            if not isinstance(rows[0].get("harness_failure"), dict) or not isinstance(
+                audit.get("harness_failure"), dict
+            ):
+                raise ValueError(
+                    f"candidate failure evidence is malformed: {instance_id}"
+                )
+        elif terminal_status != "success":
+            raise ValueError(f"candidate terminal status is invalid: {instance_id}")
+        elif args.agent_policy:
             agent = audit.get("agent")
             localization = (
                 agent.get("localization_protocol") if isinstance(agent, dict) else None

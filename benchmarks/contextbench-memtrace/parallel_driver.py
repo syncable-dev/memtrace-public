@@ -40,6 +40,7 @@ from post_selector_policy import (
 
 RUNNER = Path(__file__).resolve().parent / "runner.py"
 AGENT_RUNNER = Path(__file__).resolve().parent / "agent_runner.py"
+CODEX_RUNNER = Path(__file__).resolve().parent / "codex_runner.py"
 RUN_RECORD_SCHEMA_VERSION = 1
 PROCESS_TERMINATION_GRACE_SECONDS = 5.0
 DEFAULT_SELECTOR_POLICY = "replay-v1"
@@ -48,7 +49,12 @@ SECRET_NAME_PARTS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
 
 
 def runner_path(args: argparse.Namespace) -> Path:
-    return AGENT_RUNNER if getattr(args, "lane", "retrieval") == "agent" else RUNNER
+    lane = getattr(args, "lane", "retrieval")
+    if lane == "agent":
+        return AGENT_RUNNER
+    if lane == "codex":
+        return CODEX_RUNNER
+    return RUNNER
 
 
 def slugify(instance_id: str) -> str:
@@ -180,11 +186,10 @@ def build_run_provenance(args: argparse.Namespace) -> dict[str, Any]:
             "lane": getattr(args, "lane", "retrieval"),
             "agent_model": getattr(args, "agent_model", None),
             "history_days": getattr(args, "history_days", None),
-            "agent_localization_policy": (
-                "hierarchy-listwise-v2"
-                if getattr(args, "lane", "retrieval") == "agent"
-                else None
-            ),
+            "agent_localization_policy": {
+                "agent": "hierarchy-listwise-v2",
+                "codex": "codex-memtrace-skills-v1",
+            }.get(getattr(args, "lane", "retrieval")),
         },
     }
     if getattr(args, "lane", "retrieval") == "agent":
@@ -200,6 +205,15 @@ def build_run_provenance(args: argparse.Namespace) -> dict[str, Any]:
                 str(args.graph_cache_dir.resolve()) if args.graph_cache_dir else None
             ),
             "cache_namespace": args.cache_namespace,
+        }
+    elif getattr(args, "lane", "retrieval") == "codex":
+        payload["codex"] = {
+            "binary": path_identity(args.codex_binary),
+            "skills": path_identity(args.memtrace_skills_dir),
+            "memtrace_binary": path_identity(args.memtrace_binary),
+            "graph_cache_dir": str(args.graph_cache_dir.resolve()),
+            "cache_namespace": args.cache_namespace,
+            "final_context_policy": "codex-structured-final-v1",
         }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     payload["fingerprint"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -544,6 +558,8 @@ def run_one(
     semaphore: threading.Semaphore,
     results: dict[str, dict],
 ) -> None:
+    lane = getattr(args, "lane", "retrieval")
+    requires_query_plan = args.query_plans and lane != "codex"
     slug = slugify(instance_id)
     run_dir = args.output_dir / "runs" / slug
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -555,7 +571,7 @@ def run_one(
             output,
             instance_id,
             args.run_fingerprint,
-            args.query_plans,
+            requires_query_plan,
         )
         if args.resume
         else None
@@ -583,7 +599,7 @@ def run_one(
         )
         return
     discard_stale_query_plan(run_dir, args.run_fingerprint, args.resume)
-    if getattr(args, "lane", "retrieval") == "agent":
+    if lane == "agent":
         agent_output = run_dir / "agent-output"
         cmd = [
             sys.executable,
@@ -622,6 +638,41 @@ def run_one(
         ]
         if args.graph_cache_dir:
             cmd += ["--graph-cache-dir", str(args.graph_cache_dir)]
+    elif lane == "codex":
+        agent_output = run_dir / "agent-output"
+        cmd = [
+            sys.executable,
+            str(CODEX_RUNNER),
+            "--dataset",
+            str(args.dataset),
+            "--instance-id",
+            instance_id,
+            "--output-dir",
+            str(agent_output),
+            "--work-dir",
+            str(run_dir / "work"),
+            "--rerank-model-dir",
+            str(args.rerank_model_dir),
+            "--graph-cache-dir",
+            str(args.graph_cache_dir),
+            "--cache-namespace",
+            args.cache_namespace,
+            "--memtrace-binary",
+            str(args.memtrace_binary),
+            "--memtrace-skills-dir",
+            str(args.memtrace_skills_dir),
+            "--codex-binary",
+            str(args.codex_binary),
+            "--agent-model",
+            args.agent_model,
+            "--line-budget",
+            str(args.line_budget),
+            "--timeout",
+            str(max(1, int(args.timeout) - 120)),
+            "--history-days",
+            str(args.history_days),
+            "--fail-fast",
+        ]
     else:
         cmd = [
             sys.executable,
@@ -698,7 +749,7 @@ def run_one(
         # the wall-clock completion instant inside the terminal artifact so a
         # globally ordered checkpoint does not depend on rsync or poll order.
         completed_at_unix_ns = time.time_ns()
-        if getattr(args, "lane", "retrieval") == "agent":
+        if lane in ("agent", "codex"):
             source_prediction = run_dir / "agent-output" / "predictions.jsonl"
             source_audit = run_dir / "agent-output" / "audit" / f"{slug}.json"
             audit_path = run_dir / "prediction-audit" / f"{slug}.json"
@@ -719,7 +770,12 @@ def run_one(
         if failure_kind is None and not audit_path.is_file():
             failure_kind = "invalid_artifacts"
             failure_message = "runner did not write its per-instance audit"
-        if failure_kind is None and args.query_plans and not query_plan.is_file():
+        if (
+            failure_kind is None
+            and args.query_plans
+            and lane != "codex"
+            and not query_plan.is_file()
+        ):
             failure_kind = "invalid_artifacts"
             failure_message = "runner did not write its requested query plan"
 
@@ -792,7 +848,9 @@ def main() -> int:
         help="JSON with tasks[].instance_id, or a JSON list of ids",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--lane", choices=("retrieval", "agent"), default="retrieval")
+    parser.add_argument(
+        "--lane", choices=("retrieval", "agent", "codex"), default="retrieval"
+    )
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--line-budget", type=int, default=80)
     parser.add_argument("--selector-model")
@@ -815,6 +873,9 @@ def main() -> int:
     parser.add_argument("--base-agent-config", type=Path)
     parser.add_argument("--agent-model", default="openai/gpt-5")
     parser.add_argument("--history-days", type=int, default=365)
+    parser.add_argument("--codex-binary", type=Path)
+    parser.add_argument("--memtrace-binary", type=Path)
+    parser.add_argument("--memtrace-skills-dir", type=Path)
     parser.add_argument("--graph-cache-dir", type=Path)
     parser.add_argument("--cache-namespace", default="contextbench-agent-v1")
     parser.add_argument("--reinclude-tracked-dirs", action="store_true")
@@ -864,6 +925,17 @@ def main() -> int:
             raise SystemExit("--rerank-model-dir is required for the agent lane")
         if not args.query_plans:
             raise SystemExit("--query-plans is required for the agent lane")
+    elif args.lane == "codex":
+        if args.rerank_model_dir is None:
+            raise SystemExit("--rerank-model-dir is required for the codex lane")
+        if args.graph_cache_dir is None:
+            raise SystemExit("--graph-cache-dir is required for the codex lane")
+        for name in ("codex_binary", "memtrace_binary"):
+            path = getattr(args, name)
+            if path is None or not path.is_file():
+                raise SystemExit(f"--{name.replace('_', '-')} is required for the codex lane")
+        if args.memtrace_skills_dir is None or not args.memtrace_skills_dir.is_dir():
+            raise SystemExit("--memtrace-skills-dir is required for the codex lane")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     provenance = build_run_provenance(args)
     args.run_fingerprint = provenance["fingerprint"]
@@ -901,7 +973,7 @@ def main() -> int:
                     pred,
                     iid,
                     args.run_fingerprint,
-                    args.query_plans,
+                    args.query_plans and args.lane != "codex",
                 )
             ):
                 mergeable = False

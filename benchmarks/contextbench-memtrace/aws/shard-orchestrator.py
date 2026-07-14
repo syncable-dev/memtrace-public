@@ -855,17 +855,33 @@ def cmd_run(args):
     prov = fleet.get("memtrace_source_provenance", {})
     if prov.get("dirty_diff_sha256_16"):
         dirty_suffix = f"-dirty{prov['dirty_diff_sha256_16'][:8]}"
-    cache_namespace = (
-        f"contextbench-src{src_head}{dirty_suffix}-jina-code-768-v2-agent-hierarchy-v2"
+    lane = args.lane
+    cache_policy_suffix = (
+        "agent-hierarchy-v2-agent-hierarchy-v2"
+        if lane == "codex"
+        else "agent-hierarchy-v2"
+    )
+    cache_namespace = args.cache_namespace or (
+        f"contextbench-src{src_head}{dirty_suffix}-jina-code-768-v2-"
+        f"{cache_policy_suffix}"
     )
     concurrency = int(fleet.get("concurrency_per_shard", CONCURRENCY))
+    agent_policy = (
+        "codex-memtrace-skills-v1" if lane == "codex" else "hierarchy-listwise-v2"
+    )
+    projection_policy = (
+        "codex-structured-final-v1"
+        if lane == "codex"
+        else "rank-plus-scoped-recall-floor-v1"
+    )
+    agent_model = "gpt-5" if lane == "codex" else "openai/gpt-5"
     fleet["run_treatment"] = {
-        "benchmark_lane": "agent",
-        "agent_policy": "hierarchy-listwise-v2",
-        "projection_policy": "rank-plus-scoped-recall-floor-v1",
+        "benchmark_lane": lane,
+        "agent_policy": agent_policy,
+        "projection_policy": projection_policy,
         "line_budget": LINE_BUDGET,
         "selector_model": SELECTOR_MODEL,
-        "agent_model": "openai/gpt-5",
+        "agent_model": agent_model,
         "history_days": 365,
         "concurrency_per_shard": concurrency,
         "total_concurrency": concurrency * len(shard_ids),
@@ -876,7 +892,7 @@ def cmd_run(args):
     def run_one(sid):
         info = fleet["shards"][sid]
         ip = info["public_ip"]
-        run_id = f"run-{run_tag}-{sid}-agent"
+        run_id = f"run-{run_tag}-{sid}-{lane}"
         info["run_id"] = run_id
         results_dir = f"/srv/contextbench/results/{run_id}"
         manifest_json = json.dumps(info["task_ids"])
@@ -901,7 +917,7 @@ def cmd_run(args):
             f"export OPENAI_API_KEY=$(grep '^OPENAI_API_KEY=' {REMOTE_ADAPTER_DIR}/.env | head -1 | cut -d= -f2-); "
             f'echo "[{sid}] OPENAI_API_KEY prefix: ${{OPENAI_API_KEY:0:8}}"; '
             f"[ -n \"$OPENAI_API_KEY\" ] || {{ echo 'FATAL: OPENAI_API_KEY empty'; exit 1; }}; "
-            f"BENCHMARK_LANE=agent AGENT_MODEL=openai/gpt-5 AGENT_HISTORY_DAYS=365 "
+            f"BENCHMARK_LANE={lane} AGENT_MODEL={agent_model} AGENT_HISTORY_DAYS=365 "
             f"CB_SEARCH_LIMIT=100 CB_PACK_POLICY=v4 CB_QUERY_STRATEGY=v3 "
             f"POST_SELECTOR_POLICY=off DISK_FLOOR_GB=100 "
             f"RUN_ID={run_id} DATASET={DATASET} CONCURRENCY={concurrency} LINE_BUDGET={LINE_BUDGET} "
@@ -1200,6 +1216,20 @@ def main():
     ap.add_argument("--data-volume-gb", type=int, default=DATA_VOLUME_GB)
     ap.add_argument("--only", default="")
     ap.add_argument("--parallel", type=int, default=5)
+    ap.add_argument(
+        "--lane",
+        choices=("agent", "codex"),
+        default="codex",
+        help="coding-agent runtime used by the run command",
+    )
+    ap.add_argument(
+        "--cache-namespace",
+        default="",
+        help=(
+            "explicit compatible graph-cache namespace; use this to reuse indexed "
+            "embeddings across runner-only Memtrace changes"
+        ),
+    )
     args = ap.parse_args()
     if args.shards < 1 or args.concurrency < 1:
         ap.error("--shards and --concurrency must be positive")

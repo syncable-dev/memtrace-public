@@ -152,6 +152,23 @@ set -eu
 command -v node >/dev/null || { echo "ERROR: node install failed" >&2; exit 1; }
 echo "node $(node --version), npm $(npm --version)"
 
+# Real Codex CLI for the product-shaped ContextBench lane.  Use OpenAI's
+# standalone installer instead of the npm wrapper so the runtime is a sealed
+# native binary and does not depend on whichever nvm shell happens to launch
+# the benchmark.  The effective version and binary hash are captured in run
+# provenance; repeat bootstraps keep the already-installed binary.
+CODEX_BIN_DIR="$DATA_ROOT/codex-bin"
+CODEX_INSTALL_HOME="$DATA_ROOT/codex-install-home"
+mkdir -p "$CODEX_BIN_DIR" "$CODEX_INSTALL_HOME"
+if [ ! -x "$CODEX_BIN_DIR/codex" ]; then
+    log "Codex CLI standalone runtime"
+    curl -fsSL https://chatgpt.com/codex/install.sh | \
+        CODEX_HOME="$CODEX_INSTALL_HOME" \
+        CODEX_INSTALL_DIR="$CODEX_BIN_DIR" \
+        CODEX_NON_INTERACTIVE=1 sh
+fi
+"$CODEX_BIN_DIR/codex" --version
+
 if [ "$MEMTRACE_INSTALL_MODE" = "source" ]; then
     # Source mode: the binary is built by aws/remote/build-memtrace-remote.sh
     # (invoked by 02-bootstrap.sh right after this script). Installing the npm

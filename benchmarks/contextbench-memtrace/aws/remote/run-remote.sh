@@ -54,11 +54,11 @@ set -euo pipefail
 : "${MEMTRACE_PIN_ENABLE:=1}"
 
 case "$BENCHMARK_LANE" in
-    retrieval|agent) ;;
-    *) echo "ERROR: BENCHMARK_LANE must be retrieval or agent (got $BENCHMARK_LANE)" >&2; exit 2 ;;
+    retrieval|agent|codex) ;;
+    *) echo "ERROR: BENCHMARK_LANE must be retrieval, agent, or codex (got $BENCHMARK_LANE)" >&2; exit 2 ;;
 esac
-if [ "$BENCHMARK_LANE" = "agent" ] && { [ "$SELECTOR_MODE" != "default" ] || [ "$POST_SELECTOR_POLICY" != "off" ]; }; then
-    echo "ERROR: the agent lane requires SELECTOR_MODE=default and POST_SELECTOR_POLICY=off; its sealed ranked projection is built into agent_runner.py" >&2
+if { [ "$BENCHMARK_LANE" = "agent" ] || [ "$BENCHMARK_LANE" = "codex" ]; } && { [ "$SELECTOR_MODE" != "default" ] || [ "$POST_SELECTOR_POLICY" != "off" ]; }; then
+    echo "ERROR: coding-agent lanes require SELECTOR_MODE=default and POST_SELECTOR_POLICY=off; their final context comes from the agent trajectory" >&2
     exit 2
 fi
 DATA_ROOT=/srv/contextbench
@@ -273,7 +273,7 @@ if [ -s "$META" ]; then
     STORED_LANE="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("benchmark_lane","retrieval"))' "$META")"
     STORED_AGENT_MODEL="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_model","openai/gpt-5"))' "$META")"
     STORED_AGENT_HISTORY_DAYS="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_history_days",365))' "$META")"
-    if [ "$STORED_LANE" != "$BENCHMARK_LANE" ] || { [ "$BENCHMARK_LANE" = "agent" ] && { [ "$STORED_AGENT_MODEL" != "$AGENT_MODEL" ] || [ "$STORED_AGENT_HISTORY_DAYS" != "$AGENT_HISTORY_DAYS" ]; }; }; then
+    if [ "$STORED_LANE" != "$BENCHMARK_LANE" ] || { { [ "$BENCHMARK_LANE" = "agent" ] || [ "$BENCHMARK_LANE" = "codex" ]; } && { [ "$STORED_AGENT_MODEL" != "$AGENT_MODEL" ] || [ "$STORED_AGENT_HISTORY_DAYS" != "$AGENT_HISTORY_DAYS" ]; }; }; then
         echo "ERROR: run $RUN_ID is bound to lane=$STORED_LANE agent_model=$STORED_AGENT_MODEL history_days=$STORED_AGENT_HISTORY_DAYS."
         echo "       Agent-policy changes require a fresh RUN_ID; they may not be mixed into a resumed run."
         exit 2
@@ -860,6 +860,22 @@ if [ "$BENCHMARK_LANE" = "agent" ]; then
         --graph-cache-dir "$DATA_ROOT/graph-cache-agent"
         --cache-namespace "$CACHE_NAMESPACE-agent-hierarchy-v2"
     )
+elif [ "$BENCHMARK_LANE" = "codex" ]; then
+    CODEX_BINARY="$DATA_ROOT/codex-bin/codex"
+    MEMTRACE_SKILLS_DIR="$DATA_ROOT/memtrace-src/installer/plugins/memtrace-skills/skills"
+    [ -x "$CODEX_BINARY" ] \
+        || { echo "ERROR: Codex CLI missing: $CODEX_BINARY (rerun bootstrap)"; exit 2; }
+    [ -f "$MEMTRACE_SKILLS_DIR/memtrace-first/SKILL.md" ] \
+        || { echo "ERROR: shipped Memtrace skills missing: $MEMTRACE_SKILLS_DIR"; exit 2; }
+    DRIVER_ARGS+=(
+        --agent-model "${AGENT_MODEL#openai/}"
+        --history-days "$AGENT_HISTORY_DAYS"
+        --graph-cache-dir "$DATA_ROOT/graph-cache-agent"
+        --cache-namespace "$CACHE_NAMESPACE"
+        --codex-binary "$CODEX_BINARY"
+        --memtrace-binary "$MEMTRACE_BIN_DIR/memtrace"
+        --memtrace-skills-dir "$MEMTRACE_SKILLS_DIR"
+    )
 fi
 # Guarded selector: only forwarded when requested, and refuse to run silently
 # in default mode if the adapter on the box predates the flag.
@@ -873,11 +889,10 @@ if [ "$POST_SELECTOR_POLICY" != "off" ]; then
         || { echo "ERROR: POST_SELECTOR_POLICY=$POST_SELECTOR_POLICY but parallel_driver.py has no --post-selector-policy pass-through (stale adapter on the box?)"; exit 2; }
     DRIVER_ARGS+=(--post-selector-policy "$POST_SELECTOR_POLICY")
 fi
-DRIVER_ARGS+=(
-    --query-plans
-    --timeout "$RUN_TIMEOUT"
-    --chdir "$ADAPTER"
-)
+if [ "$BENCHMARK_LANE" != "codex" ]; then
+    DRIVER_ARGS+=(--query-plans)
+fi
+DRIVER_ARGS+=(--timeout "$RUN_TIMEOUT" --chdir "$ADAPTER")
 if grep -q -- '--resume' "$ADAPTER/parallel_driver.py"; then
     DRIVER_ARGS+=(--resume)
 fi

@@ -18,6 +18,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -631,32 +632,47 @@ class Candidate:
 class McpClient:
     def __init__(self, repo_root: Path, env: dict[str, str]) -> None:
         self._next_id = 1
+        self._stderr = tempfile.TemporaryFile(mode="w+t", encoding="utf-8")
         self._proc = subprocess.Popen(
             ["memtrace", "mcp"],
             cwd=repo_root,
             env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=self._stderr,
             text=True,
             bufsize=1,
         )
-        self._rpc(
-            "initialize",
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "contextbench-memtrace", "version": "0.1"},
-            },
-        )
-        self._notify("notifications/initialized", {})
+        try:
+            self._rpc(
+                "initialize",
+                {
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "contextbench-memtrace",
+                        "version": "0.1",
+                    },
+                },
+            )
+            self._notify("notifications/initialized", {})
+        except Exception:
+            self.close()
+            raise
 
     def close(self) -> None:
-        self._proc.terminate()
-        try:
-            self._proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self._proc.kill()
+        if self._proc.poll() is None:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+        self._stderr.close()
+
+    def _stderr_tail(self, limit: int = 4000) -> str:
+        self._stderr.flush()
+        self._stderr.seek(0)
+        return self._stderr.read()[-limit:].strip()
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         envelope = self._rpc("tools/call", {"name": name, "arguments": arguments})
@@ -673,7 +689,12 @@ class McpClient:
         assert self._proc.stdout is not None
         line = self._proc.stdout.readline()
         if not line:
-            raise RuntimeError("Memtrace MCP exited before replying")
+            code = self._proc.poll()
+            detail = self._stderr_tail()
+            message = f"Memtrace MCP exited before replying (rc={code})"
+            if detail:
+                message += f": {detail}"
+            raise RuntimeError(message)
         response = json.loads(line)
         if "error" in response:
             raise RuntimeError(f"Memtrace MCP error: {response['error']}")

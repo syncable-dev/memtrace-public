@@ -8,7 +8,7 @@ import tempfile
 import unittest
 import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 MODULE_PATH = Path(__file__).with_name("runner.py")
@@ -74,6 +74,21 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(runner.is_test_path("tests/test_proxy.py"))
         self.assertTrue(runner.is_test_path("src/test_utils.py"))
         self.assertFalse(runner.is_test_path("requests/utils.py"))
+
+    def test_mcp_startup_failure_includes_captured_stderr(self):
+        process = Mock()
+        process.stdin = io.StringIO()
+        process.stdout = io.StringIO("")
+        process.poll.return_value = 97
+
+        def launch(*_args, **kwargs):
+            kwargs["stderr"].write("memtrace-shim: FATAL no free pin slot")
+            kwargs["stderr"].flush()
+            return process
+
+        with patch.object(runner.subprocess, "Popen", side_effect=launch):
+            with self.assertRaisesRegex(RuntimeError, "FATAL no free pin slot"):
+                runner.McpClient(Path("/repo"), {})
 
     def test_identifier_queries_preserve_exact_code_names(self):
         text = (

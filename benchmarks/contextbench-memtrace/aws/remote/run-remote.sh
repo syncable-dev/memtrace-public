@@ -56,6 +56,11 @@ set -euo pipefail
 # CONCURRENCY>2 (see the thread-cap comment further down); only for
 # debugging on a box without taskset/flock.
 : "${MEMTRACE_PIN_ENABLE:=1}"
+# A runner can briefly hand off between its cache verifier and Codex MCP while
+# every steady-state slot is occupied. Queue that transition instead of
+# treating a full slot set as an infrastructure failure. The process remains
+# pinned when it eventually starts; this never permits unpinned overflow.
+: "${MEMTRACE_PIN_WAIT_SECONDS:=900}"
 
 case "$BENCHMARK_LANE" in
     retrieval|agent|codex) ;;
@@ -167,26 +172,41 @@ mkdir -p "$LOCKDIR" 2>/dev/null || true
 TOTAL_CORES="$(nproc)"
 
 i=0
-while [ "$i" -lt "$SLOTS" ]; do
-    lockfile="$LOCKDIR/slot-$i.lock"
-    if exec {LOCKFD}>"$lockfile" 2>/dev/null && flock -n "$LOCKFD"; then
-        lo=$((i * CORES_PER_SLOT))
-        hi=$((lo + CORES_PER_SLOT - 1))
-        # Last slot absorbs any remainder cores (nproc not evenly divisible
-        # by SLOTS) so no cores sit permanently idle.
-        if [ "$i" -eq $((SLOTS - 1)) ] && [ $((TOTAL_CORES - 1)) -gt "$hi" ]; then
-            hi=$((TOTAL_CORES - 1))
+WAIT_SECONDS="${MEMTRACE_PIN_WAIT_SECONDS:-900}"
+case "$WAIT_SECONDS" in
+    ''|*[!0-9]*) echo "memtrace-shim: invalid MEMTRACE_PIN_WAIT_SECONDS=$WAIT_SECONDS" >&2; exit 96 ;;
+esac
+deadline=$((SECONDS + WAIT_SECONDS))
+announced_wait=0
+while true; do
+    i=0
+    while [ "$i" -lt "$SLOTS" ]; do
+        lockfile="$LOCKDIR/slot-$i.lock"
+        if exec {LOCKFD}>"$lockfile" && flock -n "$LOCKFD"; then
+            lo=$((i * CORES_PER_SLOT))
+            hi=$((lo + CORES_PER_SLOT - 1))
+            # Last slot absorbs any remainder cores (nproc not evenly divided
+            # by SLOTS) so no cores sit permanently idle.
+            if [ "$i" -eq $((SLOTS - 1)) ] && [ $((TOTAL_CORES - 1)) -gt "$hi" ]; then
+                hi=$((TOTAL_CORES - 1))
+            fi
+            exec taskset -c "${lo}-${hi}" "$REAL_BIN" "$@"
         fi
-        exec taskset -c "${lo}-${hi}" "$REAL_BIN" "$@"
+        exec {LOCKFD}>&- || true
+        i=$((i + 1))
+    done
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        break
     fi
-    exec {LOCKFD}>&- 2>/dev/null || true
-    i=$((i + 1))
+    if [ "$announced_wait" -eq 0 ]; then
+        echo "memtrace-shim: all $SLOTS pin slots busy; waiting up to ${WAIT_SECONDS}s" >&2
+        announced_wait=1
+    fi
+    sleep 0.25
 done
 
-# All SLOTS busy — should not happen if the caller's concurrency <= SLOTS.
-# Fail LOUDLY rather than silently run unpinned, which is exactly the
-# oversubscription this shim exists to prevent.
-echo "memtrace-shim: FATAL no free pin slot (0..$((SLOTS - 1)) all locked) — refusing to run unpinned" >&2
+# Preserve the fail-closed invariant after a bounded wait.
+echo "memtrace-shim: FATAL no free pin slot after ${WAIT_SECONDS}s — refusing to run unpinned" >&2
 exit 97
 SHIM_EOF
     chmod +x "$shim.new"
@@ -435,7 +455,7 @@ echo "thread cap: MEMTRACE_MAX_THREADS=$MEMTRACE_MAX_THREADS per instance (nproc
 export MEMTRACE_PIN_SLOTS="$_PAR"
 export MEMTRACE_PIN_CORES_PER_SLOT="$MEMTRACE_MAX_THREADS"
 export MEMTRACE_PIN_LOCKDIR="$MEMTRACE_BIN_DIR/pin-slots"
-export MEMTRACE_PIN_ENABLE
+export MEMTRACE_PIN_ENABLE MEMTRACE_PIN_WAIT_SECONDS
 # Layer C: cap ORT's embed-session intra-op thread pool (independent of the
 # rayon fix above; ORT defaults to 8 threads/process regardless of
 # concurrency). runner.py -> memtrace inherit this through the same ambient-
@@ -499,16 +519,16 @@ echo "$(date +%s) $(completed_count)" > "$RESULTS/session_start"
     "$BENCHMARK_LANE" "$SELECTOR_MODEL" "$AGENT_MODEL" "$AGENT_HISTORY_DAYS" "$SELECTOR_MODE" "$CACHE_NAMESPACE" "$CONC" "$LINE_BUDGET" "$RUN_TIMEOUT" \
     "$WATCHDOG_MINUTES" "$MEMTRACE_INSTALL_MODE" "$MEMTRACE_VERSION_RUNTIME" \
     "$(command -v memtrace)" "$SOURCE_MANIFEST" \
-    "$MEMTRACE_PIN_ENABLE" "$MEMTRACE_PIN_SLOTS" "$MEMTRACE_PIN_CORES_PER_SLOT" \
+    "$MEMTRACE_PIN_ENABLE" "$MEMTRACE_PIN_SLOTS" "$MEMTRACE_PIN_CORES_PER_SLOT" "$MEMTRACE_PIN_WAIT_SECONDS" \
     "$MEMTRACE_MAX_THREADS" "$MEMTRACE_EMBED_INTRA_OP_THREADS" "$CB_SEARCH_LIMIT" "$CB_PACK_POLICY" "$CB_QUERY_STRATEGY" "$POST_SELECTOR_POLICY" \
     "$MANIFEST_LIMIT" "$MANIFEST_SOURCE_RUN_ID" "$TOTAL" <<'PY'
 import json, sys
 (path, run_id, dataset, gold, benchmark_lane, selector, agent_model, agent_history_days,
  selector_mode, namespace, conc, line_budget, timeout,
  watchdog_min, install_mode, mt_version, mt_binary, source_manifest,
- pin_enable, pin_slots, pin_cores_per_slot, max_threads, embed_threads,
+ pin_enable, pin_slots, pin_cores_per_slot, pin_wait_seconds, max_threads, embed_threads,
  search_limit, pack_policy, query_strategy, post_selector_policy, manifest_limit,
- manifest_source_run_id, manifest_instances) = sys.argv[1:31]
+ manifest_source_run_id, manifest_instances) = sys.argv[1:32]
 meta = {
     "run_id": run_id,
     "dataset": dataset,
@@ -537,6 +557,7 @@ meta = {
         "enabled": pin_enable == "1",
         "slots": int(pin_slots) if pin_slots else None,
         "cores_per_slot": int(pin_cores_per_slot) if pin_cores_per_slot else None,
+        "wait_seconds": int(pin_wait_seconds),
         "memtrace_max_threads": int(max_threads),
         "memtrace_embed_intra_op_threads": int(embed_threads),
     },

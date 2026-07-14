@@ -61,7 +61,6 @@ if [ "$BENCHMARK_LANE" = "agent" ] && { [ "$SELECTOR_MODE" != "default" ] || [ "
     echo "ERROR: the agent lane requires SELECTOR_MODE=default and POST_SELECTOR_POLICY=off; its sealed ranked projection is built into agent_runner.py" >&2
     exit 2
 fi
-
 DATA_ROOT=/srv/contextbench
 ADAPTER="$HOME/contextbench-adapter"
 RESULTS="$DATA_ROOT/results/$RUN_ID"
@@ -231,6 +230,10 @@ export MEMCORTEX_STORE_DIR="$DATA_ROOT/cortex-store"
 
 VENV_PY="$DATA_ROOT/venv/bin/python"
 [ -x "$VENV_PY" ] || { echo "ERROR: venv missing (run 02-bootstrap.sh)"; exit 1; }
+if [ "$BENCHMARK_LANE" = "agent" ]; then
+    "$VENV_PY" -c 'import docker; client = docker.from_env(); assert client.ping()' \
+        || { echo "ERROR: agent lane requires the Python Docker SDK and daemon access" >&2; exit 2; }
+fi
 
 # OPENAI_API_KEY: exported directly here rather than relying on runner.py's
 # own `load_env_file(Path(".env"))` (relative to its cwd, i.e. --chdir

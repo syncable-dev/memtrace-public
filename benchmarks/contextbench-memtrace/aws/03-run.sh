@@ -74,6 +74,16 @@ rsync_adapter
 remote "test -s $REMOTE_ADAPTER_DIR/.env" \
     || die "no .env on the box — run ./02-bootstrap.sh first"
 
+# The vendored ContextBench agent imports the Python Docker SDK dynamically
+# when resolving each task image. Its package metadata does not declare that
+# dependency, so verify both the import and daemon access before a paid run can
+# create any terminal failures.
+if [ "$BENCHMARK_LANE" = "agent" ]; then
+    remote "/srv/contextbench/venv/bin/python -c 'import docker; client = docker.from_env(); assert client.ping(); print(docker.__version__)'" \
+        >/dev/null \
+        || die "agent lane preflight failed: Python Docker SDK or daemon access is unavailable — run ./02-bootstrap.sh before starting the benchmark"
+fi
+
 # Source mode: the run must use the source-built binary; fail here (clear
 # message) rather than inside tmux if the build step never ran on this box.
 # STALENESS GATE: existence is not enough — an old binary from a previous

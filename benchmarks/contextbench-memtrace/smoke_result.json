@@ -1,0 +1,58 @@
+{
+  "status": "development_only_not_a_benchmark_claim",
+  "evaluated_at": "2026-07-10",
+  "instance_id": "SWE-Bench-Verified__python__maintenance__bugfix__2e76c8cd",
+  "memtrace_version": "0.8.15",
+  "contextbench_commit": "1436c28a8eb95496da4ea69ad458b9f8a8eb7d61",
+  "num_steps": 2,
+  "index_seconds": 137.00173725,
+  "retrieval_seconds": 1.465539667,
+  "final": {
+    "file": {
+      "coverage": 1.0,
+      "precision": 1.0,
+      "f1": 1.0,
+      "intersection": 1,
+      "gold_size": 1,
+      "pred_size": 1
+    },
+    "symbol": {
+      "coverage": 1.0,
+      "precision": 0.3333333333333333,
+      "f1": 0.5,
+      "intersection": 2,
+      "gold_size": 2,
+      "pred_size": 6
+    },
+    "span": {
+      "coverage": 0.9716088328075709,
+      "precision": 0.4642049736247174,
+      "f1": 0.6282816229116945,
+      "intersection": 1232,
+      "gold_size": 1268,
+      "pred_size": 2654
+    },
+    "line": {
+      "coverage": 0.8974358974358975,
+      "precision": 0.546875,
+      "f1": 0.6796116504854369,
+      "intersection": 35,
+      "gold_size": 39,
+      "pred_size": 64
+    }
+  },
+  "trajectory": {
+    "auc_coverage": {
+      "file": 1.0,
+      "symbol": 1.0,
+      "span": 1.0,
+      "line": 1.0
+    },
+    "redundancy": {
+      "file": 0.16666666666666663,
+      "symbol": 0.4305555555555556,
+      "span": 0.44684181106763554,
+      "line": 0.44104803493449785
+    }
+  }
+}

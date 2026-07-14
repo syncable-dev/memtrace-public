@@ -1,0 +1,56 @@
+{
+  "status": "proxy_failure_addressed_development_slice_quality_gate_passed",
+  "evaluated_at": "2026-07-10",
+  "selector_model": "gpt-5",
+  "memtrace_version": "0.8.15",
+  "contextbench_commit": "1436c28a8eb95496da4ea69ad458b9f8a8eb7d61",
+  "task_count": 3,
+  "gpt_usage": {
+    "input_tokens": 17250,
+    "output_tokens": 2283,
+    "total_tokens": 19533,
+    "estimated_cost_usd": 0.0444,
+    "includes": "three final-context selection calls; search queries came from the locked development query plan"
+  },
+  "retrieval_stack": {
+    "lexical": "BM25",
+    "fusion": "dense vector plus BM25 RRF",
+    "reranker": "cross-encoder/ms-marco-MiniLM-L-12-v2 ONNX int8 arm64",
+    "history_replay": "deferred",
+    "index_and_search_process": "same MCP process",
+    "graph_expansion": "top three structural anchors per query, bounded to 15 contexts, with scoped sibling completion",
+    "query_planning": "locked problem-statement-only development plans from dev_query_plans_3.json",
+    "retrieval_floor": "two non-test methods from one file only when GPT ignores both top grounded candidates"
+  },
+  "aggregate": {
+    "file": {"recall": 0.8, "precision": 1.0, "f1": 0.888888888888889},
+    "symbol": {"recall": 0.75, "precision": 0.818, "f1": 0.7825255102040816},
+    "span": {"recall": 0.769, "precision": 0.78, "f1": 0.7744602969657843},
+    "line": {"recall": 0.735, "precision": 0.77, "f1": 0.7520930232558138},
+    "line_auc_coverage": 0.864,
+    "line_redundancy": 0.201
+  },
+  "tasks": [
+    {
+      "instance_id": "SWE-Bench-Verified__python__maintenance__bugfix__2e76c8cd",
+      "repo": "pallets/flask",
+      "line_recall": 0.8974358974358975,
+      "line_precision": 0.6730769230769231,
+      "line_f1": 0.7692307692307692
+    },
+    {
+      "instance_id": "SWE-Bench-Verified__python__maintenance__bugfix__88e1ffd3",
+      "repo": "psf/requests",
+      "line_recall": 0.9701492537313433,
+      "line_precision": 0.8333333333333334,
+      "line_f1": 0.896551724137931
+    },
+    {
+      "instance_id": "SWE-Bench-Verified__python__maintenance__bugfix__e989ba2d",
+      "repo": "psf/requests",
+      "line_recall": 0.5,
+      "line_precision": 0.7704918032786885,
+      "line_f1": 0.6064516129032258
+    }
+  ]
+}

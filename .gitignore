@@ -1,5 +1,8 @@
 .DS_Store
 **/.DS_Store
+/.env
 /benchmarks/swebench-retrieval/.venv/
 /benchmarks/swebench-retrieval/work/
 /benchmarks/swebench-retrieval/**/__pycache__/
+/benchmarks/contextbench-memtrace/aws/state/
+/benchmarks/contextbench-memtrace/aws/config.env

@@ -1,0 +1,17 @@
+{
+  "SWE-Bench-Verified__python__maintenance__bugfix__2e76c8cd": [
+    "Blueprint __init__ validation require non-empty name: class Blueprint, def __init__(self, name, import_name, ...); check if not name, raise ValueError('blueprint name must not be empty') or similar; empty string handling",
+    "Blueprint registration uses name as key: app.blueprints[name] = bp, bp.name usage in register_blueprint/add_url_rule/endpoint naming; failures with empty name, collisions; look for KeyError/BuildError/AssertionError",
+    "Tests expecting ValueError on empty Blueprint name: test creating Blueprint(''), invalid/empty blueprint name cases, pytest.raises(ValueError), message text; also docs/comments mentioning empty name behavior"
+  ],
+  "SWE-Bench-Verified__python__maintenance__bugfix__88e1ffd3": [
+    "Behavior: GET requests include 'Content-Length' header even with no body, causing 503. Concepts: PreparedRequest.prepare_content_length / prepare_body, headers assembly, requests/models.py. Error terms: 'Content-Length', 503, Service Unavailable.",
+    "Behavior: Header auto-added during send. Concepts: Session.send, HTTPAdapter, urllib3 connection pool/_make_request path where Content-Length might be set for empty body on GET. Error terms: 'Content-Length', 503.",
+    "Behavior: Zero-length body results in 'Content-Length: 0' on GET. Concepts: super_len, header assignment branches, GET/HEAD special-casing, requests/models.py. Error terms: 'Content-Length: 0', 503."
+  ],
+  "SWE-Bench-Verified__python__maintenance__bugfix__e989ba2d": [
+    "requests proxies behavior: ensure Proxy-Authorization header is attached on HTTPS via HTTPProxyAuth; check adapters.py, sessions.py, models.py for proxy headers handling; look for status code 407, 'Proxy Authentication Required', and proxy auth flow",
+    "urllib3 proxy tunnel: CONNECT flow and headers; search connection.py, connectionpool.py, poolmanager.py for set_tunnel, proxy_headers, proxy_auth, proxy_config; correlate with 407 responses and missing Proxy-Authorization",
+    "Python 3.8.12 interaction: code paths conditioned on python version affecting proxy auth headers; search for use of http.client set_tunnel or tunnel_headers in urllib3/adapters; terms: 407, Proxy-Authorization, header validation"
+  ]
+}

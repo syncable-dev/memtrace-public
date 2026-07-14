@@ -875,6 +875,7 @@ def cmd_run(args):
         else "rank-plus-scoped-recall-floor-v1"
     )
     agent_model = "gpt-5" if lane == "codex" else "openai/gpt-5"
+    history_days = 0 if lane == "codex" else 30
     fleet["run_treatment"] = {
         "benchmark_lane": lane,
         "agent_policy": agent_policy,
@@ -882,7 +883,7 @@ def cmd_run(args):
         "line_budget": LINE_BUDGET,
         "selector_model": SELECTOR_MODEL,
         "agent_model": agent_model,
-        "history_days": 365,
+        "history_days": history_days,
         "concurrency_per_shard": concurrency,
         "total_concurrency": concurrency * len(shard_ids),
         "cache_namespace": cache_namespace,
@@ -917,7 +918,7 @@ def cmd_run(args):
             f"export OPENAI_API_KEY=$(grep '^OPENAI_API_KEY=' {REMOTE_ADAPTER_DIR}/.env | head -1 | cut -d= -f2-); "
             f'echo "[{sid}] OPENAI_API_KEY prefix: ${{OPENAI_API_KEY:0:8}}"; '
             f"[ -n \"$OPENAI_API_KEY\" ] || {{ echo 'FATAL: OPENAI_API_KEY empty'; exit 1; }}; "
-            f"BENCHMARK_LANE={lane} AGENT_MODEL={agent_model} AGENT_HISTORY_DAYS=365 "
+            f"BENCHMARK_LANE={lane} AGENT_MODEL={agent_model} AGENT_HISTORY_DAYS={history_days} "
             f"CB_SEARCH_LIMIT=100 CB_PACK_POLICY=v4 CB_QUERY_STRATEGY=v3 "
             f"POST_SELECTOR_POLICY=off DISK_FLOOR_GB=100 "
             f"RUN_ID={run_id} DATASET={DATASET} CONCURRENCY={concurrency} LINE_BUDGET={LINE_BUDGET} "

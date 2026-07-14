@@ -872,7 +872,12 @@ def main() -> int:
     parser.add_argument("--contextbench-root", type=Path)
     parser.add_argument("--base-agent-config", type=Path)
     parser.add_argument("--agent-model", default="openai/gpt-5")
-    parser.add_argument("--history-days", type=int, default=365)
+    parser.add_argument(
+        "--history-days",
+        type=int,
+        default=30,
+        help="optional temporal replay lookback (Codex scored runs pass 0 explicitly)",
+    )
     parser.add_argument("--codex-binary", type=Path)
     parser.add_argument("--memtrace-binary", type=Path)
     parser.add_argument("--memtrace-skills-dir", type=Path)

@@ -875,7 +875,12 @@ def main() -> int:
     parser.add_argument("--codex-binary", type=Path, required=True)
     parser.add_argument("--agent-model", default="gpt-5")
     parser.add_argument("--line-budget", type=int, default=200)
-    parser.add_argument("--history-days", type=int, default=365)
+    parser.add_argument(
+        "--history-days",
+        type=int,
+        default=0,
+        help="optional temporal replay lookback; the ContextBench Codex lane uses 0",
+    )
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--fail-fast", action="store_true")
     args = parser.parse_args()

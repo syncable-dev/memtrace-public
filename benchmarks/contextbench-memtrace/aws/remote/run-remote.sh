@@ -23,7 +23,11 @@ set -euo pipefail
 : "${LINE_BUDGET:=80}"
 : "${SELECTOR_MODEL:=gpt-5}"
 : "${AGENT_MODEL:=openai/gpt-5}"
-: "${AGENT_HISTORY_DAYS:=365}"
+# History is optional for ContextBench: the task is solved against the exact
+# base-commit checkout. Keep the generic agent fallback bounded; the Codex
+# fleet launcher passes 0 explicitly so its primary treatment measures current
+# code memory without paying for or depending on temporal replay.
+: "${AGENT_HISTORY_DAYS:=30}"
 : "${SELECTOR_MODE:=default}"
 : "${POST_SELECTOR_POLICY:=off}"
 : "${CACHE_NAMESPACE:=contextbench-v1}"
@@ -272,7 +276,7 @@ if [ -s "$META" ]; then
     fi
     STORED_LANE="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("benchmark_lane","retrieval"))' "$META")"
     STORED_AGENT_MODEL="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_model","openai/gpt-5"))' "$META")"
-    STORED_AGENT_HISTORY_DAYS="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_history_days",365))' "$META")"
+    STORED_AGENT_HISTORY_DAYS="$("$VENV_PY" -c 'import json,sys;print(json.load(open(sys.argv[1])).get("agent_history_days",30))' "$META")"
     if [ "$STORED_LANE" != "$BENCHMARK_LANE" ] || { { [ "$BENCHMARK_LANE" = "agent" ] || [ "$BENCHMARK_LANE" = "codex" ]; } && { [ "$STORED_AGENT_MODEL" != "$AGENT_MODEL" ] || [ "$STORED_AGENT_HISTORY_DAYS" != "$AGENT_HISTORY_DAYS" ]; }; }; then
         echo "ERROR: run $RUN_ID is bound to lane=$STORED_LANE agent_model=$STORED_AGENT_MODEL history_days=$STORED_AGENT_HISTORY_DAYS."
         echo "       Agent-policy changes require a fresh RUN_ID; they may not be mixed into a resumed run."

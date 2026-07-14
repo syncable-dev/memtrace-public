@@ -144,7 +144,7 @@ python benchmarks/contextbench-memtrace/agent_runner.py \
   --cache-namespace <memtrace-build-and-embedding-schema-digest> \
   --selector-model gpt-5 \
   --agent-model openai/gpt-5 \
-  --history-days 365 \
+  --history-days 30 \
   --remove-new-images \
   --timeout 3600
 ```
@@ -164,11 +164,11 @@ patch and trajectory have been archived.
    confirm on `full.parquet` (1,136 tasks).
 2. Check out every repository at the row's exact `base_commit`.
 3. Build a fresh trial-local Memtrace database with embeddings enabled. The
-   retrieval-only lane defers history replay. The agent lane may replay only
-   ancestors reachable behind the checked-out base commit; it never indexes or
-   queries commits after the task snapshot. `--history-days` is a lookback from
-   that historical snapshot, translated to Memtrace's wall-clock window, so an
-   old benchmark checkout does not silently receive zero episodes.
+   retrieval-only lane defers history replay. History is optional rather than a
+   benchmark requirement: the scored Codex lane uses `--history-days 0` and
+   solves against current code memory at the exact base commit. A separate
+   temporal-memory ablation may replay at most 30 days of ancestors reachable
+   behind that snapshot; it never indexes or queries later commits.
 4. Never expose `gold_context`, `patch`, `test_patch`, `f2p`, or `p2p` to the
    retrieval system.
 5. Record every symbol span returned by search and graph expansion in

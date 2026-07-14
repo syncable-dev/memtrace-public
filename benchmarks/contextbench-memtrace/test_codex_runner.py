@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import codex_runner
 
@@ -177,6 +178,21 @@ class CodexRunnerTests(unittest.TestCase):
             self.assertEqual(env["MEMTRACE_DEV"], "1")
             self.assertEqual(env["MEMTRACE_TELEMETRY"], "off")
 
+    def test_memtrace_client_retries_transient_startup_failures(self):
+        client = object()
+        with mock.patch.object(
+            codex_runner.retrieval,
+            "McpClient",
+            side_effect=[RuntimeError("first"), RuntimeError("second"), client],
+        ) as constructor, mock.patch.object(codex_runner.time, "sleep") as sleep:
+            opened = codex_runner.open_memtrace_client(
+                Path("/repo"), {"MEMTRACE_DEV": "1"}
+            )
+
+        self.assertIs(opened, client)
+        self.assertEqual(constructor.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+
     def test_prompt_sets_task_agnostic_memtrace_discovery_budget(self):
         prompt = codex_runner.render_prompt(
             {"problem_statement": "Fix the broken parser."}, 200
@@ -184,7 +200,37 @@ class CodexRunnerTests(unittest.TestCase):
         self.assertIn("$memtrace-first", prompt)
         self.assertIn("no more than 24 Memtrace calls", prompt)
         self.assertIn("never append `:line`", prompt)
+        self.assertIn("deterministic recall floor", prompt)
         self.assertNotIn("gold context", prompt.split("Task:", 1)[1])
+
+    def test_projection_fills_unused_budget_from_repeated_production_context(self):
+        structured = [{"file": "src/main.py", "start": 20, "end": 24}]
+        steps = [
+            {
+                "spans": {
+                    "src/main.py": [{"start": 1, "end": 80, "type": "line"}],
+                    "src/related.py": [{"start": 40, "end": 70, "type": "line"}],
+                    "tests/test_main.py": [{"start": 1, "end": 80, "type": "line"}],
+                }
+            },
+            {
+                "spans": {
+                    "src/related.py": [{"start": 45, "end": 65, "type": "line"}]
+                }
+            },
+        ]
+        selected = codex_runner.project_hierarchical_recall(
+            structured, steps, "", 200, "balanced"
+        )
+        self.assertEqual(selected[0], structured[0])
+        self.assertTrue(any(item["file"] == "src/related.py" for item in selected))
+        self.assertFalse(any(item["file"].startswith("tests/") for item in selected))
+        lines = {
+            (item["file"], line)
+            for item in selected
+            for line in range(item["start"], item["end"] + 1)
+        }
+        self.assertLessEqual(len(lines), 200)
 
     def test_legacy_cache_identity_requires_exact_repo_commit_and_namespace(self):
         manifest = {

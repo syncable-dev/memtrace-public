@@ -106,6 +106,7 @@ class ManualExactCheckpointTests(unittest.TestCase):
             pack_policy=None,
             query_strategy=None,
             projection_policy="rank-plus-scoped-recall-floor-v1",
+            projection_variant=None,
             line_budget=200,
         )
 
@@ -167,6 +168,96 @@ class ManualExactCheckpointTests(unittest.TestCase):
             self.assertEqual(
                 binding["treatment"]["agent_policy"], "codex-memtrace-skills-v1"
             )
+
+    def test_prepare_binds_projected_codex_contexts_to_prediction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = self.fixture(Path(directory))
+            args.agent_policy = "codex-memtrace-skills-v1"
+            args.projection_policy = "codex-hierarchical-recall-floor-v1"
+            args.projection_variant = "precision-90"
+            prediction = args.mirror / "runs" / "task-1" / "prediction.jsonl"
+            contexts = [{"file": "src/main.py", "start": 10, "end": 24}]
+            spans = {"src/main.py": [{"type": "line", "start": 10, "end": 24}]}
+            write_jsonl(
+                prediction,
+                [
+                    {
+                        "instance_id": "task-1",
+                        "traj_data": {
+                            "pred_files": ["src/main.py"],
+                            "pred_spans": spans,
+                        },
+                        "model_patch": "",
+                    }
+                ],
+            )
+            audit = (
+                args.mirror
+                / "runs"
+                / "task-1"
+                / "prediction-audit"
+                / "task-1.json"
+            )
+            write_json(
+                audit,
+                {
+                    "policy": args.agent_policy,
+                    "final_context_policy": args.projection_policy,
+                    "line_budget": 200,
+                    "projection": {
+                        "variant": args.projection_variant,
+                        "contexts": contexts,
+                        "unique_lines": 15,
+                    },
+                    "codex": {"final": {"contexts": []}},
+                },
+            )
+            receipt = json.loads(args.snapshot_receipt.read_text())
+            receipt["files"][0]["sha256"] = checkpoint.sha256(prediction)
+            receipt["files"][1]["sha256"] = checkpoint.sha256(audit)
+            write_json(args.snapshot_receipt, receipt)
+
+            checkpoint.prepare(args)
+
+            binding = json.loads((args.output / "binding.json").read_text())
+            self.assertEqual(
+                binding["treatment"]["projection_variant"], "precision-90"
+            )
+
+    def test_prepare_rejects_projected_context_prediction_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = self.fixture(Path(directory))
+            args.agent_policy = "codex-memtrace-skills-v1"
+            args.projection_policy = "codex-hierarchical-recall-floor-v1"
+            args.projection_variant = "precision-90"
+            audit = (
+                args.mirror
+                / "runs"
+                / "task-1"
+                / "prediction-audit"
+                / "task-1.json"
+            )
+            write_json(
+                audit,
+                {
+                    "policy": args.agent_policy,
+                    "final_context_policy": args.projection_policy,
+                    "line_budget": 200,
+                    "projection": {
+                        "variant": args.projection_variant,
+                        "contexts": [
+                            {"file": "src/main.py", "start": 10, "end": 24}
+                        ],
+                        "unique_lines": 15,
+                    },
+                },
+            )
+            receipt = json.loads(args.snapshot_receipt.read_text())
+            receipt["files"][1]["sha256"] = checkpoint.sha256(audit)
+            write_json(args.snapshot_receipt, receipt)
+
+            with self.assertRaisesRegex(ValueError, "agent policy audit mismatch"):
+                checkpoint.prepare(args)
 
     def test_prepare_keeps_a_bound_harness_failure_in_the_denominator(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -35,7 +35,24 @@ import runner as retrieval
 CACHE_SCHEMA_VERSION = 2
 CACHE_KIND = "codex-memtrace-template"
 CODEX_POLICY = "codex-memtrace-skills-v1"
-FINAL_CONTEXT_POLICY = "codex-structured-final-v1"
+FINAL_CONTEXT_POLICY = "codex-hierarchical-recall-floor-v1"
+PROJECTION_POLICIES = {
+    "precision-80": {"primary_lines": 80, "cross_files": 0, "cross_lines": 0},
+    "precision-90": {"primary_lines": 90, "cross_files": 0, "cross_lines": 0},
+    "precision-100": {"primary_lines": 100, "cross_files": 0, "cross_lines": 0},
+    "compact-multi": {"primary_lines": 80, "cross_files": 2, "cross_lines": 20},
+    "compact-balanced": {
+        "primary_lines": 100,
+        "cross_files": 1,
+        "cross_lines": 20,
+    },
+    "compact-anchor": {"primary_lines": 120, "cross_files": 0, "cross_lines": 0},
+    "balanced": {"primary_lines": 120, "cross_files": 2, "cross_lines": 40},
+    "anchor-heavy": {"primary_lines": 160, "cross_files": 1, "cross_lines": 40},
+    "anchor-only": {"primary_lines": 200, "cross_files": 0, "cross_lines": 0},
+}
+DEFAULT_PROJECTION_VARIANT = "precision-90"
+MAX_TRAJECTORY_WINDOW = 120
 SOURCE_SUFFIXES = {
     ".c",
     ".cc",
@@ -254,6 +271,26 @@ def validate_embedding_write(index_result: Any) -> None:
         raise RuntimeError(f"index completed without embeddings: {index_result}")
 
 
+def open_memtrace_client(
+    repo_root: Path, env: dict[str, str], attempts: int = 3
+) -> retrieval.McpClient:
+    last_error: RuntimeError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return retrieval.McpClient(repo_root, env)
+        except RuntimeError as error:
+            last_error = error
+            if attempt == attempts:
+                break
+            print(
+                f"Memtrace MCP startup attempt {attempt}/{attempts} failed: {error}",
+                file=sys.stderr,
+            )
+            time.sleep(attempt)
+    assert last_error is not None
+    raise last_error
+
+
 def verify_index(
     repo_root: Path,
     cache_entry: Path,
@@ -264,7 +301,7 @@ def verify_index(
     env = memtrace_environment(
         repo_root, cache_entry, rerank_model_dir, memtrace_binary
     )
-    client = retrieval.McpClient(repo_root, env)
+    client = open_memtrace_client(repo_root, env)
     try:
         repositories = client.call_tool("list_indexed_repositories", {})
     finally:
@@ -296,7 +333,7 @@ def prepare_history(
     env = memtrace_environment(
         repo_root, cache_entry, rerank_model_dir, memtrace_binary
     )
-    client = retrieval.McpClient(repo_root, env)
+    client = open_memtrace_client(repo_root, env)
     started = time.monotonic()
     try:
         repositories = client.call_tool("list_indexed_repositories", {})
@@ -398,7 +435,7 @@ def prepare_cache(
             memtrace_binary,
             reincluded,
         )
-        client = retrieval.McpClient(repo_root, env)
+        client = open_memtrace_client(repo_root, env)
         try:
             index_result = client.call_tool(
                 "index_directory",
@@ -552,7 +589,7 @@ Memtrace is already fully indexed and embedded for the exact base commit. Use it
 
 Keep discovery efficient: use ranked search limits of at most 10, source windows of at most 120 lines, and normally no more than 24 Memtrace calls before implementing and testing. Prefer one precise follow-up query over repeatedly reopening the same file. This is a budget, not permission to stop before you have enough evidence for a correct fix.
 
-Your structured final `contexts` must rank only the smallest exact production file -> symbol -> line ranges that governed your fix. Put only the repository-relative file path in `file` (never append `:line`). Keep their union within {line_budget} source lines. Do not include broad exploration windows or test files unless the production behavior itself is defined there.
+Your structured final `contexts` must rank only the smallest exact production file -> symbol -> line ranges that directly governed your fix. The harness adds a deterministic recall floor from your observed Memtrace trajectory, so do not pad this list. Put only the repository-relative file path in `file` (never append `:line`). Keep their union within {line_budget} source lines. Do not include broad exploration windows or test files unless the production behavior itself is defined there.
 
 Task:
 {issue}
@@ -776,6 +813,189 @@ def bounded_contexts(
     return selected
 
 
+def projection_path_allowed(path: str) -> bool:
+    lowered = path.lower()
+    parts = set(Path(lowered).parts)
+    if parts.intersection(
+        {"node_modules", "vendor", "vendored", "third_party", "docs", "doc"}
+    ):
+        return False
+    if any(part == "tests" or part == "test" for part in parts):
+        return False
+    name = Path(lowered).name
+    if re.search(r"(^test_|[._-](test|spec)s?\.)", name):
+        return False
+    return Path(lowered).suffix in SOURCE_SUFFIXES.union(
+        {".cfg", ".ini", ".json", ".toml", ".yaml", ".yml"}
+    )
+
+
+def clip_context(
+    context: dict[str, Any],
+    limit: int,
+    anchors: Iterable[dict[str, Any]] = (),
+) -> dict[str, Any]:
+    start, end = int(context["start"]), int(context["end"])
+    if end - start + 1 <= limit:
+        return dict(context)
+    focus = (start + end) // 2
+    same_file = [
+        item
+        for item in anchors
+        if item.get("file") == context.get("file")
+        and int(item.get("end", 0)) >= start
+        and int(item.get("start", end + 1)) <= end
+    ]
+    if same_file:
+        anchor = same_file[0]
+        focus = (int(anchor["start"]) + int(anchor["end"])) // 2
+    clipped_start = max(start, focus - limit // 2)
+    clipped_end = clipped_start + limit - 1
+    if clipped_end > end:
+        clipped_end = end
+        clipped_start = end - limit + 1
+    return {"file": context["file"], "start": clipped_start, "end": clipped_end}
+
+
+def project_hierarchical_recall(
+    structured: Iterable[dict[str, Any]],
+    steps: Iterable[dict[str, Any]],
+    patch: str,
+    line_budget: int,
+    variant: str = DEFAULT_PROJECTION_VARIANT,
+) -> list[dict[str, Any]]:
+    """Keep Codex's exact picks, then spend unused budget on observed context.
+
+    This is deliberately task-agnostic and model-free.  The hierarchy is:
+    edited/final files first, then independently-supported production files,
+    then the most repeated and most recent line windows within each file.
+    """
+    if variant not in PROJECTION_POLICIES:
+        raise ValueError(f"unknown projection variant: {variant}")
+    policy = PROJECTION_POLICIES[variant]
+    seeds = [
+        {"file": str(item["file"]), "start": int(item["start"]), "end": int(item["end"])}
+        for item in [*structured, *diff_contexts(patch)]
+        if isinstance(item, dict)
+        and isinstance(item.get("file"), str)
+        and isinstance(item.get("start"), int)
+        and isinstance(item.get("end"), int)
+        and int(item["start"]) > 0
+        and int(item["end"]) >= int(item["start"])
+        and projection_path_allowed(str(item["file"]))
+    ]
+    anchor_files = {item["file"] for item in seeds}
+    step_list = list(steps)
+    file_steps: dict[str, set[int]] = {}
+    occurrences: dict[tuple[str, int, int], set[int]] = {}
+    for step_index, step in enumerate(step_list):
+        spans = step.get("spans") if isinstance(step, dict) else None
+        if not isinstance(spans, dict):
+            continue
+        for file, values in spans.items():
+            if not isinstance(file, str) or not projection_path_allowed(file):
+                continue
+            if not isinstance(values, list):
+                continue
+            for span in values:
+                if not isinstance(span, dict):
+                    continue
+                start, end = span.get("start"), span.get("end")
+                if (
+                    not isinstance(start, int)
+                    or isinstance(start, bool)
+                    or not isinstance(end, int)
+                    or isinstance(end, bool)
+                    or start < 1
+                    or end < start
+                ):
+                    continue
+                candidate = clip_context(
+                    {"file": file, "start": start, "end": end},
+                    MAX_TRAJECTORY_WINDOW,
+                    seeds,
+                )
+                key = (file, candidate["start"], candidate["end"])
+                occurrences.setdefault(key, set()).add(step_index)
+                file_steps.setdefault(file, set()).add(step_index)
+
+    def overlaps_seed(file: str, start: int, end: int) -> bool:
+        return any(
+            item["file"] == file
+            and item["end"] >= start - 1
+            and item["start"] <= end + 1
+            for item in seeds
+        )
+
+    candidates = [
+        {"file": file, "start": start, "end": end}
+        for file, start, end in occurrences
+    ]
+    candidates.sort(
+        key=lambda item: (
+            item["file"] not in anchor_files,
+            not overlaps_seed(item["file"], item["start"], item["end"]),
+            -len(file_steps.get(item["file"], set())),
+            -len(occurrences[(item["file"], item["start"], item["end"])]),
+            -max(
+                occurrences[(item["file"], item["start"], item["end"])],
+                default=-1,
+            ),
+            item["end"] - item["start"],
+            item["file"],
+            item["start"],
+        )
+    )
+
+    selected: list[dict[str, Any]] = []
+    covered: set[tuple[str, int]] = set()
+
+    def append(item: dict[str, Any], cap: int) -> bool:
+        nonlocal covered
+        if cap <= len(covered):
+            return False
+        remaining = min(line_budget, cap) - len(covered)
+        candidate = clip_context(item, max(1, remaining), seeds)
+        lines = {
+            (candidate["file"], line)
+            for line in range(candidate["start"], candidate["end"] + 1)
+        }
+        novel = lines - covered
+        if not novel or len(novel) > remaining:
+            return False
+        if candidate not in selected:
+            selected.append(candidate)
+        covered |= lines
+        return True
+
+    for seed in seeds:
+        append(seed, line_budget)
+    primary_cap = min(line_budget, max(len(covered), int(policy["primary_lines"])))
+    for candidate in candidates:
+        if candidate["file"] in anchor_files:
+            append(candidate, primary_cap)
+
+    cross_files = 0
+    used_cross_files: set[str] = set()
+    for candidate in candidates:
+        file = candidate["file"]
+        if (
+            file in anchor_files
+            or file in used_cross_files
+            or len(file_steps.get(file, set())) < 2
+            or cross_files >= int(policy["cross_files"])
+        ):
+            continue
+        cross_cap = min(
+            line_budget,
+            len(covered) + int(policy["cross_lines"]),
+        )
+        if append(candidate, cross_cap):
+            used_cross_files.add(file)
+            cross_files += 1
+    return selected
+
+
 def git_patch(repo_root: Path) -> str:
     return subprocess.run(
         ["git", "-C", str(repo_root), "diff", "--binary", "--no-ext-diff", "HEAD"],
@@ -948,36 +1168,75 @@ def main() -> int:
             final_path = instance_work / "codex-final.json"
             events_path = instance_work / "codex-events.jsonl"
             write_output_schema(schema_path)
-            codex = run_codex(
-                args.codex_binary,
-                codex_home,
-                repo_root,
-                render_prompt(row, args.line_budget),
-                schema_path,
-                final_path,
-                events_path,
-                args.agent_model,
-                args.timeout,
-            )
-            if codex.returncode != 0:
-                raise RuntimeError(f"Codex exited with return code {codex.returncode}")
-            events = load_events(events_path)
-            steps, mcp_calls, usage = trajectory_from_events(events, repo_root)
-            if mcp_calls < 1:
-                raise RuntimeError("Codex completed without a Memtrace MCP tool call")
+            prompt = render_prompt(row, args.line_budget)
+            codex_attempts: list[dict[str, Any]] = []
+            for codex_attempt in range(1, 3):
+                final_path = instance_work / f"codex-final-{codex_attempt}.json"
+                events_path = instance_work / f"codex-events-{codex_attempt}.jsonl"
+                codex = run_codex(
+                    args.codex_binary,
+                    codex_home,
+                    repo_root,
+                    prompt,
+                    schema_path,
+                    final_path,
+                    events_path,
+                    args.agent_model,
+                    args.timeout,
+                )
+                if codex.returncode != 0:
+                    raise RuntimeError(
+                        f"Codex exited with return code {codex.returncode}"
+                    )
+                events = load_events(events_path)
+                steps, mcp_calls, usage = trajectory_from_events(events, repo_root)
+                codex_attempts.append(
+                    {
+                        "attempt": codex_attempt,
+                        "events": str(events_path),
+                        "mcp_calls": mcp_calls,
+                        "elapsed_seconds": getattr(codex, "elapsed_seconds", None),
+                    }
+                )
+                if mcp_calls >= 1:
+                    break
+                if codex_attempt == 2:
+                    raise RuntimeError(
+                        "Codex completed twice without a Memtrace MCP tool call"
+                    )
+                ensure_clean_checkout(
+                    str(row["repo_url"]),
+                    str(row["base_commit"]),
+                    repo_root,
+                    reference=index_repo,
+                )
+                prompt = (
+                    render_prompt(row, args.line_budget)
+                    + "\nThis is a clean retry because the prior turn made no Memtrace "
+                    "MCP call. Before shell or source discovery, invoke "
+                    "$memtrace-first and perform at least one Memtrace MCP search.\n"
+                )
             final = read_json(final_path)
             patch = git_patch(repo_root)
-            contexts = bounded_contexts(
+            structured_contexts = bounded_contexts(
                 final.get("contexts", []) if isinstance(final, dict) else [],
                 repo_root,
                 args.line_budget,
             )
-            final_source = "codex_structured_final"
-            if not contexts:
-                contexts = bounded_contexts(
+            final_source = "codex_structured_plus_trajectory"
+            if not structured_contexts:
+                structured_contexts = bounded_contexts(
                     diff_contexts(patch), repo_root, args.line_budget
                 )
                 final_source = "git_diff_fallback"
+            contexts = project_hierarchical_recall(
+                structured_contexts,
+                steps,
+                patch,
+                args.line_budget,
+                DEFAULT_PROJECTION_VARIANT,
+            )
+            contexts = bounded_contexts(contexts, repo_root, args.line_budget)
             if not contexts:
                 raise RuntimeError("Codex produced no valid final source context")
             pred_files = list(dict.fromkeys(item["file"] for item in contexts))
@@ -1002,6 +1261,17 @@ def main() -> int:
                 "policy": CODEX_POLICY,
                 "final_context_policy": FINAL_CONTEXT_POLICY,
                 "line_budget": args.line_budget,
+                "projection": {
+                    "variant": DEFAULT_PROJECTION_VARIANT,
+                    "contexts": contexts,
+                    "unique_lines": len(
+                        {
+                            (item["file"], line)
+                            for item in contexts
+                            for line in range(item["start"], item["end"] + 1)
+                        }
+                    ),
+                },
                 "cache": cache_audit,
                 "codex": {
                     "binary": str(args.codex_binary),
@@ -1011,6 +1281,7 @@ def main() -> int:
                     "returncode": codex.returncode,
                     "usage": usage,
                     "mcp_calls": mcp_calls,
+                    "attempts": codex_attempts,
                     "trajectory_steps": len(steps),
                     "profile": profile_audit,
                     "events": str(events_path),

@@ -153,9 +153,16 @@ def prepare(args: argparse.Namespace) -> None:
             )
             codex = audit.get("codex")
             final = codex.get("final") if isinstance(codex, dict) else None
-            contexts = final.get("contexts") if isinstance(final, dict) else None
+            projected = audit.get("projection")
+            uses_projected_contexts = isinstance(projected, dict)
+            contexts = (
+                projected.get("contexts")
+                if uses_projected_contexts
+                else final.get("contexts") if isinstance(final, dict) else None
+            )
             context_lines: set[tuple[str, int]] = set()
             codex_contexts_valid = isinstance(contexts, list)
+            expected_spans: dict[str, list[dict[str, Any]]] = {}
             if codex_contexts_valid:
                 for context in contexts:
                     if not isinstance(context, dict):
@@ -177,12 +184,29 @@ def prepare(args: argparse.Namespace) -> None:
                         codex_contexts_valid = False
                         break
                     context_lines.update((file, line) for line in range(start, end + 1))
+                    expected_spans.setdefault(file, []).append(
+                        {"type": "line", "start": start, "end": end}
+                    )
+            trajectory = rows[0].get("traj_data")
+            projected_prediction_matches = True
+            if uses_projected_contexts:
+                projected_prediction_matches = (
+                    isinstance(trajectory, dict)
+                    and trajectory.get("pred_files") == list(expected_spans)
+                    and trajectory.get("pred_spans") == expected_spans
+                    and projected.get("unique_lines") == len(context_lines)
+                    and (
+                        not args.projection_variant
+                        or projected.get("variant") == args.projection_variant
+                    )
+                )
             codex_agent_matches = (
                 audit.get("policy") == args.agent_policy
                 and audit.get("final_context_policy") == args.projection_policy
                 and audit.get("line_budget") == args.line_budget
                 and codex_contexts_valid
                 and len(context_lines) <= args.line_budget
+                and projected_prediction_matches
             )
             if not legacy_agent_matches and not codex_agent_matches:
                 raise ValueError(
@@ -242,6 +266,7 @@ def prepare(args: argparse.Namespace) -> None:
                     "mode": "agent",
                     "agent_policy": args.agent_policy,
                     "projection_policy": args.projection_policy,
+                    "projection_variant": args.projection_variant,
                     "line_budget": args.line_budget,
                 }
                 if args.agent_policy
@@ -379,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     freeze.add_argument("--pack-policy")
     freeze.add_argument("--query-strategy")
     freeze.add_argument("--projection-policy")
+    freeze.add_argument("--projection-variant")
     freeze.add_argument("--line-budget", type=int)
     compare_parser = subparsers.add_parser("compare")
     compare_parser.add_argument("--checkpoint", required=True, type=Path)

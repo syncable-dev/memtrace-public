@@ -31,6 +31,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -168,6 +169,40 @@ def read_manifest_ids(path):
     if not ids or len(ids) != len(set(ids)):
         raise ValueError("manifest must contain unique instance IDs")
     return ids
+
+
+def dataset_kind(dataset_path):
+    name = Path(dataset_path).name
+    kinds = {
+        "contextbench_verified.parquet": "verified",
+        "full.parquet": "full",
+        "contextbench_verified_train.parquet": "train",
+        "contextbench_verified_test.parquet": "test",
+    }
+    try:
+        return kinds[name]
+    except KeyError as error:
+        raise ValueError(
+            f"unsupported ContextBench dataset filename {name!r}; expected one of {sorted(kinds)}"
+        ) from error
+
+
+def remote_dataset_path(kind):
+    names = {
+        "verified": "contextbench_verified.parquet",
+        "full": "full.parquet",
+        "train": "contextbench_verified_train.parquet",
+        "test": "contextbench_verified_test.parquet",
+    }
+    try:
+        return f"/srv/contextbench/contextbench/data/{names[kind]}"
+    except KeyError as error:
+        raise ValueError(f"unsupported remote dataset kind {kind!r}") from error
+
+
+def reusable_host_info(info):
+    allowed = ("instance_id", "name", "public_ip", "az", "volume_id", "ssh_up")
+    return {key: info[key] for key in allowed if key in info}
 
 
 def build_shards(n_shards, dataset_path, manifest_path=None):
@@ -356,6 +391,54 @@ def prepare_source_payload(run_tag, provenance):
 
 
 # ---------------------------------------------------------------------------
+def cmd_adopt(args):
+    if not args.adopt_state:
+        raise ValueError("adopt requires --adopt-state pointing at an existing fleet.json")
+    source_path = Path(args.adopt_state)
+    source = json.loads(source_path.read_text())
+    source_shards = [source["shards"][sid] for sid in sorted(source["shards"])]
+    if len(source_shards) < args.shards:
+        raise ValueError(
+            f"adopt source has {len(source_shards)} hosts, fewer than requested {args.shards}"
+        )
+    shards, source_manifest = build_shards(
+        args.shards, args.dataset, args.manifest or None
+    )
+    fleet = {
+        "run_tag": args.run_tag,
+        "adopted_from": str(source_path.resolve()),
+        "shards": {},
+        "instance_type": source.get("instance_type", args.instance_type),
+        "instance_vcpus": source.get("instance_vcpus"),
+        "requested_vcpus": source.get("requested_vcpus"),
+        "quota_vcpus": source.get("quota_vcpus"),
+        "concurrency_per_shard": args.concurrency,
+        "root_volume_gb": source.get("root_volume_gb", args.root_volume_gb),
+        "data_volume_gb": source.get("data_volume_gb", args.data_volume_gb),
+        "dataset_kind": dataset_kind(args.dataset),
+        "dataset_path_local": str(Path(args.dataset).resolve()),
+        "source_manifest": source_manifest,
+        "source_manifest_sha256": (
+            hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest()
+            if args.manifest
+            else hashlib.sha256(json.dumps(source_manifest).encode()).hexdigest()
+        ),
+    }
+    for index, task_ids in enumerate(shards):
+        sid = f"shard-{index:02d}"
+        fleet["shards"][sid] = {
+            **reusable_host_info(source_shards[index]),
+            "task_ids": task_ids,
+            "adopted": True,
+            "bootstrap_ok": False,
+        }
+    save_fleet(args.run_tag, fleet)
+    print(
+        f"[adopt] {args.shards} existing hosts assigned {len(source_manifest)} "
+        f"{fleet['dataset_kind']} tasks -> {fleet_path(args.run_tag)}"
+    )
+
+
 def cmd_provision(args):
     run_tag = args.run_tag
     fleet = load_fleet(run_tag)
@@ -499,6 +582,8 @@ def cmd_provision(args):
     shards, source_manifest = build_shards(
         args.shards, args.dataset, args.manifest or None
     )
+    fleet["dataset_kind"] = dataset_kind(args.dataset)
+    fleet["dataset_path_local"] = str(Path(args.dataset).resolve())
     fleet["source_manifest"] = source_manifest
     fleet["source_manifest_sha256"] = (
         hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest()
@@ -876,7 +961,11 @@ def cmd_run(args):
     )
     agent_model = "gpt-5" if lane == "codex" else "openai/gpt-5"
     history_days = 0 if lane == "codex" else 30
+    run_dataset = str(fleet.get("dataset_kind") or DATASET)
+    if run_dataset not in {"verified", "full", "train", "test"}:
+        raise RuntimeError(f"fleet has unsupported dataset_kind={run_dataset!r}")
     fleet["run_treatment"] = {
+        "dataset": run_dataset,
         "benchmark_lane": lane,
         "agent_policy": agent_policy,
         "projection_policy": projection_policy,
@@ -922,7 +1011,7 @@ def cmd_run(args):
             f"BENCHMARK_LANE={lane} AGENT_MODEL={agent_model} AGENT_HISTORY_DAYS={history_days} "
             f"CB_SEARCH_LIMIT=100 CB_PACK_POLICY=v4 CB_QUERY_STRATEGY=v3 "
             f"POST_SELECTOR_POLICY=off DISK_FLOOR_GB=100 "
-            f"RUN_ID={run_id} DATASET={DATASET} CONCURRENCY={concurrency} LINE_BUDGET={LINE_BUDGET} "
+            f"RUN_ID={run_id} DATASET={run_dataset} CONCURRENCY={concurrency} LINE_BUDGET={LINE_BUDGET} "
             f"SELECTOR_MODEL={SELECTOR_MODEL} SELECTOR_MODE=default "
             f"CACHE_NAMESPACE={cache_namespace} RUN_TIMEOUT={RUN_TIMEOUT} "
             f"WATCHDOG_MINUTES={WATCHDOG_MINUTES} MEMTRACE_INSTALL_MODE=source "
@@ -995,6 +1084,256 @@ def cmd_poll(args):
     print(
         f"[poll] total {total_completed}/{total_tasks} predictions, {done_shards}/{len(shard_ids)} shards not-running"
     )
+
+
+def cmd_preflight(args):
+    import shlex
+
+    run_tag = args.run_tag
+    fleet = load_fleet(run_tag)
+    shard_ids = args.only.split(",") if args.only else list(fleet["shards"])
+    run_dataset = str(fleet.get("dataset_kind") or dataset_kind(args.dataset))
+    dataset = remote_dataset_path(run_dataset)
+    concurrency = int(fleet.get("concurrency_per_shard", args.concurrency))
+    cache_namespace = args.cache_namespace or (
+        fleet.get("run_treatment", {}).get("cache_namespace")
+        or "contextbench-src3e9a814f7ac5-jina-code-768-v2-agent-hierarchy-v2-agent-hierarchy-v2"
+    )
+    fleet["preflight_treatment"] = {
+        "dataset": run_dataset,
+        "workers_per_shard": concurrency,
+        "total_workers": concurrency * len(shard_ids),
+        "cache_namespace": cache_namespace,
+        "history_days": 0,
+        "task_timeout": args.task_timeout,
+    }
+    save_fleet(run_tag, fleet)
+
+    def launch_one(sid):
+        info = fleet["shards"][sid]
+        ip = info["public_ip"]
+        run_id = f"preflight-{run_tag}-{sid}"
+        results_dir = f"/srv/contextbench/preflight/{run_id}"
+        manifest_json = json.dumps(info["task_ids"])
+        expected_source = str(
+            fleet.get("memtrace_source_provenance", {}).get("head_sha") or ""
+        )
+        remote_source = ssh_run(
+            ip,
+            "python3 -c 'import json; "
+            "print(json.load(open(\"/srv/contextbench/memtrace-bin/source-manifest.json\"))[\"head_sha\"])'",
+            timeout=20,
+        ).stdout.strip()
+        if not expected_source or remote_source != expected_source:
+            raise RuntimeError(
+                f"{sid} source mismatch: fleet expects {expected_source}, host has {remote_source}"
+            )
+        ssh_run(
+            ip,
+            f"test -s {dataset} && test -x /srv/contextbench/memtrace-bin/memtrace "
+            "&& test -d /srv/contextbench/rerank-model",
+            timeout=20,
+        )
+        ssh_run(ip, f"mkdir -p {REMOTE_ADAPTER_DIR} {results_dir}")
+        rsync_to(
+            ip,
+            str(ADAPTER_DIR) + "/",
+            REMOTE_ADAPTER_DIR + "/",
+            extra=[
+                "--exclude",
+                ".env",
+                "--exclude",
+                "__pycache__",
+                "--exclude",
+                ".DS_Store",
+                "--exclude",
+                "aws/state",
+                "--exclude",
+                "aws/config.env",
+                "--exclude",
+                "work/",
+            ],
+        )
+        write_manifest = (
+            f"cat > {results_dir}/manifest.json <<'MANIFEST_EOF'\n"
+            f"{manifest_json}\nMANIFEST_EOF"
+        )
+        ssh_run(ip, write_manifest)
+        session = "contextbench-preflight"
+        benchmark_alive = ssh_run(
+            ip,
+            "tmux has-session -t contextbench 2>/dev/null",
+            check=False,
+            timeout=20,
+        )
+        if benchmark_alive.returncode == 0:
+            raise RuntimeError(f"{sid} still has an active scored-run session")
+        alive = ssh_run(
+            ip,
+            f"tmux has-session -t {session} 2>/dev/null",
+            check=False,
+            timeout=20,
+        )
+        if alive.returncode == 0:
+            raise RuntimeError(f"{sid} already has an active {session} session")
+        inner = (
+            "set -o pipefail; "
+            "MEMTRACE_PIN_ENABLE=1 "
+            "MEMTRACE_PIN_WAIT_SECONDS=900 "
+            "MEMTRACE_DEV=1 MEMTRACE_TELEMETRY=off MEMTRACE_CORTEX=off "
+            f"/srv/contextbench/venv/bin/python {REMOTE_ADAPTER_DIR}/aws/full_preflight_runner.py "
+            f"--dataset {shlex.quote(dataset)} "
+            f"--manifest {shlex.quote(results_dir + '/manifest.json')} "
+            f"--output-dir {shlex.quote(results_dir)} "
+            "--graph-cache-dir /srv/contextbench/graph-cache-agent "
+            f"--cache-namespace {shlex.quote(cache_namespace)} "
+            "--memtrace-binary /srv/contextbench/memtrace-bin/memtrace "
+            "--rerank-model-dir /srv/contextbench/rerank-model "
+            f"--workers {concurrency} --task-timeout {args.task_timeout} --resume "
+            f"--host {shlex.quote(ip)} --run-id {shlex.quote(run_id)} "
+            f"2>&1 | tee -a {shlex.quote(results_dir + '/preflight.log')}; "
+            "rc=${PIPESTATUS[0]}; "
+            f"printf '%s\\n' \"$rc\" > {shlex.quote(results_dir + '/exit_code')}; "
+            "exit \"$rc\""
+        )
+        launched = ssh_run(
+            ip,
+            f"tmux new-session -d -s {session} {shlex.quote(inner)}",
+            check=False,
+        )
+        info["preflight_run_id"] = run_id
+        info["preflight_launch_rc"] = launched.returncode
+        info["preflight_launched_at"] = time.time()
+        if launched.returncode != 0:
+            raise RuntimeError(
+                f"{sid} failed to launch preflight tmux: {launched.stderr.strip()}"
+            )
+        print(f"  {sid}: launched {run_id} rc={launched.returncode}")
+        return sid, info
+
+    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+        futures = [executor.submit(launch_one, sid) for sid in shard_ids]
+        for future in as_completed(futures):
+            sid, info = future.result()
+            fleet["shards"][sid] = info
+            save_fleet(run_tag, fleet)
+    print(f"[preflight] launched {len(shard_ids)} shards ({concurrency * len(shard_ids)} workers)")
+
+
+def cmd_poll_preflight(args):
+    fleet = load_fleet(args.run_tag)
+    shard_ids = [sid for sid, info in fleet["shards"].items() if info.get("preflight_run_id")]
+
+    def poll_one(sid):
+        info = fleet["shards"][sid]
+        ip = info["public_ip"]
+        run_id = info["preflight_run_id"]
+        results_dir = f"/srv/contextbench/preflight/{run_id}"
+        output = ssh_run(
+            ip,
+            f"success=$(grep -l '\"status\": \"success\"' {results_dir}/records/*.json 2>/dev/null | wc -l); "
+            f"failure=$(grep -l '\"status\": \"failure\"' {results_dir}/records/*.json 2>/dev/null | wc -l); "
+            "printf '%s %s\\n' \"$success\" \"$failure\"",
+            check=False,
+            timeout=30,
+        )
+        counts = output.stdout.strip().split()
+        success, failure = (int(counts[0]), int(counts[1])) if len(counts) == 2 else (-1, -1)
+        alive = ssh_run(
+            ip,
+            "tmux has-session -t contextbench-preflight 2>/dev/null && echo yes || echo no",
+            check=False,
+            timeout=20,
+        ).stdout.strip() == "yes"
+        return sid, success, failure, len(info["task_ids"]), alive
+
+    totals = [0, 0, 0]
+    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+        futures = [executor.submit(poll_one, sid) for sid in shard_ids]
+        for future in as_completed(futures):
+            sid, success, failure, total, alive = future.result()
+            totals[0] += max(success, 0)
+            totals[1] += max(failure, 0)
+            totals[2] += total
+            state = "RUNNING" if alive else ("DONE" if success + failure == total else "STOPPED(!)")
+            print(f"  {sid}: pass={success} fail={failure} total={total} {state}")
+    print(f"[poll-preflight] pass={totals[0]} fail={totals[1]} terminal={totals[0] + totals[1]}/{totals[2]}")
+
+
+def cmd_collect_preflight(args):
+    fleet = load_fleet(args.run_tag)
+    aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
+    records_dir = aggregate / "records"
+    records_dir.mkdir(parents=True, exist_ok=True)
+    seen = {}
+    for sid, info in fleet["shards"].items():
+        run_id = info.get("preflight_run_id")
+        if not run_id:
+            continue
+        local = FLEET_STATE_DIR / args.run_tag / "pulled-preflight" / sid
+        local.mkdir(parents=True, exist_ok=True)
+        remote = f"/srv/contextbench/preflight/{run_id}/records/"
+        result = sh(
+            [
+                "rsync",
+                "-az",
+                "--delete",
+                "-e",
+                "ssh " + " ".join(SSH_OPTS),
+                f"{REMOTE_USER}@{info['public_ip']}:{remote}",
+                str(local) + "/",
+            ],
+            check=False,
+            timeout=1800,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"preflight collection failed for {sid}: rsync rc={result.returncode}")
+        for record_path in sorted(local.glob("*.json")):
+            record = json.loads(record_path.read_text())
+            instance_id = str(record.get("instance_id") or "")
+            if instance_id in seen:
+                raise RuntimeError(f"duplicate preflight record for {instance_id}")
+            if instance_id not in set(fleet.get("source_manifest") or []):
+                raise RuntimeError(f"preflight record outside source manifest: {instance_id}")
+            destination = records_dir / record_path.name
+            shutil.copy2(record_path, destination)
+            seen[instance_id] = record
+        print(f"  {sid}: collected {len(list(local.glob('*.json')))} records")
+    success = sum(record.get("status") == "success" for record in seen.values())
+    failure = sum(record.get("status") == "failure" for record in seen.values())
+    write_json_atomic(
+        aggregate / "summary.json",
+        {
+            "schema_version": 1,
+            "total": len(fleet.get("source_manifest") or []),
+            "terminal_records": len(seen),
+            "succeeded": success,
+            "failed": failure,
+            "captured_at_unix_ns": time.time_ns(),
+        },
+    )
+    tracker_dataset = Path(fleet.get("dataset_path_local") or args.dataset)
+    tracker_state = AWS_DIR / "state" / "preflight" / "full-1136" / "task-status.jsonl"
+    tracker = ADAPTER_DIR / "TRACKER.md"
+    if tracker_dataset.name == "full.parquet" and tracker_dataset.exists():
+        sh(
+            [
+                sys.executable,
+                str(AWS_DIR / "full_preflight_tracker.py"),
+                "--dataset",
+                str(tracker_dataset),
+                "--state",
+                str(tracker_state),
+                "--tracker",
+                str(tracker),
+                "--expected-total",
+                str(len(fleet.get("source_manifest") or [])),
+                "import-preflight",
+                "--records",
+                str(records_dir),
+            ]
+        )
+    print(f"[collect-preflight] pass={success} fail={failure} terminal={len(seen)}/{len(fleet.get('source_manifest') or [])}")
 
 
 def sha256_file(path):
@@ -1209,7 +1548,19 @@ def cmd_terminate(args):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "cmd", choices=["provision", "bootstrap", "run", "poll", "collect", "terminate"]
+        "cmd",
+        choices=[
+            "adopt",
+            "provision",
+            "bootstrap",
+            "preflight",
+            "poll-preflight",
+            "collect-preflight",
+            "run",
+            "poll",
+            "collect",
+            "terminate",
+        ],
     )
     ap.add_argument("--run-tag", default="agent-n100-fullpower")
     ap.add_argument("--shards", type=int, default=5)
@@ -1224,6 +1575,7 @@ def main():
     ap.add_argument("--data-volume-gb", type=int, default=DATA_VOLUME_GB)
     ap.add_argument("--only", default="")
     ap.add_argument("--parallel", type=int, default=5)
+    ap.add_argument("--task-timeout", type=int, default=7200)
     ap.add_argument(
         "--lane",
         choices=("agent", "codex"),
@@ -1242,8 +1594,12 @@ def main():
     if args.shards < 1 or args.concurrency < 1:
         ap.error("--shards and --concurrency must be positive")
     {
+        "adopt": cmd_adopt,
         "provision": cmd_provision,
         "bootstrap": cmd_bootstrap,
+        "preflight": cmd_preflight,
+        "poll-preflight": cmd_poll_preflight,
+        "collect-preflight": cmd_collect_preflight,
         "run": cmd_run,
         "poll": cmd_poll,
         "collect": cmd_collect,

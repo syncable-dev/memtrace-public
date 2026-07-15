@@ -325,6 +325,56 @@ Two rules between stages:
   `rm -rf /srv/contextbench/results/<old-run-id>/runs`. `run-remote.sh`
   refuses to start below a free-space floor (`DISK_FLOOR_GB`, default 150).
 
+### Full 1,136-task repository preflight and 60-worker fleet
+
+The full run has a hard repository gate. Every one of the 1,136 distinct
+repository snapshots must first prove an exact checkout, embedding-enabled
+Memtrace index, sealed reusable `complete.json`, and a task-scoped MCP search.
+The authoritative per-task state is rendered in `../TRACKER.md`; do not launch
+the paid Codex run while any preflight row is pending or failed.
+
+Reuse the five provisioned `c7a.48xlarge` hosts without carrying old run IDs
+or terminal state into the new fleet:
+
+```bash
+python3 aws/shard-orchestrator.py adopt \
+  --run-tag <new-full-tag> \
+  --adopt-state aws/state/fleet/<old-tag>/fleet.json \
+  --dataset /tmp/contextbench/data/full.parquet \
+  --shards 5 --concurrency 12
+
+CB_MEMTRACE_SOURCE_DIR=/path/to/clean/memtrace-worktree \
+  python3 aws/shard-orchestrator.py bootstrap \
+  --run-tag <new-full-tag> --parallel 5
+
+python3 aws/shard-orchestrator.py preflight \
+  --run-tag <new-full-tag> --parallel 5 --task-timeout 7200 \
+  --cache-namespace <compatible-sealed-namespace>
+python3 aws/shard-orchestrator.py poll-preflight \
+  --run-tag <new-full-tag> --parallel 5
+python3 aws/shard-orchestrator.py collect-preflight \
+  --run-tag <new-full-tag> --parallel 5
+```
+
+`collect-preflight` is resumable and refreshes `../TRACKER.md`. Fix and rerun
+only failed rows until all 1,136 preflight rows pass. The preflight populates
+the same content-addressed graph cache used by the scored run, so indexing and
+embeddings are reused rather than repeated.
+
+Only after the gate is entirely green:
+
+```bash
+python3 aws/shard-orchestrator.py run \
+  --run-tag <new-full-tag> --lane codex --parallel 5 \
+  --cache-namespace <same-compatible-sealed-namespace>
+```
+
+Five hosts at twelve pinned workers each provide exactly 60 concurrent Codex
+gpt-5 tasks while staying within the 1,024-vCPU account quota (960 vCPUs).
+The fleet state seals `dataset_kind=full`; remote workers derive
+`/srv/contextbench/contextbench/data/full.parquet` from that field, preventing
+a full manifest from accidentally running against the 500-task verified file.
+
 ## Spot eviction recovery
 
 The box runs a watcher next to the driver (poll IMDSv2
@@ -389,15 +439,13 @@ serially at bootstrap before any parallel fan-out.
 
 ### Graph cache note
 
-`runner.py` supports `--graph-cache-dir/--cache-namespace`, but the hardened
-`parallel_driver.py` does not yet forward those flags. `run-remote.sh` detects
-support and will pass `/srv/contextbench/graph-cache` + `CACHE_NAMESPACE`
-automatically when the driver grows that pass-through. Fingerprint-validated
-driver resume already avoids re-indexing a successful completed task; the
-graph cache would additionally save re-indexing for a task that finished
-retrieval but failed before its success artifacts were committed. Never reuse
-a cache dir across Memtrace versions — bump `CACHE_NAMESPACE` (it digests the
-Memtrace version + embedding model).
+The Codex lane uses `/srv/contextbench/graph-cache-agent`, keyed by repository
+URL, exact base commit, and an explicit compatible namespace. A cache hit is
+accepted only after the checkout and embedded MemDB are reopened and the
+indexed commit is verified. A runner-only or dirty-detection fix may reuse a
+namespace when the embedding/index schema is unchanged; `complete.json` is
+then upgraded to the current binary identity. Schema, embedding-model, or
+index-format changes require a new namespace.
 
 ## Troubleshooting
 

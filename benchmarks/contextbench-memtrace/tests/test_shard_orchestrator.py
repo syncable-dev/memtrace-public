@@ -117,6 +117,36 @@ class ShardOrchestratorTests(unittest.TestCase):
             finally:
                 ORCHESTRATOR.FLEET_STATE_DIR = original
 
+    def test_preflight_repair_proofs_override_remote_failures(self):
+        with tempfile.TemporaryDirectory() as directory:
+            aggregate = Path(directory)
+            records_dir = aggregate / "records"
+            proofs_dir = aggregate / "repair-proofs"
+            records_dir.mkdir()
+            proofs_dir.mkdir()
+            failed = {"instance_id": "task-a", "status": "failure"}
+            passed = {
+                "instance_id": "task-a",
+                "status": "success",
+                "cache": {"cache_hit": True},
+                "stages": {
+                    stage: {"status": "PASS"}
+                    for stage in ORCHESTRATOR.PREFLIGHT_REQUIRED_STAGES
+                },
+            }
+            (proofs_dir / "task-a.json").write_text(json.dumps(passed) + "\n")
+            seen = {"task-a": failed}
+
+            applied = ORCHESTRATOR.apply_preflight_repair_proofs(
+                aggregate, records_dir, seen, ["task-a"]
+            )
+
+            self.assertEqual(applied, 1)
+            self.assertEqual(seen["task-a"], passed)
+            self.assertEqual(
+                json.loads((records_dir / "task-a.json").read_text()), passed
+            )
+
     def test_dataset_task_count_uses_full_dataset_not_subset_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             dataset = Path(directory) / "full.parquet"

@@ -1350,6 +1350,45 @@ def preflight_record_counts(records):
     }
 
 
+PREFLIGHT_REQUIRED_STAGES = (
+    "dataset",
+    "checkout",
+    "index_embeddings",
+    "cache_sealed",
+    "mcp",
+)
+
+
+def apply_preflight_repair_proofs(aggregate, records_dir, seen, source_manifest):
+    proofs_dir = aggregate / "repair-proofs"
+    source_ids = {str(instance_id) for instance_id in source_manifest}
+    applied = 0
+    for proof_path in sorted(proofs_dir.glob("*.json")):
+        record = json.loads(proof_path.read_text())
+        instance_id = str(record.get("instance_id") or "")
+        if not instance_id or instance_id not in source_ids:
+            raise RuntimeError(f"repair proof outside source manifest: {proof_path}")
+        failed_stages = [
+            stage
+            for stage in PREFLIGHT_REQUIRED_STAGES
+            if (record.get("stages") or {}).get(stage, {}).get("status") != "PASS"
+        ]
+        if (
+            record.get("status") != "success"
+            or failed_stages
+            or not (record.get("cache") or {}).get("cache_hit")
+        ):
+            raise RuntimeError(
+                f"invalid destination repair proof for {instance_id}: "
+                f"status={record.get('status')} failed_stages={failed_stages} "
+                f"cache_hit={(record.get('cache') or {}).get('cache_hit')}"
+            )
+        shutil.copy2(proof_path, records_dir / f"{instance_id}.json")
+        seen[instance_id] = record
+        applied += 1
+    return applied
+
+
 def preflight_repair_exclusions(run_tags):
     excluded = set()
     for run_tag in run_tags:
@@ -1439,20 +1478,13 @@ def validate_full_preflight_gate(fleet, aggregate, cache_namespace):
             f"full-run preflight record set mismatch: missing={missing[:5]} "
             f"unexpected={unexpected[:5]}"
         )
-    required_stages = (
-        "dataset",
-        "checkout",
-        "index_embeddings",
-        "cache_sealed",
-        "mcp",
-    )
     failures = []
     for instance_id in manifest:
         record = records[instance_id]
         stages = record.get("stages") or {}
         failed_stages = [
             stage
-            for stage in required_stages
+            for stage in PREFLIGHT_REQUIRED_STAGES
             if (stages.get(stage) or {}).get("status") != "PASS"
         ]
         if record.get("status") != "success" or failed_stages:
@@ -1570,6 +1602,14 @@ def cmd_collect_preflight(args):
             shutil.copy2(record_path, destination)
             seen[instance_id] = record
         print(f"  {sid}: collected {len(list(local.glob('*.json')))} records")
+    repair_proofs = apply_preflight_repair_proofs(
+        aggregate,
+        records_dir,
+        seen,
+        fleet.get("source_manifest") or [],
+    )
+    if repair_proofs:
+        print(f"  repair proofs: reapplied {repair_proofs} destination passes")
     counts = preflight_record_counts(seen.values())
     success = counts["success"]
     failure = counts["failure"]

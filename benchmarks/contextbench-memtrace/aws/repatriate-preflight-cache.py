@@ -9,6 +9,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,13 @@ import runner as retrieval  # noqa: E402
 
 DEFAULT_CACHE_ROOT = "/srv/contextbench/graph-cache-agent"
 DEFAULT_BINARY = "/srv/contextbench/memtrace-bin/memtrace"
+PREFLIGHT_REQUIRED_STAGES = (
+    "dataset",
+    "checkout",
+    "index_embeddings",
+    "cache_sealed",
+    "mcp",
+)
 SSH_OPTIONS = (
     "-o",
     "BatchMode=yes",
@@ -73,6 +81,88 @@ print(json.dumps({
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
+
+
+def atomic_write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+    temporary.replace(path)
+
+
+def reconcile_destination_evidence(destination_fleet_path: Path) -> dict[str, Any]:
+    fleet = load_json(destination_fleet_path)
+    manifest = [str(instance_id) for instance_id in fleet.get("source_manifest") or []]
+    if not manifest or len(manifest) != len(set(manifest)):
+        raise ValueError("destination fleet requires a non-empty unique manifest")
+    aggregate = destination_fleet_path.parent / "aggregate-preflight"
+    records_dir = aggregate / "records"
+    records_dir.mkdir(parents=True, exist_ok=True)
+    source_ids = set(manifest)
+    for proof_path in sorted((aggregate / "repair-proofs").glob("*.json")):
+        proof = load_json(proof_path)
+        instance_id = str(proof.get("instance_id") or "")
+        failed_stages = [
+            stage
+            for stage in PREFLIGHT_REQUIRED_STAGES
+            if (proof.get("stages") or {}).get(stage, {}).get("status") != "PASS"
+        ]
+        if (
+            not instance_id
+            or instance_id not in source_ids
+            or proof.get("status") != "success"
+            or failed_stages
+            or not (proof.get("cache") or {}).get("cache_hit")
+        ):
+            raise ValueError(
+                f"invalid destination repair proof: {proof_path} "
+                f"instance_id={instance_id!r} status={proof.get('status')} "
+                f"failed_stages={failed_stages} "
+                f"cache_hit={(proof.get('cache') or {}).get('cache_hit')}"
+            )
+        atomic_write_json(records_dir / f"{instance_id}.json", proof)
+
+    records: dict[str, dict[str, Any]] = {}
+    for record_path in sorted(records_dir.glob("*.json")):
+        record = load_json(record_path)
+        instance_id = str(record.get("instance_id") or "")
+        if not instance_id or instance_id in records:
+            raise ValueError(f"invalid or duplicate destination record: {record_path}")
+        if instance_id not in source_ids:
+            raise ValueError(f"destination record outside source manifest: {instance_id}")
+        records[instance_id] = record
+    counts = {
+        status: sum(record.get("status") == status for record in records.values())
+        for status in ("success", "failure", "running")
+    }
+    summary = {
+        "schema_version": 1,
+        "total": len(manifest),
+        "records": len(records),
+        "terminal_records": counts["success"] + counts["failure"],
+        "succeeded": counts["success"],
+        "failed": counts["failure"],
+        "running": counts["running"],
+        "captured_at_unix_ns": time.time_ns(),
+    }
+    atomic_write_json(aggregate / "summary.json", summary)
+    return summary
+
+
+def publish_repair_proof(
+    destination_fleet_path: Path, record: dict[str, Any]
+) -> dict[str, Any]:
+    instance_id = str(record.get("instance_id") or "")
+    if not instance_id:
+        raise ValueError("destination repair proof has no instance_id")
+    proof_path = (
+        destination_fleet_path.parent
+        / "aggregate-preflight"
+        / "repair-proofs"
+        / f"{instance_id}.json"
+    )
+    atomic_write_json(proof_path, record)
+    return reconcile_destination_evidence(destination_fleet_path)
 
 
 def task_assignments(fleet: dict[str, Any]) -> dict[str, dict[str, str]]:
@@ -378,6 +468,7 @@ def verify_destination_task(
 
 def execute_plan(
     plan: list[dict[str, str]],
+    destination_fleet_path: Path,
     namespace: str,
     cache_root: str,
     binary: str,
@@ -429,10 +520,12 @@ def execute_plan(
             user,
             remote_dataset,
         )
+        summary = publish_repair_proof(destination_fleet_path, proof)
         print(
             f"[{index}/{len(plan)}] {task['instance_id']} -> "
             f"{task['destination_host']} ({destination_state['file_count']} files, "
-            f"cache_hit={proof['cache']['cache_hit']}, mcp=PASS)"
+            f"cache_hit={proof['cache']['cache_hit']}, mcp=PASS, "
+            f"fleet_pass={summary['succeeded']}/{summary['total']})"
         )
 
 
@@ -468,8 +561,10 @@ def main() -> None:
         return
     ensure_fleet_terminal(repair_fleet, args.ssh_user)
     ensure_fleet_terminal(destination_fleet, args.ssh_user)
+    reconcile_destination_evidence(args.destination_fleet)
     execute_plan(
         plan,
+        args.destination_fleet,
         args.cache_namespace,
         args.cache_root,
         args.memtrace_binary,

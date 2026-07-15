@@ -16,9 +16,76 @@ SPEC = importlib.util.spec_from_file_location("repatriate_preflight_cache", MODU
 REPATRIATE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
 SPEC.loader.exec_module(REPATRIATE)
+ORCHESTRATOR_PATH = Path(__file__).parents[1] / "aws" / "shard-orchestrator.py"
+ORCHESTRATOR_SPEC = importlib.util.spec_from_file_location(
+    "repatriate_test_shard_orchestrator", ORCHESTRATOR_PATH
+)
+ORCHESTRATOR = importlib.util.module_from_spec(ORCHESTRATOR_SPEC)
+assert ORCHESTRATOR_SPEC.loader is not None
+ORCHESTRATOR_SPEC.loader.exec_module(ORCHESTRATOR)
 
 
 class RepatriatePreflightCacheTests(unittest.TestCase):
+    def test_publish_repair_proof_updates_destination_gate_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fleet_dir = Path(directory) / "fleet" / "main"
+            records_dir = fleet_dir / "aggregate-preflight" / "records"
+            records_dir.mkdir(parents=True)
+            fleet_path = fleet_dir / "fleet.json"
+            fleet = {
+                "source_manifest": ["task-a", "task-b"],
+                "preflight_treatment": {
+                    "dataset": "full",
+                    "cache_namespace": "cache-v1",
+                    "history_days": 0,
+                },
+            }
+            fleet_path.write_text(json.dumps(fleet) + "\n")
+            (records_dir / "task-a.json").write_text(
+                json.dumps({"instance_id": "task-a", "status": "failure"}) + "\n"
+            )
+            stages = {
+                stage: {"status": "PASS"}
+                for stage in REPATRIATE.PREFLIGHT_REQUIRED_STAGES
+            }
+            (records_dir / "task-b.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-b",
+                        "status": "success",
+                        "stages": stages,
+                    }
+                )
+                + "\n"
+            )
+            proof = {
+                "instance_id": "task-a",
+                "status": "success",
+                "cache": {"cache_hit": True},
+                "stages": stages,
+            }
+
+            summary = REPATRIATE.publish_repair_proof(fleet_path, proof)
+
+            self.assertEqual(summary["succeeded"], 2)
+            self.assertEqual(summary["failed"], 0)
+            self.assertEqual(summary["terminal_records"], 2)
+            self.assertEqual(
+                json.loads((records_dir / "task-a.json").read_text()), proof
+            )
+            self.assertTrue(
+                (
+                    fleet_dir
+                    / "aggregate-preflight"
+                    / "repair-proofs"
+                    / "task-a.json"
+                ).is_file()
+            )
+            gate = ORCHESTRATOR.validate_full_preflight_gate(
+                fleet, fleet_dir / "aggregate-preflight", "cache-v1"
+            )
+            self.assertEqual(gate["total"], 2)
+
     def test_build_plan_restores_original_host_assignment(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

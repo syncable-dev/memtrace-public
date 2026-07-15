@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """Create and update the full ContextBench repository-preflight tracker.
 
-The tracker is a rendered view. The JSONL state is authoritative and can be
-updated safely by concurrent shard collectors because every write rewrites a
-complete, instance-id keyed snapshot atomically.
+The tracker is a rendered view. The JSONL state is authoritative. Concurrent
+collectors serialize complete state transactions, and observations for the same
+task are applied in source-time order so an older fleet cannot replace a newer
+repair run.
 """
 
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import os
 import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import pandas as pd
 
@@ -89,9 +92,30 @@ def atomic_write(path: Path, content: str) -> None:
         Path(temporary_name).unlink(missing_ok=True)
 
 
+@contextmanager
+def state_lock(path: Path) -> Iterator[None]:
+    """Serialize complete state read/modify/write transactions."""
+    lock_path = path.with_name(path.name + ".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def write_state(path: Path, records: dict[str, dict[str, Any]]) -> None:
     lines = [json.dumps(records[key], sort_keys=True) for key in sorted(records)]
     atomic_write(path, "\n".join(lines) + "\n")
+
+
+def preflight_observed_at_unix_ns(preflight: dict[str, Any]) -> int:
+    value = preflight.get("completed_at_unix_ns") or preflight.get("updated_at_unix_ns") or 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def new_record(row: Any) -> dict[str, Any]:
@@ -297,12 +321,18 @@ def command_import(args: argparse.Namespace) -> None:
     frame = read_dataset(args.dataset, args.expected_total)
     records = reconcile(frame, load_state(args.state))
     imported = 0
+    skipped_stale = 0
     for record_path in sorted(args.records.glob("*.json")):
         preflight = json.loads(record_path.read_text())
         instance_id = str(preflight.get("instance_id") or "")
         if instance_id not in records:
             raise ValueError(f"unknown preflight instance id in {record_path}: {instance_id}")
         target = records[instance_id]
+        observed_at = preflight_observed_at_unix_ns(preflight)
+        current_observed_at = int(target.get("preflight_observed_at_unix_ns") or 0)
+        if observed_at and current_observed_at and observed_at < current_observed_at:
+            skipped_stale += 1
+            continue
         for stage_name, stage_value in (preflight.get("stages") or {}).items():
             if stage_name not in PREFLIGHT_STAGES or not isinstance(stage_value, dict):
                 continue
@@ -316,11 +346,16 @@ def command_import(args: argparse.Namespace) -> None:
             }
         target["host"] = str(preflight.get("host") or target.get("host") or "")
         target["run_id"] = str(preflight.get("run_id") or target.get("run_id") or "")
+        if observed_at:
+            target["preflight_observed_at_unix_ns"] = observed_at
         target["updated_at"] = utc_now()
         imported += 1
     write_state(args.state, records)
     atomic_write(args.tracker, render(records, args.dataset, args.state))
-    print(f"imported {imported} preflight records from {args.records}")
+    print(
+        f"imported {imported} preflight records from {args.records}"
+        f"; skipped {skipped_stale} stale observations"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -348,7 +383,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    args.func(args)
+    with state_lock(args.state):
+        args.func(args)
 
 
 if __name__ == "__main__":

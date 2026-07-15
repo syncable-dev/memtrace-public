@@ -19,6 +19,154 @@ SPEC.loader.exec_module(TRACKER)
 
 
 class FullPreflightTrackerTests(unittest.TestCase):
+    def test_success_is_not_downgraded_by_newer_duplicate_race(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "full.parquet"
+            state = root / "state.jsonl"
+            tracker = root / "TRACKER.md"
+            success_records = root / "success"
+            running_records = root / "running"
+            success_records.mkdir()
+            running_records.mkdir()
+            pd.DataFrame(
+                [
+                    {
+                        "instance_id": "task-a",
+                        "repo": "owner/repo",
+                        "repo_url": "https://example.invalid/owner/repo.git",
+                        "language": "python",
+                        "base_commit": "a" * 40,
+                        "source": "Verified",
+                    }
+                ]
+            ).to_parquet(dataset)
+            passed_stages = {
+                stage: {"status": "PASS", "detail": "passed"}
+                for stage in TRACKER.PREFLIGHT_STAGES
+            }
+            (success_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "host": "winning-host",
+                        "run_id": "winning-run",
+                        "status": "success",
+                        "completed_at_unix_ns": 100,
+                        "stages": passed_stages,
+                    }
+                )
+            )
+            (running_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "host": "racing-host",
+                        "run_id": "racing-run",
+                        "status": "running",
+                        "updated_at_unix_ns": 200,
+                        "stages": {
+                            "dataset": {"status": "PASS", "detail": "ready"},
+                            "checkout": {"status": "PASS", "detail": "ready"},
+                            "index_embeddings": {
+                                "status": "RUNNING",
+                                "detail": "indexing",
+                            },
+                        },
+                    }
+                )
+            )
+            common = {
+                "dataset": dataset,
+                "state": state,
+                "tracker": tracker,
+                "expected_total": 1,
+            }
+            TRACKER.command_import(
+                argparse.Namespace(records=success_records, **common)
+            )
+            TRACKER.command_import(
+                argparse.Namespace(records=running_records, **common)
+            )
+
+            record = TRACKER.load_state(state)["task-a"]
+            self.assertEqual(TRACKER.preflight_status(record), "PASS")
+            self.assertEqual(record["host"], "winning-host")
+            self.assertEqual(record["run_id"], "winning-run")
+            self.assertEqual(record["preflight_observed_at_unix_ns"], 100)
+
+    def test_older_success_replaces_newer_running_observation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "full.parquet"
+            state = root / "state.jsonl"
+            tracker = root / "TRACKER.md"
+            running_records = root / "running"
+            success_records = root / "success"
+            running_records.mkdir()
+            success_records.mkdir()
+            pd.DataFrame(
+                [
+                    {
+                        "instance_id": "task-a",
+                        "repo": "owner/repo",
+                        "repo_url": "https://example.invalid/owner/repo.git",
+                        "language": "python",
+                        "base_commit": "a" * 40,
+                        "source": "Verified",
+                    }
+                ]
+            ).to_parquet(dataset)
+            (running_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "status": "running",
+                        "updated_at_unix_ns": 200,
+                        "stages": {
+                            "dataset": {"status": "PASS", "detail": "ready"},
+                            "checkout": {"status": "PASS", "detail": "ready"},
+                            "index_embeddings": {
+                                "status": "RUNNING",
+                                "detail": "indexing",
+                            },
+                        },
+                    }
+                )
+            )
+            (success_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "host": "winning-host",
+                        "run_id": "winning-run",
+                        "status": "success",
+                        "completed_at_unix_ns": 100,
+                        "stages": {
+                            stage: {"status": "PASS", "detail": "passed"}
+                            for stage in TRACKER.PREFLIGHT_STAGES
+                        },
+                    }
+                )
+            )
+            common = {
+                "dataset": dataset,
+                "state": state,
+                "tracker": tracker,
+                "expected_total": 1,
+            }
+            TRACKER.command_import(
+                argparse.Namespace(records=running_records, **common)
+            )
+            TRACKER.command_import(
+                argparse.Namespace(records=success_records, **common)
+            )
+
+            record = TRACKER.load_state(state)["task-a"]
+            self.assertEqual(TRACKER.preflight_status(record), "PASS")
+            self.assertEqual(record["host"], "winning-host")
+            self.assertEqual(record["preflight_observed_at_unix_ns"], 100)
+
     def test_import_keeps_newest_observation_for_same_task(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

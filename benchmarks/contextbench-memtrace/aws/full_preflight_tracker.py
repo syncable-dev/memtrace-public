@@ -2,9 +2,9 @@
 """Create and update the full ContextBench repository-preflight tracker.
 
 The tracker is a rendered view. The JSONL state is authoritative. Concurrent
-collectors serialize complete state transactions, and observations for the same
-task are applied in source-time order so an older fleet cannot replace a newer
-repair run.
+collectors serialize complete state transactions. Non-terminal observations are
+applied in source-time order, while a verified success is monotonic across
+duplicate repair races.
 """
 
 from __future__ import annotations
@@ -322,6 +322,7 @@ def command_import(args: argparse.Namespace) -> None:
     records = reconcile(frame, load_state(args.state))
     imported = 0
     skipped_stale = 0
+    skipped_non_improving = 0
     for record_path in sorted(args.records.glob("*.json")):
         preflight = json.loads(record_path.read_text())
         instance_id = str(preflight.get("instance_id") or "")
@@ -330,7 +331,18 @@ def command_import(args: argparse.Namespace) -> None:
         target = records[instance_id]
         observed_at = preflight_observed_at_unix_ns(preflight)
         current_observed_at = int(target.get("preflight_observed_at_unix_ns") or 0)
-        if observed_at and current_observed_at and observed_at < current_observed_at:
+        terminal_status = str(preflight.get("status") or "")
+        current_success = preflight_status(target) == "PASS"
+        incoming_success = terminal_status == "success"
+        if current_success and not incoming_success:
+            skipped_non_improving += 1
+            continue
+        if (
+            observed_at
+            and current_observed_at
+            and observed_at < current_observed_at
+            and not (incoming_success and not current_success)
+        ):
             skipped_stale += 1
             continue
         for stage_name, stage_value in (preflight.get("stages") or {}).items():
@@ -344,7 +356,6 @@ def command_import(args: argparse.Namespace) -> None:
                 "detail": str(stage_value.get("detail") or ""),
                 "updated_at": utc_now(),
             }
-        terminal_status = str(preflight.get("status") or "")
         if terminal_status == "success":
             incomplete = [
                 stage_name
@@ -381,6 +392,7 @@ def command_import(args: argparse.Namespace) -> None:
     print(
         f"imported {imported} preflight records from {args.records}"
         f"; skipped {skipped_stale} stale observations"
+        f"; skipped {skipped_non_improving} non-improving observations"
     )
 
 

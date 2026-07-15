@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -276,6 +278,54 @@ def remote_run(
     return result
 
 
+def local_run(
+    command: list[str], *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(command, capture_output=True, text=True)
+    if check and result.returncode != 0:
+        raise RuntimeError(
+            f"local command failed ({result.returncode}): "
+            f"{shlex.join(command)}: {result.stderr.strip()}"
+        )
+    return result
+
+
+def ec2_network_identity(public_ip: str) -> dict[str, str]:
+    result = local_run(
+        [
+            "aws",
+            "ec2",
+            "describe-instances",
+            "--filters",
+            f"Name=ip-address,Values={public_ip}",
+            "--output",
+            "json",
+        ]
+    )
+    payload = json.loads(result.stdout)
+    instances = [
+        instance
+        for reservation in payload.get("Reservations") or []
+        for instance in reservation.get("Instances") or []
+        if instance.get("State", {}).get("Name") != "terminated"
+    ]
+    if len(instances) != 1:
+        raise RuntimeError(
+            f"expected one live EC2 instance for {public_ip}, found {len(instances)}"
+        )
+    instance = instances[0]
+    security_groups = instance.get("SecurityGroups") or []
+    if not instance.get("PrivateIpAddress") or not instance.get("VpcId"):
+        raise RuntimeError(f"EC2 network identity is incomplete for {public_ip}")
+    if not security_groups or not security_groups[0].get("GroupId"):
+        raise RuntimeError(f"EC2 instance {public_ip} has no security group")
+    return {
+        "private_ip": str(instance["PrivateIpAddress"]),
+        "vpc_id": str(instance["VpcId"]),
+        "security_group_id": str(security_groups[0]["GroupId"]),
+    }
+
+
 def remote_sha256(host: str, user: str, path: str) -> str:
     output = remote_run(host, user, ["sha256sum", path]).stdout.split()
     if not output:
@@ -389,6 +439,174 @@ def stream_copy(
         )
 
 
+def stream_copy_direct_vpc(
+    source_host: str,
+    destination_host: str,
+    user: str,
+    source: str,
+    incoming: str,
+) -> None:
+    source_network = ec2_network_identity(source_host)
+    destination_network = ec2_network_identity(destination_host)
+    if source_network["vpc_id"] != destination_network["vpc_id"]:
+        raise RuntimeError(
+            f"direct cache copy requires one VPC: {source_host} and "
+            f"{destination_host} differ"
+        )
+    token = secrets.token_hex(12)
+    marker = f"contextbench-repatriate-{token}"
+    remote_key = f"/tmp/{marker}"
+    source_cidr = f"{source_network['private_ip']}/32"
+    permission = [
+        {
+            "IpProtocol": "tcp",
+            "FromPort": 22,
+            "ToPort": 22,
+            "IpRanges": [
+                {
+                    "CidrIp": source_cidr,
+                    "Description": marker,
+                }
+            ],
+        }
+    ]
+    ingress_created = False
+    key_installed = False
+    try:
+        ingress = local_run(
+            [
+                "aws",
+                "ec2",
+                "authorize-security-group-ingress",
+                "--group-id",
+                destination_network["security_group_id"],
+                "--ip-permissions",
+                json.dumps(permission),
+            ],
+            check=False,
+        )
+        if ingress.returncode == 0:
+            ingress_created = True
+        elif "InvalidPermission.Duplicate" not in ingress.stderr:
+            raise RuntimeError(
+                f"could not authorize direct cache transfer: {ingress.stderr.strip()}"
+            )
+        with tempfile.TemporaryDirectory(prefix="contextbench-repatriate-") as directory:
+            key = Path(directory) / "id_ed25519"
+            local_run(
+                [
+                    "ssh-keygen",
+                    "-q",
+                    "-t",
+                    "ed25519",
+                    "-N",
+                    "",
+                    "-C",
+                    marker,
+                    "-f",
+                    str(key),
+                ]
+            )
+            public_key = key.with_suffix(".pub").read_text().strip()
+            install_key = r"""
+set -euo pipefail
+key=$1
+auth=$HOME/.ssh/authorized_keys
+mkdir -p "$HOME/.ssh"
+touch "$auth"
+chmod 700 "$HOME/.ssh"
+chmod 600 "$auth"
+printf '%s\n' "$key" >> "$auth"
+"""
+            remote_run(
+                destination_host,
+                user,
+                ["bash", "-c", install_key, "repatriate", public_key],
+            )
+            key_installed = True
+            scp = local_run(
+                [
+                    "scp",
+                    *SSH_OPTIONS,
+                    str(key),
+                    f"{user}@{source_host}:{remote_key}",
+                ],
+                check=False,
+            )
+            if scp.returncode != 0:
+                raise RuntimeError(
+                    f"could not stage direct-copy key: {scp.stderr.strip()}"
+                )
+            remote_run(source_host, user, ["chmod", "600", remote_key])
+            remote_run(destination_host, user, ["rm", "-rf", incoming])
+            remote_run(destination_host, user, ["mkdir", "-p", incoming])
+            destination_command = shlex.join(
+                ["tar", "-C", incoming, "-xf", "-"]
+            )
+            transfer = r"""
+set -euo pipefail
+source=$1
+key=$2
+destination=$3
+destination_command=$4
+tar -C "$source" -cf - . | ssh \
+  -i "$key" \
+  -o BatchMode=yes \
+  -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null \
+  -o ConnectTimeout=10 \
+  "$destination" "$destination_command"
+"""
+            remote_run(
+                source_host,
+                user,
+                [
+                    "bash",
+                    "-c",
+                    transfer,
+                    "repatriate",
+                    source,
+                    remote_key,
+                    f"{user}@{destination_network['private_ip']}",
+                    destination_command,
+                ],
+            )
+    except Exception:
+        remote_run(destination_host, user, ["rm", "-rf", incoming], check=False)
+        raise
+    finally:
+        remote_run(source_host, user, ["rm", "-f", remote_key], check=False)
+        if key_installed:
+            remove_key = r"""
+set -euo pipefail
+marker=$1
+auth=$HOME/.ssh/authorized_keys
+tmp=${auth}.tmp.$$
+grep -vF -- "$marker" "$auth" > "$tmp" || true
+chmod 600 "$tmp"
+mv "$tmp" "$auth"
+"""
+            remote_run(
+                destination_host,
+                user,
+                ["bash", "-c", remove_key, "repatriate", marker],
+                check=False,
+            )
+        if ingress_created:
+            local_run(
+                [
+                    "aws",
+                    "ec2",
+                    "revoke-security-group-ingress",
+                    "--group-id",
+                    destination_network["security_group_id"],
+                    "--ip-permissions",
+                    json.dumps(permission),
+                ],
+                check=False,
+            )
+
+
 def promote_cache(host: str, user: str, target: str, incoming: str, lock: str) -> None:
     backup = target + ".pre-repair"
     script = r"""
@@ -480,6 +698,7 @@ def execute_plan(
     binary: str,
     user: str,
     remote_dataset: str,
+    copy_mode: str = "operator",
 ) -> None:
     for index, task in enumerate(plan, 1):
         key = task["cache_key"]
@@ -501,7 +720,12 @@ def execute_plan(
         if task["source_host"] == task["destination_host"]:
             destination_state = source_state
         else:
-            stream_copy(
+            copy = (
+                stream_copy_direct_vpc
+                if copy_mode == "direct-vpc"
+                else stream_copy
+            )
+            copy(
                 task["source_host"],
                 task["destination_host"],
                 user,
@@ -552,6 +776,11 @@ def main() -> None:
         default="/srv/contextbench/contextbench/data/full.parquet",
     )
     parser.add_argument("--ssh-user", default="ubuntu")
+    parser.add_argument(
+        "--copy-mode",
+        choices=("operator", "direct-vpc"),
+        default="operator",
+    )
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
 
@@ -579,6 +808,7 @@ def main() -> None:
         args.memtrace_binary,
         args.ssh_user,
         args.remote_dataset,
+        args.copy_mode,
     )
 
 

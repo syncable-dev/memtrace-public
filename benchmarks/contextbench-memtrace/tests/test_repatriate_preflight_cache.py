@@ -26,6 +26,37 @@ ORCHESTRATOR_SPEC.loader.exec_module(ORCHESTRATOR)
 
 
 class RepatriatePreflightCacheTests(unittest.TestCase):
+    def test_ec2_network_identity_resolves_one_live_instance(self):
+        payload = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "State": {"Name": "running"},
+                            "PrivateIpAddress": "10.0.0.12",
+                            "VpcId": "vpc-1",
+                            "SecurityGroups": [{"GroupId": "sg-1"}],
+                        }
+                    ]
+                }
+            ]
+        }
+        with patch.object(
+            REPATRIATE,
+            "local_run",
+            return_value=CompletedProcess([], 0, json.dumps(payload), ""),
+        ):
+            identity = REPATRIATE.ec2_network_identity("203.0.113.12")
+
+        self.assertEqual(
+            identity,
+            {
+                "private_ip": "10.0.0.12",
+                "vpc_id": "vpc-1",
+                "security_group_id": "sg-1",
+            },
+        )
+
     def test_terminal_fleet_accepts_nonzero_completed_run(self):
         fleet = {
             "shards": {
@@ -328,6 +359,61 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
         self.assertEqual(validate.call_count, 2)
         stream.assert_not_called()
         promote.assert_not_called()
+
+    def test_execute_plan_routes_cross_host_copy_through_direct_vpc(self):
+        task = {
+            "instance_id": "task-a",
+            "repo_url": "https://example.test/repo.git",
+            "base_commit": "a" * 40,
+            "cache_key": "cache-key",
+            "source_host": "source-host",
+            "destination_host": "destination-host",
+            "destination_preflight_run_id": "original-run",
+        }
+        state = {"manifest_sha256": "manifest", "file_count": 42}
+        proof = {
+            "instance_id": "task-a",
+            "status": "success",
+            "cache": {"cache_hit": True},
+        }
+        with patch.object(
+            REPATRIATE, "remote_sha256", return_value="binary"
+        ), patch.object(
+            REPATRIATE, "inspect_cache", return_value=state
+        ), patch.object(
+            REPATRIATE, "validate_cache"
+        ), patch.object(
+            REPATRIATE, "stream_copy"
+        ) as operator_copy, patch.object(
+            REPATRIATE, "stream_copy_direct_vpc"
+        ) as direct_copy, patch.object(
+            REPATRIATE, "promote_cache"
+        ), patch.object(
+            REPATRIATE, "verify_destination_task", return_value=proof
+        ), patch.object(
+            REPATRIATE,
+            "publish_repair_proof",
+            return_value={"succeeded": 1, "total": 1},
+        ):
+            REPATRIATE.execute_plan(
+                [task],
+                Path("fleet.json"),
+                "cache-v1",
+                "/cache",
+                "/memtrace",
+                "ubuntu",
+                "/data/full.parquet",
+                "direct-vpc",
+            )
+
+        operator_copy.assert_not_called()
+        direct_copy.assert_called_once_with(
+            "source-host",
+            "destination-host",
+            "ubuntu",
+            "/cache/cache-key",
+            direct_copy.call_args.args[4],
+        )
 
 
 if __name__ == "__main__":

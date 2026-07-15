@@ -183,6 +183,28 @@ class ShardOrchestratorTests(unittest.TestCase):
 
         self.assertEqual(actual, ["new-timeout"])
 
+    def test_preflight_repair_config_persists_explicit_routes(self):
+        fleet = {
+            "preflight_repair_manifest_out": "/old/manifest.json",
+            "preflight_repair_exclude_run_tags": ["repair-old"],
+        }
+        changed = ORCHESTRATOR.update_preflight_repair_config(
+            fleet,
+            "state/pending.json",
+            "repair-one,repair-two,repair-one",
+        )
+
+        self.assertTrue(changed)
+        self.assertEqual(
+            fleet["preflight_repair_manifest_out"],
+            str(Path("state/pending.json").resolve()),
+        )
+        self.assertEqual(
+            fleet["preflight_repair_exclude_run_tags"],
+            ["repair-one", "repair-two"],
+        )
+        self.assertFalse(ORCHESTRATOR.update_preflight_repair_config(fleet))
+
     def test_preflight_repair_exclusions_fail_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             fleet_state = Path(directory)

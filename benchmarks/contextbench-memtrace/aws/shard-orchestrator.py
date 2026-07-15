@@ -1451,6 +1451,29 @@ def unresolved_preflight_failures(records, excluded_task_ids=()):
     )
 
 
+def update_preflight_repair_config(
+    fleet, repair_manifest_out="", repair_exclude_run_tags=""
+):
+    changed = False
+    if repair_manifest_out:
+        manifest_path = str(Path(repair_manifest_out).resolve())
+        if fleet.get("preflight_repair_manifest_out") != manifest_path:
+            fleet["preflight_repair_manifest_out"] = manifest_path
+            changed = True
+    if repair_exclude_run_tags:
+        run_tags = list(
+            dict.fromkeys(
+                run_tag
+                for run_tag in repair_exclude_run_tags.split(",")
+                if run_tag
+            )
+        )
+        if fleet.get("preflight_repair_exclude_run_tags") != run_tags:
+            fleet["preflight_repair_exclude_run_tags"] = run_tags
+            changed = True
+    return changed
+
+
 def validate_full_preflight_gate(fleet, aggregate, cache_namespace):
     manifest = [str(value) for value in fleet.get("source_manifest") or []]
     if not manifest or len(manifest) != len(set(manifest)):
@@ -1580,6 +1603,12 @@ def ensure_full_tracker_dataset(dataset_path, durable_path=None):
 
 def cmd_collect_preflight(args):
     fleet = load_fleet(args.run_tag)
+    if update_preflight_repair_config(
+        fleet,
+        getattr(args, "repair_manifest_out", ""),
+        getattr(args, "repair_exclude_run_tags", ""),
+    ):
+        save_fleet(args.run_tag, fleet)
     aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
     records_dir = aggregate / "records"
     records_dir.mkdir(parents=True, exist_ok=True)
@@ -1659,19 +1688,8 @@ def cmd_collect_preflight(args):
             "captured_at_unix_ns": time.time_ns(),
         },
     )
-    repair_manifest_out = (
-        getattr(args, "repair_manifest_out", "")
-        or fleet.get("preflight_repair_manifest_out")
-        or ""
-    )
-    repair_run_tags = [
-        run_tag
-        for run_tag in (
-            getattr(args, "repair_exclude_run_tags", "")
-            or ",".join(fleet.get("preflight_repair_exclude_run_tags") or [])
-        ).split(",")
-        if run_tag
-    ]
+    repair_manifest_out = fleet.get("preflight_repair_manifest_out") or ""
+    repair_run_tags = fleet.get("preflight_repair_exclude_run_tags") or []
     if repair_manifest_out:
         excluded_task_ids = preflight_repair_exclusions(repair_run_tags)
         repair_task_ids = unresolved_preflight_failures(

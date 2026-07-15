@@ -87,6 +87,45 @@ class FullPreflightRunnerTests(unittest.TestCase):
                 with self.assertRaises(ProcessLookupError):
                     os.kill(pid, 0)
 
+    def test_timeout_preserves_completed_stages_and_fails_running_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            record_path = root / "records" / "timeout-task.json"
+            record_path.parent.mkdir()
+            record_path.write_text(
+                json.dumps(
+                    {
+                        "instance_id": "timeout-task",
+                        "status": "running",
+                        "stages": {
+                            "dataset": RUNNER.stage("PASS", "metadata"),
+                            "checkout": RUNNER.stage("PASS", "exact checkout"),
+                            "index_embeddings": RUNNER.stage("RUNNING", "indexing"),
+                            "cache_sealed": RUNNER.stage("PENDING", ""),
+                            "mcp": RUNNER.stage("PENDING", ""),
+                        },
+                    }
+                )
+            )
+            args = Namespace(
+                output_dir=root,
+                resume=False,
+                task_timeout=0.1,
+                host="test-host",
+                run_id="test-run",
+            )
+            with mock.patch.object(
+                RUNNER,
+                "child_command",
+                return_value=[sys.executable, "-c", "import time; time.sleep(60)"],
+            ):
+                RUNNER.run_child(args, "timeout-task")
+
+            record = json.loads(record_path.read_text())
+            self.assertEqual(record["stages"]["checkout"]["status"], "PASS")
+            self.assertEqual(record["stages"]["index_embeddings"]["status"], "FAIL")
+            self.assertEqual(record["stages"]["cache_sealed"]["status"], "PENDING")
+
 
 if __name__ == "__main__":
     unittest.main()

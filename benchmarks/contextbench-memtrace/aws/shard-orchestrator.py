@@ -1322,6 +1322,13 @@ def preflight_records_ready(probe, sid):
     raise RuntimeError(f"unexpected preflight records probe for {sid}: {probe!r}")
 
 
+def preflight_record_counts(records):
+    return {
+        status: sum(record.get("status") == status for record in records)
+        for status in ("success", "failure", "running")
+    }
+
+
 def cmd_collect_preflight(args):
     fleet = load_fleet(args.run_tag)
     aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
@@ -1378,16 +1385,20 @@ def cmd_collect_preflight(args):
             shutil.copy2(record_path, destination)
             seen[instance_id] = record
         print(f"  {sid}: collected {len(list(local.glob('*.json')))} records")
-    success = sum(record.get("status") == "success" for record in seen.values())
-    failure = sum(record.get("status") == "failure" for record in seen.values())
+    counts = preflight_record_counts(seen.values())
+    success = counts["success"]
+    failure = counts["failure"]
+    running = counts["running"]
     write_json_atomic(
         aggregate / "summary.json",
         {
             "schema_version": 1,
             "total": len(fleet.get("source_manifest") or []),
-            "terminal_records": len(seen),
+            "records": len(seen),
+            "terminal_records": success + failure,
             "succeeded": success,
             "failed": failure,
+            "running": running,
             "captured_at_unix_ns": time.time_ns(),
         },
     )
@@ -1412,7 +1423,10 @@ def cmd_collect_preflight(args):
                 str(records_dir),
             ]
         )
-    print(f"[collect-preflight] pass={success} fail={failure} terminal={len(seen)}/{len(fleet.get('source_manifest') or [])}")
+    print(
+        f"[collect-preflight] pass={success} running={running} fail={failure} "
+        f"terminal={success + failure}/{len(fleet.get('source_manifest') or [])}"
+    )
 
 
 def sha256_file(path):

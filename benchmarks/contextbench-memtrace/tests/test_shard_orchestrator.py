@@ -64,6 +64,19 @@ class ShardOrchestratorTests(unittest.TestCase):
         self.assertIn('kill -TERM -- "-$pgid"', command)
         self.assertIn('kill -KILL -- "-$pgid"', command)
 
+    def test_preflight_record_counts_keep_running_out_of_terminal_total(self):
+        self.assertEqual(
+            ORCHESTRATOR.preflight_record_counts(
+                [
+                    {"status": "success"},
+                    {"status": "failure"},
+                    {"status": "running"},
+                    {"status": "running"},
+                ]
+            ),
+            {"success": 1, "failure": 1, "running": 2},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

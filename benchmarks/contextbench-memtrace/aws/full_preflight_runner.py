@@ -173,11 +173,28 @@ def run_one(args: argparse.Namespace) -> int:
     lock_handle = None
     stages = {
         "dataset": stage("PASS", "required metadata present"),
-        "checkout": stage("PENDING", ""),
+        "checkout": stage("RUNNING", "preparing exact checkout and embedding-enabled index"),
         "index_embeddings": stage("PENDING", ""),
         "cache_sealed": stage("PENDING", ""),
         "mcp": stage("PENDING", ""),
     }
+
+    def write_progress() -> None:
+        atomic_write_json(
+            record_path,
+            {
+                "schema_version": SCHEMA_VERSION,
+                "instance_id": instance_id,
+                "status": "running",
+                "host": args.host,
+                "run_id": args.run_id,
+                "stages": stages,
+                "seconds": round(time.monotonic() - started, 3),
+                "updated_at_unix_ns": utc_unix_ns(),
+            },
+        )
+
+    write_progress()
     try:
         row = load_row(args.dataset, instance_id)
         cache_entry, repo_root, cache_audit, lock_handle = codex_runner.prepare_cache(
@@ -209,6 +226,7 @@ def run_one(args: argparse.Namespace) -> int:
             raise RuntimeError(f"fresh index wrote no embeddings: {index}")
         index_detail = "compatible embeddings reused" if cache_audit.get("cache_hit") else f"{written} embeddings written"
         stages["index_embeddings"] = stage("PASS", index_detail)
+        write_progress()
 
         manifest_path = codex_runner.cache_manifest_path(cache_entry)
         manifest = read_json(manifest_path)
@@ -222,6 +240,8 @@ def run_one(args: argparse.Namespace) -> int:
         stages["cache_sealed"] = stage(
             "PASS", f"complete.json {complete_manifest_sha(manifest_path)[:16]}"
         )
+        stages["mcp"] = stage("RUNNING", "executing task-scoped find_code")
+        write_progress()
 
         env = codex_runner.memtrace_environment(
             repo_root, cache_entry, args.rerank_model_dir, args.memtrace_binary
@@ -264,7 +284,11 @@ def run_one(args: argparse.Namespace) -> int:
         return 0
     except Exception as error:
         failing_stage = next(
-            (name for name, value in stages.items() if value["status"] == "PENDING"),
+            (
+                name
+                for name, value in stages.items()
+                if value["status"] in {"RUNNING", "PENDING"}
+            ),
             "mcp",
         )
         stages[failing_stage] = stage("FAIL", f"{type(error).__name__}: {error}")
@@ -355,6 +379,25 @@ def run_child(args: argparse.Namespace, instance_id: str) -> tuple[str, int, str
         return instance_id, process.returncode, (output or "")[-4000:]
     except subprocess.TimeoutExpired:
         output = terminate_process_group(process)
+        progress = read_json(record_path)
+        stages = progress.get("stages")
+        if not isinstance(stages, dict):
+            stages = {
+                "dataset": stage("PASS", "required metadata present"),
+                "checkout": stage("RUNNING", "preflight task did not report a stage"),
+            }
+        failing_stage = next(
+            (
+                name
+                for name, value in stages.items()
+                if isinstance(value, dict)
+                and value.get("status") in {"RUNNING", "PENDING"}
+            ),
+            "checkout",
+        )
+        stages[failing_stage] = stage(
+            "FAIL", f"preflight timed out after {args.task_timeout}s"
+        )
         atomic_write_json(
             record_path,
             {
@@ -363,7 +406,7 @@ def run_child(args: argparse.Namespace, instance_id: str) -> tuple[str, int, str
                 "status": "failure",
                 "host": args.host,
                 "run_id": args.run_id,
-                "stages": {"dataset": stage("PASS", "required metadata present"), "checkout": stage("FAIL", f"preflight timed out after {args.task_timeout}s")},
+                "stages": stages,
                 "error": "TimeoutExpired",
                 "detail": f"task process group terminated after {args.task_timeout}s",
                 "completed_at_unix_ns": utc_unix_ns(),

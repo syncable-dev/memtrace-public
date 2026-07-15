@@ -1015,7 +1015,6 @@ def cmd_run(args):
         inner = (
             f"set -e; "
             f"export OPENAI_API_KEY=$(grep '^OPENAI_API_KEY=' {REMOTE_ADAPTER_DIR}/.env | head -1 | cut -d= -f2-); "
-            f'echo "[{sid}] OPENAI_API_KEY prefix: ${{OPENAI_API_KEY:0:8}}"; '
             f"[ -n \"$OPENAI_API_KEY\" ] || {{ echo 'FATAL: OPENAI_API_KEY empty'; exit 1; }}; "
             f"BENCHMARK_LANE={lane} AGENT_MODEL={agent_model} AGENT_HISTORY_DAYS={history_days} "
             f"CB_SEARCH_LIMIT=100 CB_PACK_POLICY=v4 CB_QUERY_STRATEGY=v3 "

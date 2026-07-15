@@ -96,6 +96,15 @@ def stage(status: str, detail: str) -> dict[str, str]:
     return {"status": status, "detail": detail}
 
 
+def apply_cache_progress(stages: dict[str, dict[str, str]], event: str) -> None:
+    if event != "checkout_ready":
+        raise ValueError(f"unknown cache progress event: {event}")
+    stages["checkout"] = stage("PASS", "exact checkout ready")
+    stages["index_embeddings"] = stage(
+        "RUNNING", "building or validating embedding-enabled index"
+    )
+
+
 def complete_manifest_sha(path: Path) -> str:
     digest = hashlib.sha256()
     digest.update(path.read_bytes())
@@ -197,6 +206,11 @@ def run_one(args: argparse.Namespace) -> int:
     write_progress()
     try:
         row = load_row(args.dataset, instance_id)
+
+        def cache_progress(event: str) -> None:
+            apply_cache_progress(stages, event)
+            write_progress()
+
         cache_entry, repo_root, cache_audit, lock_handle = codex_runner.prepare_cache(
             row,
             args.graph_cache_dir,
@@ -204,6 +218,7 @@ def run_one(args: argparse.Namespace) -> int:
             args.memtrace_binary,
             args.rerank_model_dir,
             0,
+            progress=cache_progress,
         )
         expected_commit = str(row["base_commit"])
         actual_commit = codex_runner.git_output(repo_root, "rev-parse", "HEAD")

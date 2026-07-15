@@ -23,6 +23,15 @@ class FullPreflightRunnerTests(unittest.TestCase):
         self.assertTrue(query.startswith("alpha beta"))
         self.assertEqual(len(query), 600)
 
+    def test_cache_progress_splits_checkout_from_indexing(self):
+        stages = {
+            "checkout": RUNNER.stage("RUNNING", "checkout"),
+            "index_embeddings": RUNNER.stage("PENDING", ""),
+        }
+        RUNNER.apply_cache_progress(stages, "checkout_ready")
+        self.assertEqual(stages["checkout"]["status"], "PASS")
+        self.assertEqual(stages["index_embeddings"]["status"], "RUNNING")
+
     def test_manifest_loader_preserves_explicit_order(self):
         import pandas as pd
 

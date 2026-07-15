@@ -27,7 +27,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import runner as retrieval
 
@@ -382,6 +382,7 @@ def prepare_cache(
     memtrace_binary: Path,
     rerank_model_dir: Path,
     history_days: int,
+    progress: Callable[[str], None] | None = None,
 ) -> tuple[Path, Path, dict[str, Any], Any]:
     repo_url = str(row["repo_url"])
     base_commit = str(row["base_commit"])
@@ -406,6 +407,8 @@ def prepare_cache(
     legacy_hit = False
     repository: dict[str, Any] | None = None
     if repo_root and checkout_is_exact(repo_root, base_commit):
+        if progress is not None:
+            progress("checkout_ready")
         current_match = all(manifest.get(key) == value for key, value in expected.items())
         legacy_hit = legacy_cache_matches(manifest, repo_url, base_commit, namespace)
         if current_match or legacy_hit:
@@ -427,6 +430,8 @@ def prepare_cache(
         cache_entry.mkdir(parents=True, exist_ok=True)
         repo_root = cache_entry / "repo"
         ensure_clean_checkout(repo_url, base_commit, repo_root)
+        if progress is not None:
+            progress("checkout_ready")
         reincluded = retrieval.write_tracked_dir_reincludes(repo_root)
         env = memtrace_environment(
             repo_root,

@@ -1282,31 +1282,43 @@ def cmd_poll_preflight(args):
             ip,
             f"success=$(grep -l '\"status\": \"success\"' {results_dir}/records/*.json 2>/dev/null | wc -l); "
             f"failure=$(grep -l '\"status\": \"failure\"' {results_dir}/records/*.json 2>/dev/null | wc -l); "
-            "printf '%s %s\\n' \"$success\" \"$failure\"",
+            f"running=$(grep -l '\"status\": \"running\"' {results_dir}/records/*.json 2>/dev/null | wc -l); "
+            "printf '%s %s %s\\n' \"$success\" \"$running\" \"$failure\"",
             check=False,
             timeout=30,
         )
         counts = output.stdout.strip().split()
-        success, failure = (int(counts[0]), int(counts[1])) if len(counts) == 2 else (-1, -1)
+        success, running, failure = (
+            (int(counts[0]), int(counts[1]), int(counts[2]))
+            if len(counts) == 3
+            else (-1, -1, -1)
+        )
         alive = ssh_run(
             ip,
             "tmux has-session -t contextbench-preflight 2>/dev/null && echo yes || echo no",
             check=False,
             timeout=20,
         ).stdout.strip() == "yes"
-        return sid, success, failure, len(info["task_ids"]), alive
+        return sid, success, running, failure, len(info["task_ids"]), alive
 
-    totals = [0, 0, 0]
+    totals = [0, 0, 0, 0]
     with ThreadPoolExecutor(max_workers=args.parallel) as executor:
         futures = [executor.submit(poll_one, sid) for sid in shard_ids]
         for future in as_completed(futures):
-            sid, success, failure, total, alive = future.result()
+            sid, success, running, failure, total, alive = future.result()
             totals[0] += max(success, 0)
-            totals[1] += max(failure, 0)
-            totals[2] += total
+            totals[1] += max(running, 0)
+            totals[2] += max(failure, 0)
+            totals[3] += total
             state = "RUNNING" if alive else ("DONE" if success + failure == total else "STOPPED(!)")
-            print(f"  {sid}: pass={success} fail={failure} total={total} {state}")
-    print(f"[poll-preflight] pass={totals[0]} fail={totals[1]} terminal={totals[0] + totals[1]}/{totals[2]}")
+            print(
+                f"  {sid}: pass={success} running={running} fail={failure} "
+                f"total={total} {state}"
+            )
+    print(
+        f"[poll-preflight] pass={totals[0]} running={totals[1]} fail={totals[2]} "
+        f"terminal={totals[0] + totals[2]}/{totals[3]}"
+    )
 
 
 def preflight_records_ready(probe, sid):

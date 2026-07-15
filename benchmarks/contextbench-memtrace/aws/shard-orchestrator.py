@@ -1350,6 +1350,36 @@ def preflight_record_counts(records):
     }
 
 
+def preflight_repair_exclusions(run_tags):
+    excluded = set()
+    for run_tag in run_tags:
+        state_path = fleet_path(run_tag)
+        if not state_path.exists():
+            raise RuntimeError(f"repair fleet state is missing: {state_path}")
+        repair_fleet = json.loads(state_path.read_text())
+        source_manifest = [
+            str(instance_id)
+            for instance_id in repair_fleet.get("source_manifest") or []
+        ]
+        if not source_manifest:
+            raise RuntimeError(f"repair fleet has an empty source manifest: {run_tag}")
+        excluded.update(source_manifest)
+    return excluded
+
+
+def unresolved_preflight_failures(records, excluded_task_ids=()):
+    excluded = {str(instance_id) for instance_id in excluded_task_ids}
+    return sorted(
+        {
+            str(record.get("instance_id") or "")
+            for record in records
+            if record.get("status") == "failure"
+            and record.get("instance_id")
+            and str(record["instance_id"]) not in excluded
+        }
+    )
+
+
 def validate_full_preflight_gate(fleet, aggregate, cache_namespace):
     manifest = [str(value) for value in fleet.get("source_manifest") or []]
     if not manifest or len(manifest) != len(set(manifest)):
@@ -1557,6 +1587,29 @@ def cmd_collect_preflight(args):
             "captured_at_unix_ns": time.time_ns(),
         },
     )
+    repair_manifest_out = (
+        getattr(args, "repair_manifest_out", "")
+        or fleet.get("preflight_repair_manifest_out")
+        or ""
+    )
+    repair_run_tags = [
+        run_tag
+        for run_tag in (
+            getattr(args, "repair_exclude_run_tags", "")
+            or ",".join(fleet.get("preflight_repair_exclude_run_tags") or [])
+        ).split(",")
+        if run_tag
+    ]
+    if repair_manifest_out:
+        excluded_task_ids = preflight_repair_exclusions(repair_run_tags)
+        repair_task_ids = unresolved_preflight_failures(
+            seen.values(), excluded_task_ids
+        )
+        write_json_atomic(Path(repair_manifest_out), repair_task_ids)
+        print(
+            f"  repair manifest: {len(repair_task_ids)} tasks -> "
+            f"{repair_manifest_out}"
+        )
     tracker_dataset = Path(fleet.get("dataset_path_local") or args.dataset)
     tracker_state = AWS_DIR / "state" / "preflight" / "full-1136" / "task-status.jsonl"
     tracker = ADAPTER_DIR / "TRACKER.md"
@@ -1826,6 +1879,8 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--parallel", type=int, default=5)
     ap.add_argument("--task-timeout", type=int, default=7200)
+    ap.add_argument("--repair-manifest-out", default="")
+    ap.add_argument("--repair-exclude-run-tags", default="")
     ap.add_argument(
         "--lane",
         choices=("agent", "codex"),

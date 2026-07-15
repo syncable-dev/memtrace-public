@@ -81,6 +81,42 @@ class ShardOrchestratorTests(unittest.TestCase):
             {"success": 1, "failure": 1, "running": 2},
         )
 
+    def test_preflight_repair_manifest_excludes_assigned_fleet_tasks(self):
+        records = [
+            {"instance_id": "already-assigned", "status": "failure"},
+            {"instance_id": "new-timeout", "status": "failure"},
+            {"instance_id": "passed", "status": "success"},
+            {"instance_id": "still-running", "status": "running"},
+        ]
+
+        actual = ORCHESTRATOR.unresolved_preflight_failures(
+            records, {"already-assigned"}
+        )
+
+        self.assertEqual(actual, ["new-timeout"])
+
+    def test_preflight_repair_exclusions_fail_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fleet_state = Path(directory)
+            repair_dir = fleet_state / "repair-a"
+            repair_dir.mkdir()
+            (repair_dir / "fleet.json").write_text(
+                json.dumps({"source_manifest": ["task-b", "task-a"]}) + "\n"
+            )
+            original = ORCHESTRATOR.FLEET_STATE_DIR
+            ORCHESTRATOR.FLEET_STATE_DIR = fleet_state
+            try:
+                self.assertEqual(
+                    ORCHESTRATOR.preflight_repair_exclusions(["repair-a"]),
+                    {"task-a", "task-b"},
+                )
+                with self.assertRaisesRegex(
+                    RuntimeError, "repair fleet state is missing"
+                ):
+                    ORCHESTRATOR.preflight_repair_exclusions(["missing"])
+            finally:
+                ORCHESTRATOR.FLEET_STATE_DIR = original
+
     def test_dataset_task_count_uses_full_dataset_not_subset_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             dataset = Path(directory) / "full.parquet"

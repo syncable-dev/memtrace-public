@@ -342,9 +342,15 @@ def ensure_fleet_terminal(fleet: dict[str, Any], user: str) -> None:
             ["cat", f"/srv/contextbench/preflight/{run_id}/exit_code"],
             check=False,
         )
-        if exit_code.returncode != 0 or exit_code.stdout.strip() != "0":
+        try:
+            int(exit_code.stdout.strip())
+        except (TypeError, ValueError):
             raise RuntimeError(
-                f"{shard_id} preflight is not successfully terminal on {host}"
+                f"{shard_id} preflight is not terminal on {host}"
+            )
+        if exit_code.returncode != 0:
+            raise RuntimeError(
+                f"{shard_id} preflight is not terminal on {host}"
             )
 
 

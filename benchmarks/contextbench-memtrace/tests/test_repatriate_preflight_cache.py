@@ -26,6 +26,39 @@ ORCHESTRATOR_SPEC.loader.exec_module(ORCHESTRATOR)
 
 
 class RepatriatePreflightCacheTests(unittest.TestCase):
+    def test_terminal_fleet_accepts_nonzero_completed_run(self):
+        fleet = {
+            "shards": {
+                "shard-00": {
+                    "public_ip": "host",
+                    "preflight_run_id": "run",
+                }
+            }
+        }
+        with patch.object(
+            REPATRIATE,
+            "remote_run",
+            return_value=CompletedProcess([], 0, "1\n", ""),
+        ):
+            REPATRIATE.ensure_fleet_terminal(fleet, "ubuntu")
+
+    def test_terminal_fleet_rejects_missing_exit_receipt(self):
+        fleet = {
+            "shards": {
+                "shard-00": {
+                    "public_ip": "host",
+                    "preflight_run_id": "run",
+                }
+            }
+        }
+        with patch.object(
+            REPATRIATE,
+            "remote_run",
+            return_value=CompletedProcess([], 1, "", "missing"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "not terminal"):
+                REPATRIATE.ensure_fleet_terminal(fleet, "ubuntu")
+
     def test_publish_repair_proof_updates_destination_gate_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             fleet_dir = Path(directory) / "fleet" / "main"

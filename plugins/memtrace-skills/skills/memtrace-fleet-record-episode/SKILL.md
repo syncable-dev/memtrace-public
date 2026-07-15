@@ -41,7 +41,7 @@ never make your edit a Class C.
 ## After recording
 
 - Class A/B → continue.
-- Class C → enter the decision loop (see `memtrace-fleet-coordination`). Don't keep
+- Class C → enter the decision loop (see `memtrace-fleet-first`). Don't keep
   editing the contested symbols until your directive is `proceed`.
 - Every recorded episode is logged and persists as the fleet's reviewable audit
   trail. Review history with `fleet_query_episodes({repo_id, node?, conflict_class?})`.

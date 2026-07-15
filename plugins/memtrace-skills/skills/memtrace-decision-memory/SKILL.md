@@ -1,6 +1,6 @@
 ---
 name: memtrace-decision-memory
-description: "Check Cortex decision memory through the normal Memtrace MCP tools — the umbrella entry point for decision recall, provenance (why is this here), intent verification, and governing contracts. Use before assuming WHY code exists, before any non-trivial edit/refactor/delete of existing code, before re-picking a library/pattern/architecture, or before contradicting an apparent convention. Route: free-text decisions/bans/conventions → memtrace-decision-recall; symbol lineage/contracts → memtrace-provenance; did the decision hold → memtrace-intent-verification. Do not guess rationale from the diff or git log."
+description: "Use Cortex decision memory through the normal Memtrace MCP tools. Trigger for free-text questions about what was decided, chosen, rejected, banned, or established as a convention; for why a symbol exists or which contracts constrain it; for whether a known decision held, drifted, or was violated; and for the implementation arc behind a decision. Use before non-trivial edits, refactors, deletions, or re-picking a library, pattern, architecture, or subsystem behavior. Routes internally across recall_decision, why_is_this_here, governing_contracts, verify_intent, and get_arc. Do not guess rationale from a diff or git log."
 ---
 
 # Decision Memory First
@@ -53,16 +53,16 @@ with `memtrace-first`; do not fabricate decisions.
 
 ## The decision rule
 
-| What you're about to do / be asked | Right tool | Sub-skill |
+| What you're about to do / be asked | Right tool | Procedure |
 |---|---|---|
-| "Did we already decide/choose/reject X?" "What's our convention on Y?" | `recall_decision("X")` | `memtrace-decision-recall` |
-| "Is there a ban / a 'don't do this' on Z?" | `recall_decision("Z")` — bans surface as decisions | `memtrace-decision-recall` |
-| About to edit behavior, re-pick a library/pattern/architecture, or change a subsystem policy | `recall_decision` FIRST — don't re-litigate a settled call | `memtrace-decision-recall` |
-| "Why is this code here?" "Why is it done this odd way?" | `why_is_this_here(symbol_id)` | `memtrace-provenance` |
-| About to delete/refactor/clean up existing code, especially odd or "dead" code | `why_is_this_here` + `governing_contracts` before touching it | `memtrace-provenance` |
-| "What rules/contracts constrain this symbol?" | `governing_contracts(symbol_id)` | `memtrace-provenance` |
-| "Did decision D actually hold, or did we drift?" | `verify_intent(decision_id)` | `memtrace-intent-verification` |
-| "What commits/episodes implemented decision D?" | `get_arc(decision_id)` | `memtrace-intent-verification` |
+| "Did we already decide/choose/reject X?" "What's our convention on Y?" | `recall_decision("X")` | Free-text recall |
+| "Is there a ban / a 'don't do this' on Z?" | `recall_decision("Z")` — bans surface as decisions | Free-text recall |
+| About to edit behavior, re-pick a library/pattern/architecture, or change a subsystem policy | `recall_decision` FIRST — don't re-litigate a settled call | Free-text recall |
+| "Why is this code here?" "Why is it done this odd way?" | `why_is_this_here(symbol_id)` | Symbol provenance |
+| About to delete/refactor/clean up existing code, especially odd or "dead" code | `why_is_this_here` + `governing_contracts` before touching it | Symbol provenance |
+| "What rules/contracts constrain this symbol?" | `governing_contracts(symbol_id)` | Symbol contracts |
+| "Did decision D actually hold, or did we drift?" | `verify_intent(decision_id)` | Intent verification |
+| "What commits/episodes implemented decision D?" | `get_arc(decision_id)` | Implementation arc |
 
 ## How the tools chain (ids come from recall, not from names)
 
@@ -126,8 +126,8 @@ The routing outcome: which sibling skill/tool to invoke, and the evidence to quo
 
 ```
 Ask:    "Should I switch to library X?"
-Route:  recall_decision("library X")   →  memtrace-decision-recall
+Route:  recall_decision("library X")   →  free-text recall
 Hit:    { id: 4217, kind: "decision", ... }   (a ban exists)
-Next:   verify_intent(4217)            →  memtrace-intent-verification
+Next:   verify_intent(4217)            →  intent verification
 Quote:  Verdict + Evidence (FactStatus, proof path) — or CannotProve = unknown, not permission
 ```

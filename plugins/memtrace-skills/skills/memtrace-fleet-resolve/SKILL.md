@@ -1,6 +1,6 @@
 ---
 name: memtrace-fleet-resolve
-description: "Resolve a Class C fleet decision: submit your verdict as an agent judge (fleet_submit_verdict), poll your own directive (fleet_get_escalation), see the needs-human queue (fleet_list_escalations), or record a human decision (fleet_resolve_escalation). Use when the user says 'a decision is waiting' or 'who should proceed', when you are handed a mediation_request, when acting as a mediator between two agents, or when a human chooses a winner in the dashboard. For the underlying conflict-class model and decision loop, see memtrace-fleet-coordination."
+description: "Resolve a Class C fleet decision: submit your verdict as an agent judge (fleet_submit_verdict), poll your own directive (fleet_get_escalation), see the needs-human queue (fleet_list_escalations), or record a human decision (fleet_resolve_escalation). Use when the user says 'a decision is waiting' or 'who should proceed', when you are handed a mediation_request, when acting as a mediator between two agents, or when a human chooses a winner in the dashboard. For the underlying conflict-class model and decision loop, see memtrace-fleet-first."
 ---
 
 ## Overview

@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -319,20 +320,41 @@ def child_command(args: argparse.Namespace, instance_id: str) -> list[str]:
     return command
 
 
+def terminate_process_group(process: subprocess.Popen[str], grace_seconds: float = 5.0) -> str:
+    """Stop one isolated task and every subprocess it started."""
+    if process.poll() is None:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=grace_seconds)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+    output, _ = process.communicate()
+    return output or ""
+
+
 def run_child(args: argparse.Namespace, instance_id: str) -> tuple[str, int, str]:
     record_path = args.output_dir / "records" / f"{slug(instance_id)}.json"
     if args.resume and read_json(record_path).get("status") == "success":
         return instance_id, 0, "cached terminal record"
+    process = subprocess.Popen(
+        child_command(args, instance_id),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
     try:
-        completed = subprocess.run(
-            child_command(args, instance_id),
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            timeout=args.task_timeout,
-        )
-        return instance_id, completed.returncode, completed.stdout[-4000:]
-    except subprocess.TimeoutExpired as error:
+        output, _ = process.communicate(timeout=args.task_timeout)
+        return instance_id, process.returncode, (output or "")[-4000:]
+    except subprocess.TimeoutExpired:
+        output = terminate_process_group(process)
         atomic_write_json(
             record_path,
             {
@@ -343,11 +365,12 @@ def run_child(args: argparse.Namespace, instance_id: str) -> tuple[str, int, str
                 "run_id": args.run_id,
                 "stages": {"dataset": stage("PASS", "required metadata present"), "checkout": stage("FAIL", f"preflight timed out after {args.task_timeout}s")},
                 "error": "TimeoutExpired",
-                "detail": str(error),
+                "detail": f"task process group terminated after {args.task_timeout}s",
                 "completed_at_unix_ns": utc_unix_ns(),
             },
         )
-        return instance_id, 124, f"timed out after {args.task_timeout}s"
+        suffix = f"\n{output[-3500:]}" if output else ""
+        return instance_id, 124, f"timed out after {args.task_timeout}s{suffix}"
 
 
 def run_bulk(args: argparse.Namespace) -> int:

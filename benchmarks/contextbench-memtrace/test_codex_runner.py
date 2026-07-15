@@ -201,9 +201,10 @@ class CodexRunnerTests(unittest.TestCase):
         self.assertIn("no more than 24 Memtrace calls", prompt)
         self.assertIn("never append `:line`", prompt)
         self.assertIn("deterministic recall floor", prompt)
+        self.assertIn("Include a test, configuration, fixture", prompt)
         self.assertNotIn("gold context", prompt.split("Task:", 1)[1])
 
-    def test_projection_fills_unused_budget_from_repeated_production_context(self):
+    def test_projection_fills_unused_budget_from_repeated_repo_context(self):
         structured = [{"file": "src/main.py", "start": 20, "end": 24}]
         steps = [
             {
@@ -215,7 +216,10 @@ class CodexRunnerTests(unittest.TestCase):
             },
             {
                 "spans": {
-                    "src/related.py": [{"start": 45, "end": 65, "type": "line"}]
+                    "src/related.py": [{"start": 45, "end": 65, "type": "line"}],
+                    "tests/test_main.py": [
+                        {"start": 20, "end": 45, "type": "line"}
+                    ],
                 }
             },
         ]
@@ -224,13 +228,18 @@ class CodexRunnerTests(unittest.TestCase):
         )
         self.assertEqual(selected[0], structured[0])
         self.assertTrue(any(item["file"] == "src/related.py" for item in selected))
-        self.assertFalse(any(item["file"].startswith("tests/") for item in selected))
+        self.assertTrue(any(item["file"].startswith("tests/") for item in selected))
         lines = {
             (item["file"], line)
             for item in selected
             for line in range(item["start"], item["end"] + 1)
         }
         self.assertLessEqual(len(lines), 200)
+
+    def test_projection_allows_authored_documentation_but_not_vendored_source(self):
+        self.assertTrue(codex_runner.projection_path_allowed("docs/upgrade.rst"))
+        self.assertTrue(codex_runner.projection_path_allowed("tests/test_main.py"))
+        self.assertFalse(codex_runner.projection_path_allowed("vendor/lib/main.py"))
 
     def test_legacy_cache_identity_requires_exact_repo_commit_and_namespace(self):
         manifest = {

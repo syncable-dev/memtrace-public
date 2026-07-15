@@ -594,7 +594,7 @@ Memtrace is already fully indexed and embedded for the exact base commit. Use it
 
 Keep discovery efficient: use ranked search limits of at most 10, source windows of at most 120 lines, and normally no more than 24 Memtrace calls before implementing and testing. Prefer one precise follow-up query over repeatedly reopening the same file. This is a budget, not permission to stop before you have enough evidence for a correct fix.
 
-Your structured final `contexts` must rank only the smallest exact production file -> symbol -> line ranges that directly governed your fix. The harness adds a deterministic recall floor from your observed Memtrace trajectory, so do not pad this list. Put only the repository-relative file path in `file` (never append `:line`). Keep their union within {line_budget} source lines. Do not include broad exploration windows or test files unless the production behavior itself is defined there.
+Your structured final `contexts` must rank only the smallest exact repository file -> symbol -> line ranges that directly governed your fix. The harness adds a deterministic recall floor from your observed Memtrace trajectory, so do not pad this list. Put only the repository-relative file path in `file` (never append `:line`). Keep their union within {line_budget} source lines. Include a test, configuration, fixture, or authored documentation range when it directly defines or verifies the behavior being fixed; do not include broad exploration windows.
 
 Task:
 {issue}
@@ -822,16 +822,11 @@ def projection_path_allowed(path: str) -> bool:
     lowered = path.lower()
     parts = set(Path(lowered).parts)
     if parts.intersection(
-        {"node_modules", "vendor", "vendored", "third_party", "docs", "doc"}
+        {"node_modules", "vendor", "vendored", "third_party"}
     ):
         return False
-    if any(part == "tests" or part == "test" for part in parts):
-        return False
-    name = Path(lowered).name
-    if re.search(r"(^test_|[._-](test|spec)s?\.)", name):
-        return False
     return Path(lowered).suffix in SOURCE_SUFFIXES.union(
-        {".cfg", ".ini", ".json", ".toml", ".yaml", ".yml"}
+        {".cfg", ".ini", ".json", ".md", ".rst", ".toml", ".yaml", ".yml"}
     )
 
 
@@ -893,6 +888,8 @@ def project_hierarchical_recall(
     step_list = list(steps)
     file_steps: dict[str, set[int]] = {}
     occurrences: dict[tuple[str, int, int], set[int]] = {}
+    ranked_by_file: dict[str, list[dict[str, Any]]] = {}
+
     for step_index, step in enumerate(step_list):
         spans = step.get("spans") if isinstance(step, dict) else None
         if not isinstance(spans, dict):
@@ -923,6 +920,23 @@ def project_hierarchical_recall(
                 key = (file, candidate["start"], candidate["end"])
                 occurrences.setdefault(key, set()).add(step_index)
                 file_steps.setdefault(file, set()).add(step_index)
+        retrieval_evidence = step.get("retrieval") if isinstance(step, dict) else None
+        if isinstance(retrieval_evidence, list):
+            for evidence in retrieval_evidence:
+                if not isinstance(evidence, dict):
+                    continue
+                file = evidence.get("file")
+                rank = evidence.get("rank")
+                if (
+                    not isinstance(file, str)
+                    or not isinstance(rank, int)
+                    or isinstance(rank, bool)
+                    or rank < 1
+                ):
+                    continue
+                ranked_by_file.setdefault(file, []).append(
+                    {**evidence, "step": step_index}
+                )
 
     def overlaps_seed(file: str, start: int, end: int) -> bool:
         return any(
@@ -936,21 +950,61 @@ def project_hierarchical_recall(
         {"file": file, "start": start, "end": end}
         for file, start, end in occurrences
     ]
-    candidates.sort(
-        key=lambda item: (
+
+    def candidate_rank(item: dict[str, Any]) -> tuple[Any, ...]:
+        key = (item["file"], item["start"], item["end"])
+        width = item["end"] - item["start"] + 1
+        span_steps = len(occurrences[key])
+        file_step_count = len(file_steps.get(item["file"], set()))
+        recency = max(occurrences[key], default=-1)
+        common = (
             item["file"] not in anchor_files,
             not overlaps_seed(item["file"], item["start"], item["end"]),
-            -len(file_steps.get(item["file"], set())),
-            -len(occurrences[(item["file"], item["start"], item["end"])]),
-            -max(
-                occurrences[(item["file"], item["start"], item["end"])],
-                default=-1,
-            ),
-            item["end"] - item["start"],
-            item["file"],
-            item["start"],
         )
-    )
+        mode = str(policy.get("candidate_rank", "consensus"))
+        if mode == "memtrace-rank":
+            ranked = ranked_by_file.get(item["file"], [])
+            overlapping = [
+                evidence
+                for evidence in ranked
+                if isinstance(evidence.get("start"), int)
+                and isinstance(evidence.get("end"), int)
+                and int(evidence["end"]) >= item["start"]
+                and int(evidence["start"]) <= item["end"]
+            ]
+            exact = [
+                evidence
+                for evidence in overlapping
+                if str(evidence.get("kind") or "").lower() != "file"
+            ]
+            evidence = (
+                not bool(exact),
+                min((int(value["rank"]) for value in exact), default=10**9),
+                min((int(value["rank"]) for value in ranked), default=10**9),
+                -len({int(value["step"]) for value in exact}),
+                width,
+                -span_steps,
+                -file_step_count,
+                -recency,
+            )
+        elif mode == "narrow":
+            evidence = (width, -span_steps, -file_step_count, -recency)
+        elif mode == "repeated-narrow":
+            evidence = (-span_steps, width, -file_step_count, -recency)
+        elif mode == "recent-narrow":
+            evidence = (-recency, width, -span_steps, -file_step_count)
+        elif mode == "density":
+            evidence = (
+                -(span_steps * 10_000 // width),
+                width,
+                -file_step_count,
+                -recency,
+            )
+        else:
+            evidence = (-file_step_count, -span_steps, -recency, width)
+        return (*common, *evidence, item["file"], item["start"])
+
+    candidates.sort(key=candidate_rank)
 
     selected: list[dict[str, Any]] = []
     covered: set[tuple[str, int]] = set()
@@ -960,12 +1014,22 @@ def project_hierarchical_recall(
         if cap <= len(covered):
             return False
         remaining = min(line_budget, cap) - len(covered)
-        candidate = clip_context(item, max(1, remaining), seeds)
-        lines = {
-            (candidate["file"], line)
-            for line in range(candidate["start"], candidate["end"] + 1)
-        }
-        novel = lines - covered
+        limit = max(1, remaining)
+        item_lines = int(item["end"]) - int(item["start"]) + 1
+        while True:
+            candidate = clip_context(item, min(item_lines, limit), seeds)
+            lines = {
+                (candidate["file"], line)
+                for line in range(candidate["start"], candidate["end"] + 1)
+            }
+            novel = lines - covered
+            if (
+                not policy.get("fill_novel_lines")
+                or len(novel) >= remaining
+                or limit >= item_lines
+            ):
+                break
+            limit = min(item_lines, limit + remaining - len(novel))
         if not novel or len(novel) > remaining:
             return False
         if candidate not in selected:
@@ -976,8 +1040,46 @@ def project_hierarchical_recall(
     for seed in seeds:
         append(seed, line_budget)
     primary_cap = min(line_budget, max(len(covered), int(policy["primary_lines"])))
-    for candidate in candidates:
-        if candidate["file"] in anchor_files:
+    seed_padding = int(policy.get("seed_padding", 0))
+    if seed_padding > 0:
+        seed_padding_step = max(1, int(policy.get("seed_padding_step", seed_padding)))
+        padding_rings = list(range(seed_padding_step, seed_padding + 1, seed_padding_step))
+        if not padding_rings or padding_rings[-1] != seed_padding:
+            padding_rings.append(seed_padding)
+        for padding in padding_rings:
+            for seed in seeds:
+                append(
+                    {
+                        "file": seed["file"],
+                        "start": max(1, seed["start"] - padding),
+                        "end": seed["end"] + padding,
+                    },
+                    primary_cap,
+                )
+                if len(covered) >= primary_cap:
+                    break
+            if len(covered) >= primary_cap:
+                break
+    primary_candidates = [
+        candidate for candidate in candidates if candidate["file"] in anchor_files
+    ]
+    primary_chunk_lines = int(policy.get("primary_chunk_lines", 0))
+    if not policy.get("trajectory_fill", True):
+        primary_candidates = []
+    if primary_chunk_lines > 0:
+        while len(covered) < primary_cap:
+            before = len(covered)
+            for candidate in primary_candidates:
+                append(
+                    candidate,
+                    min(primary_cap, len(covered) + primary_chunk_lines),
+                )
+                if len(covered) >= primary_cap:
+                    break
+            if len(covered) == before:
+                break
+    else:
+        for candidate in primary_candidates:
             append(candidate, primary_cap)
 
     cross_files = 0
@@ -987,7 +1089,8 @@ def project_hierarchical_recall(
         if (
             file in anchor_files
             or file in used_cross_files
-            or len(file_steps.get(file, set())) < 2
+            or len(file_steps.get(file, set()))
+            < int(policy.get("min_file_steps", 2))
             or cross_files >= int(policy["cross_files"])
         ):
             continue
@@ -998,6 +1101,16 @@ def project_hierarchical_recall(
         if append(candidate, cross_cap):
             used_cross_files.add(file)
             cross_files += 1
+    fill_lines = int(policy.get("fill_lines", 0))
+    if fill_lines > 0:
+        for candidate in candidates:
+            if len(covered) >= line_budget:
+                break
+            file = candidate["file"]
+            if file not in anchor_files and file not in used_cross_files:
+                continue
+            fill_cap = min(line_budget, len(covered) + fill_lines)
+            append(candidate, fill_cap)
     return selected
 
 

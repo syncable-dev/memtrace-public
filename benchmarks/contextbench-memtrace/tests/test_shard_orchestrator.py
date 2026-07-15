@@ -48,6 +48,14 @@ class ShardOrchestratorTests(unittest.TestCase):
             {"instance_id": "i-1", "public_ip": "127.0.0.1", "volume_id": "vol-1"},
         )
 
+    def test_preflight_records_probe_allows_workers_to_start(self):
+        self.assertFalse(ORCHESTRATOR.preflight_records_ready("pending\n", "shard-00"))
+        self.assertTrue(ORCHESTRATOR.preflight_records_ready("ready\n", "shard-00"))
+
+    def test_preflight_records_probe_rejects_terminal_run_without_records(self):
+        with self.assertRaisesRegex(RuntimeError, "terminated without a records directory"):
+            ORCHESTRATOR.preflight_records_ready("terminal:1\n", "shard-00")
+
 
 if __name__ == "__main__":
     unittest.main()

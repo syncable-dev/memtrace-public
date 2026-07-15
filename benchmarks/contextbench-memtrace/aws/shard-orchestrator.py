@@ -1260,6 +1260,19 @@ def cmd_poll_preflight(args):
     print(f"[poll-preflight] pass={totals[0]} fail={totals[1]} terminal={totals[0] + totals[1]}/{totals[2]}")
 
 
+def preflight_records_ready(probe, sid):
+    probe = probe.strip()
+    if probe == "ready":
+        return True
+    if probe == "pending":
+        return False
+    if probe.startswith("terminal:"):
+        raise RuntimeError(
+            f"preflight {sid} terminated without a records directory ({probe})"
+        )
+    raise RuntimeError(f"unexpected preflight records probe for {sid}: {probe!r}")
+
+
 def cmd_collect_preflight(args):
     fleet = load_fleet(args.run_tag)
     aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
@@ -1272,7 +1285,24 @@ def cmd_collect_preflight(args):
             continue
         local = FLEET_STATE_DIR / args.run_tag / "pulled-preflight" / sid
         local.mkdir(parents=True, exist_ok=True)
-        remote = f"/srv/contextbench/preflight/{run_id}/records/"
+        results_dir = f"/srv/contextbench/preflight/{run_id}"
+        remote = f"{results_dir}/records/"
+        probe = ssh_run(
+            info["public_ip"],
+            f"if [ -d {remote} ]; then echo ready; "
+            f"elif [ -f {results_dir}/exit_code ]; then "
+            f"printf 'terminal:%s\\n' \"$(cat {results_dir}/exit_code)\"; "
+            "else echo pending; fi",
+            check=False,
+            timeout=30,
+        )
+        if probe.returncode != 0:
+            raise RuntimeError(
+                f"preflight records probe failed for {sid}: ssh rc={probe.returncode}"
+            )
+        if not preflight_records_ready(probe.stdout, sid):
+            print(f"  {sid}: collected 0 records (workers still starting)")
+            continue
         result = sh(
             [
                 "rsync",

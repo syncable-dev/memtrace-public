@@ -52,6 +52,70 @@ class ShardOrchestratorTests(unittest.TestCase):
             {"instance_id": "i-1", "public_ip": "127.0.0.1", "volume_id": "vol-1"},
         )
 
+    def test_adopt_preserves_verified_memtrace_source_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "full.parquet"
+            manifest = root / "manifest.json"
+            source_path = root / "source.json"
+            pd.DataFrame(
+                [{"instance_id": "task-a", "repo": "owner/repository"}]
+            ).to_parquet(dataset)
+            manifest.write_text(json.dumps(["task-a"]) + "\n")
+            source_identity = {
+                "head_sha": "7f6caccf1c9513e3682298ac2d96caa350706591",
+                "dirty_file_count": 0,
+            }
+            source_path.write_text(
+                json.dumps(
+                    {
+                        "instance_type": "c7a.48xlarge",
+                        "instance_vcpus": 192,
+                        "requested_vcpus": 192,
+                        "quota_vcpus": 1024,
+                        "memtrace_source_provenance": source_identity,
+                        "source_payload_sha256": "payload-sha256",
+                        "shards": {
+                            "shard-00": {
+                                "instance_id": "i-1",
+                                "public_ip": "127.0.0.1",
+                                "volume_id": "vol-1",
+                                "preflight_run_id": "old-preflight",
+                            }
+                        },
+                    }
+                )
+                + "\n"
+            )
+            args = type(
+                "Args",
+                (),
+                {
+                    "adopt_state": str(source_path),
+                    "shards": 1,
+                    "dataset": str(dataset),
+                    "manifest": str(manifest),
+                    "run_tag": "repair",
+                    "instance_type": "unused",
+                    "concurrency": 12,
+                    "root_volume_gb": 100,
+                    "data_volume_gb": 100,
+                },
+            )()
+            original = ORCHESTRATOR.FLEET_STATE_DIR
+            ORCHESTRATOR.FLEET_STATE_DIR = root / "fleet"
+            try:
+                ORCHESTRATOR.cmd_adopt(args)
+                adopted = json.loads(
+                    (ORCHESTRATOR.FLEET_STATE_DIR / "repair" / "fleet.json").read_text()
+                )
+            finally:
+                ORCHESTRATOR.FLEET_STATE_DIR = original
+
+            self.assertEqual(adopted["memtrace_source_provenance"], source_identity)
+            self.assertEqual(adopted["source_payload_sha256"], "payload-sha256")
+            self.assertNotIn("preflight_run_id", adopted["shards"]["shard-00"])
+
     def test_preflight_records_probe_allows_workers_to_start(self):
         self.assertFalse(ORCHESTRATOR.preflight_records_ready("pending\n", "shard-00"))
         self.assertTrue(ORCHESTRATOR.preflight_records_ready("ready\n", "shard-00"))

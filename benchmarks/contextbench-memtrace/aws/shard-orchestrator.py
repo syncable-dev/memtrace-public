@@ -424,6 +424,8 @@ def cmd_adopt(args):
             if args.manifest
             else hashlib.sha256(json.dumps(source_manifest).encode()).hexdigest()
         ),
+        "memtrace_source_provenance": source.get("memtrace_source_provenance"),
+        "source_payload_sha256": source.get("source_payload_sha256"),
     }
     for index, task_ids in enumerate(shards):
         sid = f"shard-{index:02d}"

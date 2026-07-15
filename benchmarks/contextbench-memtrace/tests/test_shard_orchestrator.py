@@ -1,6 +1,9 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
+
+import pandas as pd
 
 
 MODULE_PATH = Path(__file__).parents[1] / "aws" / "shard-orchestrator.py"
@@ -76,6 +79,18 @@ class ShardOrchestratorTests(unittest.TestCase):
             ),
             {"success": 1, "failure": 1, "running": 2},
         )
+
+    def test_dataset_task_count_uses_full_dataset_not_subset_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "full.parquet"
+            pd.DataFrame(
+                [
+                    {"instance_id": "task-a"},
+                    {"instance_id": "task-b"},
+                    {"instance_id": "task-c"},
+                ]
+            ).to_parquet(dataset)
+            self.assertEqual(ORCHESTRATOR.dataset_task_count(dataset), 3)
 
 
 if __name__ == "__main__":

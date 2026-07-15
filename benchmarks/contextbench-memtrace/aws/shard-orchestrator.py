@@ -1341,6 +1341,12 @@ def preflight_record_counts(records):
     }
 
 
+def dataset_task_count(dataset_path):
+    import pandas as pd
+
+    return len(pd.read_parquet(dataset_path, columns=["instance_id"]))
+
+
 def cmd_collect_preflight(args):
     fleet = load_fleet(args.run_tag)
     aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
@@ -1429,7 +1435,7 @@ def cmd_collect_preflight(args):
                 "--tracker",
                 str(tracker),
                 "--expected-total",
-                str(len(fleet.get("source_manifest") or [])),
+                str(dataset_task_count(tracker_dataset)),
                 "import-preflight",
                 "--records",
                 str(records_dir),

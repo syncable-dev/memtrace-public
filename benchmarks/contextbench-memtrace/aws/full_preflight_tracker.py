@@ -344,6 +344,32 @@ def command_import(args: argparse.Namespace) -> None:
                 "detail": str(stage_value.get("detail") or ""),
                 "updated_at": utc_now(),
             }
+        terminal_status = str(preflight.get("status") or "")
+        if terminal_status == "success":
+            incomplete = [
+                stage_name
+                for stage_name in PREFLIGHT_STAGES
+                if target["stages"][stage_name]["status"] != "PASS"
+            ]
+            if incomplete:
+                raise ValueError(
+                    f"terminal success record in {record_path} has incomplete stages: {incomplete}"
+                )
+        elif terminal_status == "failure":
+            if not any(
+                target["stages"][stage_name]["status"] == "FAIL"
+                for stage_name in PREFLIGHT_STAGES
+            ):
+                raise ValueError(
+                    f"terminal failure record in {record_path} has no failed stage"
+                )
+            for stage_name in PREFLIGHT_STAGES:
+                if target["stages"][stage_name]["status"] == "RUNNING":
+                    target["stages"][stage_name] = {
+                        "status": "PENDING",
+                        "detail": "terminal failure record did not complete this stage",
+                        "updated_at": utc_now(),
+                    }
         target["host"] = str(preflight.get("host") or target.get("host") or "")
         target["run_id"] = str(preflight.get("run_id") or target.get("run_id") or "")
         if observed_at:

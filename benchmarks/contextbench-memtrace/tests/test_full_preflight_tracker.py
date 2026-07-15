@@ -87,6 +87,76 @@ class FullPreflightTrackerTests(unittest.TestCase):
             self.assertEqual(record["stages"]["checkout"]["status"], "PASS")
             self.assertEqual(record["stages"]["index_embeddings"]["status"], "RUNNING")
 
+    def test_terminal_failure_clears_stale_running_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "full.parquet"
+            state = root / "state.jsonl"
+            tracker = root / "TRACKER.md"
+            running_records = root / "running"
+            failure_records = root / "failure"
+            running_records.mkdir()
+            failure_records.mkdir()
+            pd.DataFrame(
+                [
+                    {
+                        "instance_id": "task-a",
+                        "repo": "owner/repo",
+                        "repo_url": "https://example.invalid/owner/repo.git",
+                        "language": "python",
+                        "base_commit": "a" * 40,
+                        "source": "Verified",
+                    }
+                ]
+            ).to_parquet(dataset)
+            (running_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "status": "running",
+                        "updated_at_unix_ns": 100,
+                        "stages": {
+                            "dataset": {"status": "PASS", "detail": "ready"},
+                            "checkout": {"status": "PASS", "detail": "exact checkout ready"},
+                            "index_embeddings": {"status": "RUNNING", "detail": "indexing"},
+                        },
+                    }
+                )
+            )
+            (failure_records / "task-a.json").write_text(
+                json.dumps(
+                    {
+                        "instance_id": "task-a",
+                        "status": "failure",
+                        "completed_at_unix_ns": 200,
+                        "stages": {
+                            "dataset": {"status": "PASS", "detail": "ready"},
+                            "checkout": {"status": "FAIL", "detail": "timed out"},
+                        },
+                    }
+                )
+            )
+            common = {
+                "dataset": dataset,
+                "state": state,
+                "tracker": tracker,
+                "expected_total": 1,
+            }
+            TRACKER.command_import(
+                argparse.Namespace(records=running_records, **common)
+            )
+            TRACKER.command_import(
+                argparse.Namespace(records=failure_records, **common)
+            )
+            record = TRACKER.load_state(state)["task-a"]
+            self.assertEqual(record["stages"]["checkout"]["status"], "FAIL")
+            self.assertEqual(record["stages"]["index_embeddings"]["status"], "PENDING")
+            self.assertNotIn(
+                "RUNNING",
+                [record["stages"][stage]["status"] for stage in TRACKER.PREFLIGHT_STAGES],
+            )
+            self.assertEqual(TRACKER.preflight_status(record), "FAIL")
+
     def test_cli_waits_for_state_lock(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

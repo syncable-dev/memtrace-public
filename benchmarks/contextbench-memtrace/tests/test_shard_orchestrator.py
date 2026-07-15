@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -91,6 +92,96 @@ class ShardOrchestratorTests(unittest.TestCase):
                 ]
             ).to_parquet(dataset)
             self.assertEqual(ORCHESTRATOR.dataset_task_count(dataset), 3)
+
+    def test_full_run_gate_requires_every_task_and_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            aggregate = Path(directory)
+            records = aggregate / "records"
+            records.mkdir()
+            fleet = {
+                "source_manifest": ["task-a", "task-b"],
+                "preflight_treatment": {
+                    "dataset": "full",
+                    "cache_namespace": "cache-v1",
+                    "history_days": 0,
+                },
+            }
+            summary = {
+                "total": 2,
+                "records": 2,
+                "terminal_records": 2,
+                "succeeded": 2,
+                "failed": 0,
+                "running": 0,
+            }
+            (aggregate / "summary.json").write_text(json.dumps(summary))
+            stages = {
+                name: {"status": "PASS"}
+                for name in (
+                    "dataset",
+                    "checkout",
+                    "index_embeddings",
+                    "cache_sealed",
+                    "mcp",
+                )
+            }
+            for instance_id in fleet["source_manifest"]:
+                (records / f"{instance_id}.json").write_text(
+                    json.dumps(
+                        {
+                            "instance_id": instance_id,
+                            "status": "success",
+                            "stages": stages,
+                        }
+                    )
+                )
+            proof = ORCHESTRATOR.validate_full_preflight_gate(
+                fleet, aggregate, "cache-v1"
+            )
+            self.assertEqual(proof["total"], 2)
+
+    def test_full_run_gate_rejects_incomplete_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            aggregate = Path(directory)
+            (aggregate / "records").mkdir()
+            (aggregate / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "total": 2,
+                        "records": 1,
+                        "terminal_records": 1,
+                        "succeeded": 1,
+                        "failed": 0,
+                        "running": 0,
+                    }
+                )
+            )
+            fleet = {
+                "source_manifest": ["task-a", "task-b"],
+                "preflight_treatment": {
+                    "dataset": "full",
+                    "cache_namespace": "cache-v1",
+                    "history_days": 0,
+                },
+            }
+            with self.assertRaisesRegex(RuntimeError, "has not passed"):
+                ORCHESTRATOR.validate_full_preflight_gate(
+                    fleet, aggregate, "cache-v1"
+                )
+
+    def test_full_run_gate_rejects_namespace_drift(self):
+        fleet = {
+            "source_manifest": ["task-a"],
+            "preflight_treatment": {
+                "dataset": "full",
+                "cache_namespace": "old-cache",
+                "history_days": 0,
+            },
+        }
+        with self.assertRaisesRegex(RuntimeError, "treatment mismatch"):
+            ORCHESTRATOR.validate_full_preflight_gate(
+                fleet, Path("unused"), "new-cache"
+            )
 
 
 if __name__ == "__main__":

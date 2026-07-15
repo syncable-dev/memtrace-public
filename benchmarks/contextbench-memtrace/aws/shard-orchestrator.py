@@ -965,6 +965,13 @@ def cmd_run(args):
     run_dataset = str(fleet.get("dataset_kind") or DATASET)
     if run_dataset not in {"verified", "full", "train", "test"}:
         raise RuntimeError(f"fleet has unsupported dataset_kind={run_dataset!r}")
+    preflight_gate = None
+    if run_dataset == "full":
+        preflight_gate = validate_full_preflight_gate(
+            fleet,
+            FLEET_STATE_DIR / run_tag / "aggregate-preflight",
+            cache_namespace,
+        )
     fleet["run_treatment"] = {
         "dataset": run_dataset,
         "benchmark_lane": lane,
@@ -978,6 +985,7 @@ def cmd_run(args):
         "concurrency_per_shard": concurrency,
         "total_concurrency": concurrency * len(shard_ids),
         "cache_namespace": cache_namespace,
+        "preflight_gate": preflight_gate,
     }
     save_fleet(run_tag, fleet)
 
@@ -1338,6 +1346,101 @@ def preflight_record_counts(records):
     return {
         status: sum(record.get("status") == status for record in records)
         for status in ("success", "failure", "running")
+    }
+
+
+def validate_full_preflight_gate(fleet, aggregate, cache_namespace):
+    manifest = [str(value) for value in fleet.get("source_manifest") or []]
+    if not manifest or len(manifest) != len(set(manifest)):
+        raise RuntimeError("full-run preflight gate requires a non-empty unique manifest")
+    treatment = fleet.get("preflight_treatment") or {}
+    expected_treatment = {
+        "dataset": "full",
+        "cache_namespace": cache_namespace,
+        "history_days": 0,
+    }
+    treatment_mismatches = {
+        key: (treatment.get(key), value)
+        for key, value in expected_treatment.items()
+        if treatment.get(key) != value
+    }
+    if treatment_mismatches:
+        raise RuntimeError(
+            f"full-run preflight treatment mismatch: {treatment_mismatches}"
+        )
+
+    summary_path = aggregate / "summary.json"
+    records_dir = aggregate / "records"
+    if not summary_path.is_file() or not records_dir.is_dir():
+        raise RuntimeError(f"full-run preflight evidence is missing under {aggregate}")
+    summary = json.loads(summary_path.read_text())
+    expected_total = len(manifest)
+    expected_summary = {
+        "total": expected_total,
+        "records": expected_total,
+        "terminal_records": expected_total,
+        "succeeded": expected_total,
+        "failed": 0,
+        "running": 0,
+    }
+    summary_mismatches = {
+        key: (summary.get(key), value)
+        for key, value in expected_summary.items()
+        if summary.get(key) != value
+    }
+    if summary_mismatches:
+        raise RuntimeError(
+            f"full-run preflight summary has not passed: {summary_mismatches}"
+        )
+
+    records = {}
+    for path in records_dir.glob("*.json"):
+        record = json.loads(path.read_text())
+        instance_id = str(record.get("instance_id") or "")
+        if not instance_id or instance_id in records:
+            raise RuntimeError(f"invalid or duplicate preflight record: {path}")
+        records[instance_id] = record
+    expected_ids = set(manifest)
+    missing = sorted(expected_ids - set(records))
+    unexpected = sorted(set(records) - expected_ids)
+    if missing or unexpected:
+        raise RuntimeError(
+            f"full-run preflight record set mismatch: missing={missing[:5]} "
+            f"unexpected={unexpected[:5]}"
+        )
+    required_stages = (
+        "dataset",
+        "checkout",
+        "index_embeddings",
+        "cache_sealed",
+        "mcp",
+    )
+    failures = []
+    for instance_id in manifest:
+        record = records[instance_id]
+        stages = record.get("stages") or {}
+        failed_stages = [
+            stage
+            for stage in required_stages
+            if (stages.get(stage) or {}).get("status") != "PASS"
+        ]
+        if record.get("status") != "success" or failed_stages:
+            failures.append(
+                {
+                    "instance_id": instance_id,
+                    "status": record.get("status"),
+                    "failed_stages": failed_stages,
+                }
+            )
+    if failures:
+        raise RuntimeError(
+            f"full-run preflight has {len(failures)} invalid task records: "
+            f"{failures[:5]}"
+        )
+    return {
+        "total": expected_total,
+        "summary": str(summary_path),
+        "cache_namespace": cache_namespace,
     }
 
 

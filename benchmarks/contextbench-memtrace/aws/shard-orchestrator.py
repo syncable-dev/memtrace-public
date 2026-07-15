@@ -1067,7 +1067,7 @@ def cmd_poll(args):
         completed = int(r.stdout.strip() or 0) if r.returncode == 0 else -1
         alive = ssh_run(
             ip,
-            "tmux has-session -t contextbench 2>/dev/null && echo yes || echo no",
+            "tmux has-session -t =contextbench 2>/dev/null && echo yes || echo no",
             check=False,
             timeout=20,
         )
@@ -1114,6 +1114,10 @@ def preflight_session_for(info):
     return validate_preflight_session(
         info.get("preflight_session") or DEFAULT_PREFLIGHT_SESSION
     )
+
+
+def tmux_exact_target(session):
+    return "=" + validate_preflight_session(session)
 
 
 def cmd_preflight(args):
@@ -1194,7 +1198,7 @@ def cmd_preflight(args):
         ssh_run(ip, write_manifest)
         benchmark_alive = ssh_run(
             ip,
-            "tmux has-session -t contextbench 2>/dev/null",
+            "tmux has-session -t =contextbench 2>/dev/null",
             check=False,
             timeout=20,
         )
@@ -1202,7 +1206,7 @@ def cmd_preflight(args):
             raise RuntimeError(f"{sid} still has an active scored-run session")
         alive = ssh_run(
             ip,
-            f"tmux has-session -t {session} 2>/dev/null",
+            f"tmux has-session -t {shlex.quote(tmux_exact_target(session))} 2>/dev/null",
             check=False,
             timeout=20,
         )
@@ -1257,9 +1261,10 @@ def preflight_stop_command(run_id, session=DEFAULT_PREFLIGHT_SESSION):
     return (
         "set -eu; "
         f"session={shlex.quote(session)}; expected={shlex.quote(run_id)}; "
-        'if ! tmux has-session -t "$session" 2>/dev/null; then '
+        'target="=$session"; '
+        'if ! tmux has-session -t "$target" 2>/dev/null; then '
         'echo "already-stopped run=$expected"; exit 0; fi; '
-        'pane=$(tmux list-panes -t "$session" -F "#{pane_pid}" | head -1); '
+        'pane=$(tmux list-panes -t "$target" -F "#{pane_pid}" | head -1); '
         'cmd=$(tr "\\0" " " < "/proc/$pane/cmdline"); '
         'case "$cmd" in *"$expected"*) ;; *) '
         'echo "refusing: session does not match $expected" >&2; exit 42;; esac; '
@@ -1268,7 +1273,7 @@ def preflight_stop_command(run_id, session=DEFAULT_PREFLIGHT_SESSION):
         'kill -TERM -- "-$pgid" 2>/dev/null || true; '
         'sleep 5; '
         'kill -KILL -- "-$pgid" 2>/dev/null || true; '
-        'tmux kill-session -t "$session" 2>/dev/null || true; '
+        'tmux kill-session -t "$target" 2>/dev/null || true; '
         'echo "stopped run=$expected pgid=$pgid"'
     )
 
@@ -1329,7 +1334,8 @@ def cmd_poll_preflight(args):
         )
         alive = ssh_run(
             ip,
-            f"tmux has-session -t {shlex.quote(preflight_session_for(info))} "
+            f"tmux has-session -t "
+            f"{shlex.quote(tmux_exact_target(preflight_session_for(info)))} "
             "2>/dev/null && echo yes || echo no",
             check=False,
             timeout=20,

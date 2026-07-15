@@ -129,6 +129,8 @@ class ShardOrchestratorTests(unittest.TestCase):
             "preflight-run-shard-00", "contextbench-preflight-repair-02"
         )
         self.assertIn("contextbench-preflight-repair-02", command)
+        self.assertIn('target="=$session"', command)
+        self.assertIn('has-session -t "$target"', command)
         self.assertIn("preflight-run-shard-00", command)
         self.assertIn("session does not match", command)
         self.assertIn('kill -TERM -- "-$pgid"', command)
@@ -144,6 +146,10 @@ class ShardOrchestratorTests(unittest.TestCase):
                 {"preflight_session": "contextbench-preflight-repair-02"}
             ),
             "contextbench-preflight-repair-02",
+        )
+        self.assertEqual(
+            ORCHESTRATOR.tmux_exact_target("contextbench-preflight-repair-02"),
+            "=contextbench-preflight-repair-02",
         )
         with self.assertRaisesRegex(ValueError, "invalid tmux preflight session"):
             ORCHESTRATOR.preflight_session_for(

@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+"""Move sealed repair caches back to their original ContextBench hosts."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+
+ADAPTER_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ADAPTER_DIR))
+import runner as retrieval  # noqa: E402
+
+
+DEFAULT_CACHE_ROOT = "/srv/contextbench/graph-cache-agent"
+DEFAULT_BINARY = "/srv/contextbench/memtrace-bin/memtrace"
+SSH_OPTIONS = (
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-o",
+    "ConnectTimeout=10",
+    "-o",
+    "ServerAliveInterval=30",
+)
+
+REMOTE_INSPECTOR = r"""
+import hashlib
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+entry = Path(sys.argv[1])
+complete = entry / "complete.json"
+if not complete.is_file():
+    raise SystemExit(f"missing {complete}")
+manifest_bytes = complete.read_bytes()
+manifest = json.loads(manifest_bytes)
+repo = entry / "repo"
+head = subprocess.run(
+    ["git", "-C", str(repo), "rev-parse", "HEAD"],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.strip()
+status = subprocess.run(
+    ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=no"],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout.strip()
+files = [path for path in entry.rglob("*") if path.is_file()]
+print(json.dumps({
+    "manifest": manifest,
+    "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+    "checkout_head": head,
+    "checkout_status": status,
+    "file_count": len(files),
+    "file_bytes": sum(path.stat().st_size for path in files),
+}))
+"""
+
+
+def load_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text())
+
+
+def task_hosts(fleet: dict[str, Any]) -> dict[str, str]:
+    hosts: dict[str, str] = {}
+    for shard_id, shard in fleet.get("shards", {}).items():
+        host = str(shard.get("public_ip") or "")
+        if not host:
+            raise ValueError(f"{shard_id} has no public_ip")
+        for instance_id in shard.get("task_ids") or []:
+            instance_id = str(instance_id)
+            if instance_id in hosts:
+                raise ValueError(f"duplicate fleet assignment for {instance_id}")
+            hosts[instance_id] = host
+    return hosts
+
+
+def load_records(records_dir: Path) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    for path in sorted(records_dir.glob("*.json")):
+        record = load_json(path)
+        instance_id = str(record.get("instance_id") or "")
+        if not instance_id:
+            raise ValueError(f"record has no instance_id: {path}")
+        if instance_id in records:
+            raise ValueError(f"duplicate record for {instance_id}")
+        records[instance_id] = record
+    return records
+
+
+def build_plan(
+    dataset: Path,
+    repair_fleet: dict[str, Any],
+    destination_fleet: dict[str, Any],
+    repair_records: dict[str, dict[str, Any]],
+    namespace: str,
+) -> list[dict[str, str]]:
+    frame = pd.read_parquet(
+        dataset, columns=["instance_id", "repo_url", "base_commit"]
+    )
+    rows = {
+        str(row.instance_id): row
+        for row in frame.itertuples(index=False)
+    }
+    source_hosts = task_hosts(repair_fleet)
+    destination_hosts = task_hosts(destination_fleet)
+    manifest = [str(value) for value in repair_fleet.get("source_manifest") or []]
+    if not manifest:
+        raise ValueError("repair fleet has no source manifest")
+    plan: list[dict[str, str]] = []
+    for instance_id in manifest:
+        if instance_id not in rows:
+            raise ValueError(f"repair task is outside dataset: {instance_id}")
+        if instance_id not in destination_hosts:
+            raise ValueError(f"repair task has no original host: {instance_id}")
+        record = repair_records.get(instance_id)
+        if not record or record.get("status") != "success":
+            status = record.get("status") if record else "missing"
+            raise ValueError(f"repair task is not successful: {instance_id} ({status})")
+        row = rows[instance_id]
+        repo_url = str(row.repo_url)
+        base_commit = str(row.base_commit)
+        plan.append(
+            {
+                "instance_id": instance_id,
+                "repo_url": repo_url,
+                "base_commit": base_commit,
+                "cache_key": retrieval.graph_cache_key(
+                    repo_url, base_commit, namespace
+                ),
+                "source_host": source_hosts[instance_id],
+                "destination_host": destination_hosts[instance_id],
+            }
+        )
+    return plan
+
+
+def ssh_command(host: str, user: str, command: list[str]) -> list[str]:
+    return [
+        "ssh",
+        *SSH_OPTIONS,
+        f"{user}@{host}",
+        shlex.join(command),
+    ]
+
+
+def remote_run(
+    host: str,
+    user: str,
+    command: list[str],
+    *,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        ssh_command(host, user, command),
+        capture_output=True,
+        text=True,
+    )
+    if check and result.returncode != 0:
+        raise RuntimeError(
+            f"remote command failed on {host} ({result.returncode}): {result.stderr.strip()}"
+        )
+    return result
+
+
+def remote_sha256(host: str, user: str, path: str) -> str:
+    output = remote_run(host, user, ["sha256sum", path]).stdout.split()
+    if not output:
+        raise RuntimeError(f"sha256sum returned no output on {host}: {path}")
+    return output[0]
+
+
+def inspect_cache(host: str, user: str, entry: str) -> dict[str, Any]:
+    output = remote_run(
+        host, user, ["python3", "-c", REMOTE_INSPECTOR, entry]
+    ).stdout
+    return json.loads(output)
+
+
+def validate_cache(
+    state: dict[str, Any],
+    task: dict[str, str],
+    namespace: str,
+    binary_sha256: str,
+) -> None:
+    manifest = state["manifest"]
+    expected = {
+        "repo_url": task["repo_url"].rstrip("/"),
+        "base_commit": task["base_commit"],
+        "namespace": namespace,
+        "history_days": 0,
+        "memtrace_binary_sha256": binary_sha256,
+    }
+    mismatches = {
+        key: (manifest.get(key), value)
+        for key, value in expected.items()
+        if manifest.get(key) != value
+    }
+    repository_commit = str((manifest.get("repository") or {}).get("commit_sha") or "")
+    if repository_commit != task["base_commit"]:
+        mismatches["repository.commit_sha"] = (
+            repository_commit,
+            task["base_commit"],
+        )
+    if state.get("checkout_head") != task["base_commit"]:
+        mismatches["checkout_head"] = (
+            state.get("checkout_head"),
+            task["base_commit"],
+        )
+    if state.get("checkout_status"):
+        mismatches["checkout_status"] = (state["checkout_status"], "")
+    if int(state.get("file_count", 0) or 0) <= 1:
+        mismatches["file_count"] = (state.get("file_count"), ">1")
+    if mismatches:
+        raise ValueError(
+            f"cache identity mismatch for {task['instance_id']}: {mismatches}"
+        )
+
+
+def ensure_fleet_terminal(fleet: dict[str, Any], user: str) -> None:
+    for shard_id, shard in fleet.get("shards", {}).items():
+        run_id = str(shard.get("preflight_run_id") or "")
+        host = str(shard.get("public_ip") or "")
+        if not run_id or not host:
+            raise ValueError(f"{shard_id} is missing preflight run state")
+        exit_code = remote_run(
+            host,
+            user,
+            ["cat", f"/srv/contextbench/preflight/{run_id}/exit_code"],
+            check=False,
+        )
+        if exit_code.returncode != 0 or exit_code.stdout.strip() != "0":
+            raise RuntimeError(
+                f"{shard_id} preflight is not successfully terminal on {host}"
+            )
+
+
+def stream_copy(
+    source_host: str,
+    destination_host: str,
+    user: str,
+    source: str,
+    incoming: str,
+) -> None:
+    remote_run(destination_host, user, ["rm", "-rf", incoming])
+    remote_run(destination_host, user, ["mkdir", "-p", incoming])
+    source_process = subprocess.Popen(
+        ssh_command(source_host, user, ["tar", "-C", source, "-cf", "-", "."]),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert source_process.stdout is not None
+    destination_process = subprocess.Popen(
+        ssh_command(destination_host, user, ["tar", "-C", incoming, "-xf", "-"]),
+        stdin=source_process.stdout,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    source_process.stdout.close()
+    _, destination_stderr = destination_process.communicate()
+    source_stderr = source_process.stderr.read() if source_process.stderr else b""
+    source_returncode = source_process.wait()
+    if source_returncode != 0 or destination_process.returncode != 0:
+        remote_run(destination_host, user, ["rm", "-rf", incoming], check=False)
+        raise RuntimeError(
+            "cache stream failed: "
+            f"source rc={source_returncode} {source_stderr.decode(errors='replace').strip()} "
+            f"destination rc={destination_process.returncode} "
+            f"{destination_stderr.decode(errors='replace').strip()}"
+        )
+
+
+def promote_cache(host: str, user: str, target: str, incoming: str, lock: str) -> None:
+    backup = target + ".pre-repair"
+    script = r"""
+set -euo pipefail
+target=$1
+incoming=$2
+lock=$3
+backup=$4
+exec 9>"$lock"
+flock -w 900 9
+rm -rf "$backup"
+if [ -d "$target" ]; then mv "$target" "$backup"; fi
+mv "$incoming" "$target"
+rm -rf "$backup"
+"""
+    remote_run(
+        host,
+        user,
+        ["bash", "-c", script, "repatriate", target, incoming, lock, backup],
+    )
+
+
+def execute_plan(
+    plan: list[dict[str, str]],
+    namespace: str,
+    cache_root: str,
+    binary: str,
+    user: str,
+) -> None:
+    for index, task in enumerate(plan, 1):
+        key = task["cache_key"]
+        source_entry = f"{cache_root}/{key}"
+        target_entry = f"{cache_root}/{key}"
+        incoming = f"{cache_root}/.incoming-repair-{key}-{os.getpid()}"
+        lock = f"{cache_root}/.locks/{key}.lock"
+        source_binary_sha = remote_sha256(task["source_host"], user, binary)
+        destination_binary_sha = remote_sha256(
+            task["destination_host"], user, binary
+        )
+        if source_binary_sha != destination_binary_sha:
+            raise ValueError(
+                f"binary SHA mismatch for {task['instance_id']}: "
+                f"{source_binary_sha} != {destination_binary_sha}"
+            )
+        source_state = inspect_cache(task["source_host"], user, source_entry)
+        validate_cache(source_state, task, namespace, source_binary_sha)
+        stream_copy(
+            task["source_host"],
+            task["destination_host"],
+            user,
+            source_entry,
+            incoming,
+        )
+        incoming_state = inspect_cache(task["destination_host"], user, incoming)
+        validate_cache(incoming_state, task, namespace, destination_binary_sha)
+        if incoming_state["manifest_sha256"] != source_state["manifest_sha256"]:
+            raise ValueError(f"manifest changed in transit for {task['instance_id']}")
+        promote_cache(
+            task["destination_host"], user, target_entry, incoming, lock
+        )
+        destination_state = inspect_cache(
+            task["destination_host"], user, target_entry
+        )
+        validate_cache(destination_state, task, namespace, destination_binary_sha)
+        if destination_state["manifest_sha256"] != source_state["manifest_sha256"]:
+            raise ValueError(f"promoted manifest mismatch for {task['instance_id']}")
+        print(
+            f"[{index}/{len(plan)}] {task['instance_id']} -> "
+            f"{task['destination_host']} ({destination_state['file_count']} files)"
+        )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset", type=Path, required=True)
+    parser.add_argument("--repair-fleet", type=Path, required=True)
+    parser.add_argument("--destination-fleet", type=Path, required=True)
+    parser.add_argument("--repair-records", type=Path, required=True)
+    parser.add_argument("--cache-namespace", required=True)
+    parser.add_argument("--cache-root", default=DEFAULT_CACHE_ROOT)
+    parser.add_argument("--memtrace-binary", default=DEFAULT_BINARY)
+    parser.add_argument("--ssh-user", default="ubuntu")
+    parser.add_argument("--execute", action="store_true")
+    args = parser.parse_args()
+
+    repair_fleet = load_json(args.repair_fleet)
+    destination_fleet = load_json(args.destination_fleet)
+    plan = build_plan(
+        args.dataset,
+        repair_fleet,
+        destination_fleet,
+        load_records(args.repair_records),
+        args.cache_namespace,
+    )
+    print(json.dumps(plan, indent=2))
+    if not args.execute:
+        print(f"dry run: {len(plan)} sealed caches ready for repatriation")
+        return
+    ensure_fleet_terminal(repair_fleet, args.ssh_user)
+    ensure_fleet_terminal(destination_fleet, args.ssh_user)
+    execute_plan(
+        plan,
+        args.cache_namespace,
+        args.cache_root,
+        args.memtrace_binary,
+        args.ssh_user,
+    )
+
+
+if __name__ == "__main__":
+    main()

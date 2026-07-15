@@ -56,6 +56,14 @@ class ShardOrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "terminated without a records directory"):
             ORCHESTRATOR.preflight_records_ready("terminal:1\n", "shard-00")
 
+    def test_preflight_stop_is_scoped_to_expected_session_run(self):
+        command = ORCHESTRATOR.preflight_stop_command("preflight-run-shard-00")
+        self.assertIn("contextbench-preflight", command)
+        self.assertIn("preflight-run-shard-00", command)
+        self.assertIn("session does not match", command)
+        self.assertIn('kill -TERM -- "-$pgid"', command)
+        self.assertIn('kill -KILL -- "-$pgid"', command)
+
 
 if __name__ == "__main__":
     unittest.main()

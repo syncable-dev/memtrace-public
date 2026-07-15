@@ -28,6 +28,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -1087,8 +1088,6 @@ def cmd_poll(args):
 
 
 def cmd_preflight(args):
-    import shlex
-
     run_tag = args.run_tag
     fleet = load_fleet(run_tag)
     shard_ids = args.only.split(",") if args.only else list(fleet["shards"])
@@ -1218,6 +1217,56 @@ def cmd_preflight(args):
             fleet["shards"][sid] = info
             save_fleet(run_tag, fleet)
     print(f"[preflight] launched {len(shard_ids)} shards ({concurrency * len(shard_ids)} workers)")
+
+
+def preflight_stop_command(run_id, session="contextbench-preflight"):
+    return (
+        "set -eu; "
+        f"session={shlex.quote(session)}; expected={shlex.quote(run_id)}; "
+        'if ! tmux has-session -t "$session" 2>/dev/null; then '
+        'echo "already-stopped run=$expected"; exit 0; fi; '
+        'pane=$(tmux list-panes -t "$session" -F "#{pane_pid}" | head -1); '
+        'cmd=$(tr "\\0" " " < "/proc/$pane/cmdline"); '
+        'case "$cmd" in *"$expected"*) ;; *) '
+        'echo "refusing: session does not match $expected" >&2; exit 42;; esac; '
+        'pgid=$(ps -o pgid= -p "$pane" | tr -d " "); '
+        'test -n "$pgid"; '
+        'kill -TERM -- "-$pgid" 2>/dev/null || true; '
+        'sleep 5; '
+        'kill -KILL -- "-$pgid" 2>/dev/null || true; '
+        'tmux kill-session -t "$session" 2>/dev/null || true; '
+        'echo "stopped run=$expected pgid=$pgid"'
+    )
+
+
+def cmd_stop_preflight(args):
+    fleet = load_fleet(args.run_tag)
+    shard_ids = args.only.split(",") if args.only else list(fleet["shards"])
+
+    def stop_one(sid):
+        info = fleet["shards"][sid]
+        run_id = info.get("preflight_run_id")
+        if not run_id:
+            raise RuntimeError(f"{sid} has no preflight run to stop")
+        result = ssh_run(
+            info["public_ip"],
+            preflight_stop_command(run_id),
+            timeout=30,
+        )
+        return sid, result.stdout.strip()
+
+    stopped = []
+    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+        futures = [executor.submit(stop_one, sid) for sid in shard_ids]
+        for future in as_completed(futures):
+            sid, detail = future.result()
+            stopped.append((sid, detail))
+    for sid, detail in sorted(stopped):
+        fleet["shards"][sid]["preflight_stopped_at"] = time.time()
+        fleet["shards"][sid]["preflight_stop_detail"] = detail
+        print(f"  {sid}: {detail}")
+    save_fleet(args.run_tag, fleet)
+    print(f"[stop-preflight] stopped {len(stopped)} shards")
 
 
 def cmd_poll_preflight(args):
@@ -1584,6 +1633,7 @@ def main():
             "provision",
             "bootstrap",
             "preflight",
+            "stop-preflight",
             "poll-preflight",
             "collect-preflight",
             "run",
@@ -1628,6 +1678,7 @@ def main():
         "provision": cmd_provision,
         "bootstrap": cmd_bootstrap,
         "preflight": cmd_preflight,
+        "stop-preflight": cmd_stop_preflight,
         "poll-preflight": cmd_poll_preflight,
         "collect-preflight": cmd_collect_preflight,
         "run": cmd_run,

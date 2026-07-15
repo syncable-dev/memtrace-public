@@ -206,6 +206,25 @@ def reusable_host_info(info):
     return {key: info[key] for key in allowed if key in info}
 
 
+def source_affine_subset(source_shards, source_manifest):
+    """Keep a subset on the hosts that already own its sealed cache entries."""
+    owner_by_id = {}
+    for shard_index, shard in enumerate(source_shards):
+        for instance_id in shard.get("task_ids", []):
+            instance_id = str(instance_id)
+            if instance_id in owner_by_id:
+                raise ValueError(
+                    f"adopt source assigns {instance_id} to multiple shards"
+                )
+            owner_by_id[instance_id] = shard_index
+    if not set(source_manifest).issubset(owner_by_id):
+        return None
+    shards = [[] for _ in source_shards]
+    for instance_id in source_manifest:
+        shards[owner_by_id[instance_id]].append(instance_id)
+    return shards
+
+
 def build_shards(n_shards, dataset_path, manifest_path=None):
     import pandas as pd
 
@@ -402,9 +421,15 @@ def cmd_adopt(args):
         raise ValueError(
             f"adopt source has {len(source_shards)} hosts, fewer than requested {args.shards}"
         )
-    shards, source_manifest = build_shards(
+    balanced_shards, source_manifest = build_shards(
         args.shards, args.dataset, args.manifest or None
     )
+    shards = source_affine_subset(source_shards, source_manifest)
+    if shards is None:
+        shards = balanced_shards
+        assignment = "rebalanced"
+    else:
+        assignment = "source-affine"
     fleet = {
         "run_tag": args.run_tag,
         "adopted_from": str(source_path.resolve()),
@@ -438,7 +463,7 @@ def cmd_adopt(args):
     save_fleet(args.run_tag, fleet)
     print(
         f"[adopt] {args.shards} existing hosts assigned {len(source_manifest)} "
-        f"{fleet['dataset_kind']} tasks -> {fleet_path(args.run_tag)}"
+        f"{fleet['dataset_kind']} tasks ({assignment}) -> {fleet_path(args.run_tag)}"
     )
 
 

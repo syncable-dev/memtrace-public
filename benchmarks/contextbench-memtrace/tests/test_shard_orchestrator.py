@@ -15,6 +15,25 @@ SPEC.loader.exec_module(ORCHESTRATOR)
 
 
 class ShardOrchestratorTests(unittest.TestCase):
+    def test_source_affine_subset_keeps_tasks_on_cache_owning_hosts(self):
+        source = [
+            {"task_ids": ["a", "c", "e"]},
+            {"task_ids": ["b", "d", "f"]},
+        ]
+
+        selected = ORCHESTRATOR.source_affine_subset(
+            source, ["f", "a", "d"]
+        )
+
+        self.assertEqual(selected, [["a"], ["f", "d"]])
+
+    def test_source_affine_subset_falls_back_when_source_lacks_task(self):
+        source = [{"task_ids": ["a"]}, {"task_ids": ["b"]}]
+
+        self.assertIsNone(
+            ORCHESTRATOR.source_affine_subset(source, ["a", "missing"])
+        )
+
     def test_dataset_kind_matches_remote_dataset_names(self):
         cases = {
             "/tmp/contextbench/data/contextbench_verified.parquet": "verified",

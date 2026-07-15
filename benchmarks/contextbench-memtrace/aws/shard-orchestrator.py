@@ -1098,6 +1098,24 @@ def cmd_poll(args):
     )
 
 
+DEFAULT_PREFLIGHT_SESSION = "contextbench-preflight"
+
+
+def validate_preflight_session(session):
+    session = str(session or "")
+    if not session or not all(
+        character.isalnum() or character in "_.-" for character in session
+    ):
+        raise ValueError(f"invalid tmux preflight session {session!r}")
+    return session
+
+
+def preflight_session_for(info):
+    return validate_preflight_session(
+        info.get("preflight_session") or DEFAULT_PREFLIGHT_SESSION
+    )
+
+
 def cmd_preflight(args):
     run_tag = args.run_tag
     fleet = load_fleet(run_tag)
@@ -1105,6 +1123,9 @@ def cmd_preflight(args):
     run_dataset = str(fleet.get("dataset_kind") or dataset_kind(args.dataset))
     dataset = remote_dataset_path(run_dataset)
     concurrency = int(fleet.get("concurrency_per_shard", args.concurrency))
+    session = validate_preflight_session(args.preflight_session)
+    if args.pin_wait_seconds < 1:
+        raise ValueError("--pin-wait-seconds must be positive")
     cache_namespace = args.cache_namespace or (
         fleet.get("run_treatment", {}).get("cache_namespace")
         or "contextbench-src3e9a814f7ac5-jina-code-768-v2-agent-hierarchy-v2-agent-hierarchy-v2"
@@ -1116,6 +1137,8 @@ def cmd_preflight(args):
         "cache_namespace": cache_namespace,
         "history_days": 0,
         "task_timeout": args.task_timeout,
+        "session": session,
+        "pin_wait_seconds": args.pin_wait_seconds,
     }
     save_fleet(run_tag, fleet)
 
@@ -1169,7 +1192,6 @@ def cmd_preflight(args):
             f"{manifest_json}\nMANIFEST_EOF"
         )
         ssh_run(ip, write_manifest)
-        session = "contextbench-preflight"
         benchmark_alive = ssh_run(
             ip,
             "tmux has-session -t contextbench 2>/dev/null",
@@ -1189,7 +1211,7 @@ def cmd_preflight(args):
         inner = (
             "set -o pipefail; "
             "MEMTRACE_PIN_ENABLE=1 "
-            "MEMTRACE_PIN_WAIT_SECONDS=900 "
+            f"MEMTRACE_PIN_WAIT_SECONDS={args.pin_wait_seconds} "
             "MEMTRACE_DEV=1 MEMTRACE_TELEMETRY=off MEMTRACE_CORTEX=off "
             f"/srv/contextbench/venv/bin/python {REMOTE_ADAPTER_DIR}/aws/full_preflight_runner.py "
             f"--dataset {shlex.quote(dataset)} "
@@ -1212,6 +1234,7 @@ def cmd_preflight(args):
             check=False,
         )
         info["preflight_run_id"] = run_id
+        info["preflight_session"] = session
         info["preflight_launch_rc"] = launched.returncode
         info["preflight_launched_at"] = time.time()
         if launched.returncode != 0:
@@ -1230,7 +1253,7 @@ def cmd_preflight(args):
     print(f"[preflight] launched {len(shard_ids)} shards ({concurrency * len(shard_ids)} workers)")
 
 
-def preflight_stop_command(run_id, session="contextbench-preflight"):
+def preflight_stop_command(run_id, session=DEFAULT_PREFLIGHT_SESSION):
     return (
         "set -eu; "
         f"session={shlex.quote(session)}; expected={shlex.quote(run_id)}; "
@@ -1261,7 +1284,7 @@ def cmd_stop_preflight(args):
             raise RuntimeError(f"{sid} has no preflight run to stop")
         result = ssh_run(
             info["public_ip"],
-            preflight_stop_command(run_id),
+            preflight_stop_command(run_id, preflight_session_for(info)),
             timeout=30,
         )
         return sid, result.stdout.strip()
@@ -1306,7 +1329,8 @@ def cmd_poll_preflight(args):
         )
         alive = ssh_run(
             ip,
-            "tmux has-session -t contextbench-preflight 2>/dev/null && echo yes || echo no",
+            f"tmux has-session -t {shlex.quote(preflight_session_for(info))} "
+            "2>/dev/null && echo yes || echo no",
             check=False,
             timeout=20,
         ).stdout.strip() == "yes"
@@ -1921,6 +1945,8 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--parallel", type=int, default=5)
     ap.add_argument("--task-timeout", type=int, default=7200)
+    ap.add_argument("--preflight-session", default=DEFAULT_PREFLIGHT_SESSION)
+    ap.add_argument("--pin-wait-seconds", type=int, default=900)
     ap.add_argument("--repair-manifest-out", default="")
     ap.add_argument("--repair-exclude-run-tags", default="")
     ap.add_argument(
@@ -1938,8 +1964,10 @@ def main():
         ),
     )
     args = ap.parse_args()
-    if args.shards < 1 or args.concurrency < 1:
-        ap.error("--shards and --concurrency must be positive")
+    if args.shards < 1 or args.concurrency < 1 or args.pin_wait_seconds < 1:
+        ap.error(
+            "--shards, --concurrency, and --pin-wait-seconds must be positive"
+        )
     {
         "adopt": cmd_adopt,
         "provision": cmd_provision,

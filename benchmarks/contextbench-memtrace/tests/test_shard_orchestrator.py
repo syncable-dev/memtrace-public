@@ -125,12 +125,30 @@ class ShardOrchestratorTests(unittest.TestCase):
             ORCHESTRATOR.preflight_records_ready("terminal:1\n", "shard-00")
 
     def test_preflight_stop_is_scoped_to_expected_session_run(self):
-        command = ORCHESTRATOR.preflight_stop_command("preflight-run-shard-00")
-        self.assertIn("contextbench-preflight", command)
+        command = ORCHESTRATOR.preflight_stop_command(
+            "preflight-run-shard-00", "contextbench-preflight-repair-02"
+        )
+        self.assertIn("contextbench-preflight-repair-02", command)
         self.assertIn("preflight-run-shard-00", command)
         self.assertIn("session does not match", command)
         self.assertIn('kill -TERM -- "-$pgid"', command)
         self.assertIn('kill -KILL -- "-$pgid"', command)
+
+    def test_preflight_session_is_fleet_specific_and_validated(self):
+        self.assertEqual(
+            ORCHESTRATOR.preflight_session_for({}),
+            ORCHESTRATOR.DEFAULT_PREFLIGHT_SESSION,
+        )
+        self.assertEqual(
+            ORCHESTRATOR.preflight_session_for(
+                {"preflight_session": "contextbench-preflight-repair-02"}
+            ),
+            "contextbench-preflight-repair-02",
+        )
+        with self.assertRaisesRegex(ValueError, "invalid tmux preflight session"):
+            ORCHESTRATOR.preflight_session_for(
+                {"preflight_session": "repair; tmux kill-server"}
+            )
 
     def test_preflight_record_counts_keep_running_out_of_terminal_total(self):
         self.assertEqual(

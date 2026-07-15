@@ -281,6 +281,54 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
                     "/data/full.parquet",
                 )
 
+    def test_execute_plan_reuses_cache_already_on_original_host(self):
+        task = {
+            "instance_id": "task-a",
+            "repo_url": "https://example.test/repo.git",
+            "base_commit": "a" * 40,
+            "cache_key": "cache-key",
+            "source_host": "same-host",
+            "destination_host": "same-host",
+            "destination_preflight_run_id": "original-run",
+        }
+        state = {"manifest_sha256": "manifest", "file_count": 42}
+        proof = {
+            "instance_id": "task-a",
+            "status": "success",
+            "cache": {"cache_hit": True},
+        }
+        with patch.object(
+            REPATRIATE, "remote_sha256", return_value="binary"
+        ), patch.object(
+            REPATRIATE, "inspect_cache", return_value=state
+        ) as inspect, patch.object(
+            REPATRIATE, "validate_cache"
+        ) as validate, patch.object(
+            REPATRIATE, "stream_copy"
+        ) as stream, patch.object(
+            REPATRIATE, "promote_cache"
+        ) as promote, patch.object(
+            REPATRIATE, "verify_destination_task", return_value=proof
+        ), patch.object(
+            REPATRIATE,
+            "publish_repair_proof",
+            return_value={"succeeded": 1, "total": 1},
+        ):
+            REPATRIATE.execute_plan(
+                [task],
+                Path("fleet.json"),
+                "cache-v1",
+                "/cache",
+                "/memtrace",
+                "ubuntu",
+                "/data/full.parquet",
+            )
+
+        self.assertEqual(inspect.call_count, 1)
+        self.assertEqual(validate.call_count, 2)
+        stream.assert_not_called()
+        promote.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

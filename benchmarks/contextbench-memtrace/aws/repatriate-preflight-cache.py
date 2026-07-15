@@ -498,23 +498,26 @@ def execute_plan(
             )
         source_state = inspect_cache(task["source_host"], user, source_entry)
         validate_cache(source_state, task, namespace, source_binary_sha)
-        stream_copy(
-            task["source_host"],
-            task["destination_host"],
-            user,
-            source_entry,
-            incoming,
-        )
-        incoming_state = inspect_cache(task["destination_host"], user, incoming)
-        validate_cache(incoming_state, task, namespace, destination_binary_sha)
-        if incoming_state["manifest_sha256"] != source_state["manifest_sha256"]:
-            raise ValueError(f"manifest changed in transit for {task['instance_id']}")
-        promote_cache(
-            task["destination_host"], user, target_entry, incoming, lock
-        )
-        destination_state = inspect_cache(
-            task["destination_host"], user, target_entry
-        )
+        if task["source_host"] == task["destination_host"]:
+            destination_state = source_state
+        else:
+            stream_copy(
+                task["source_host"],
+                task["destination_host"],
+                user,
+                source_entry,
+                incoming,
+            )
+            incoming_state = inspect_cache(task["destination_host"], user, incoming)
+            validate_cache(incoming_state, task, namespace, destination_binary_sha)
+            if incoming_state["manifest_sha256"] != source_state["manifest_sha256"]:
+                raise ValueError(f"manifest changed in transit for {task['instance_id']}")
+            promote_cache(
+                task["destination_host"], user, target_entry, incoming, lock
+            )
+            destination_state = inspect_cache(
+                task["destination_host"], user, target_entry
+            )
         validate_cache(destination_state, task, namespace, destination_binary_sha)
         if destination_state["manifest_sha256"] != source_state["manifest_sha256"]:
             raise ValueError(f"promoted manifest mismatch for {task['instance_id']}")

@@ -75,18 +75,21 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text())
 
 
-def task_hosts(fleet: dict[str, Any]) -> dict[str, str]:
-    hosts: dict[str, str] = {}
+def task_assignments(fleet: dict[str, Any]) -> dict[str, dict[str, str]]:
+    assignments: dict[str, dict[str, str]] = {}
     for shard_id, shard in fleet.get("shards", {}).items():
         host = str(shard.get("public_ip") or "")
         if not host:
             raise ValueError(f"{shard_id} has no public_ip")
         for instance_id in shard.get("task_ids") or []:
             instance_id = str(instance_id)
-            if instance_id in hosts:
+            if instance_id in assignments:
                 raise ValueError(f"duplicate fleet assignment for {instance_id}")
-            hosts[instance_id] = host
-    return hosts
+            assignments[instance_id] = {
+                "host": host,
+                "preflight_run_id": str(shard.get("preflight_run_id") or ""),
+            }
+    return assignments
 
 
 def load_records(records_dir: Path) -> dict[str, dict[str, Any]]:
@@ -116,8 +119,8 @@ def build_plan(
         str(row.instance_id): row
         for row in frame.itertuples(index=False)
     }
-    source_hosts = task_hosts(repair_fleet)
-    destination_hosts = task_hosts(destination_fleet)
+    source_assignments = task_assignments(repair_fleet)
+    destination_assignments = task_assignments(destination_fleet)
     manifest = [str(value) for value in repair_fleet.get("source_manifest") or []]
     if not manifest:
         raise ValueError("repair fleet has no source manifest")
@@ -125,8 +128,13 @@ def build_plan(
     for instance_id in manifest:
         if instance_id not in rows:
             raise ValueError(f"repair task is outside dataset: {instance_id}")
-        if instance_id not in destination_hosts:
+        if instance_id not in destination_assignments:
             raise ValueError(f"repair task has no original host: {instance_id}")
+        destination = destination_assignments[instance_id]
+        if not destination["preflight_run_id"]:
+            raise ValueError(
+                f"repair task has no original preflight run: {instance_id}"
+            )
         record = repair_records.get(instance_id)
         if not record or record.get("status") != "success":
             status = record.get("status") if record else "missing"
@@ -142,8 +150,9 @@ def build_plan(
                 "cache_key": retrieval.graph_cache_key(
                     repo_url, base_commit, namespace
                 ),
-                "source_host": source_hosts[instance_id],
-                "destination_host": destination_hosts[instance_id],
+                "source_host": source_assignments[instance_id]["host"],
+                "destination_host": destination["host"],
+                "destination_preflight_run_id": destination["preflight_run_id"],
             }
         )
     return plan
@@ -306,12 +315,74 @@ rm -rf "$backup"
     )
 
 
+def verify_destination_task(
+    task: dict[str, str],
+    namespace: str,
+    cache_root: str,
+    binary: str,
+    user: str,
+    remote_dataset: str,
+) -> dict[str, Any]:
+    run_id = task["destination_preflight_run_id"]
+    output_dir = f"/srv/contextbench/preflight/{run_id}"
+    remote_run(
+        task["destination_host"],
+        user,
+        [
+            "/srv/contextbench/venv/bin/python",
+            "/home/ubuntu/contextbench-adapter/aws/full_preflight_runner.py",
+            "--dataset",
+            remote_dataset,
+            "--output-dir",
+            output_dir,
+            "--graph-cache-dir",
+            cache_root,
+            "--cache-namespace",
+            namespace,
+            "--memtrace-binary",
+            binary,
+            "--rerank-model-dir",
+            "/srv/contextbench/rerank-model",
+            "--instance-id",
+            task["instance_id"],
+            "--child",
+            "--host",
+            task["destination_host"],
+            "--run-id",
+            run_id,
+        ],
+    )
+    record_path = f"{output_dir}/records/{task['instance_id']}.json"
+    record = json.loads(
+        remote_run(
+            task["destination_host"], user, ["cat", record_path]
+        ).stdout
+    )
+    failed_stages = {
+        name: stage.get("status")
+        for name, stage in (record.get("stages") or {}).items()
+        if stage.get("status") != "PASS"
+    }
+    if record.get("status") != "success" or failed_stages:
+        raise RuntimeError(
+            f"destination preflight failed for {task['instance_id']}: "
+            f"status={record.get('status')} stages={failed_stages}"
+        )
+    if not (record.get("cache") or {}).get("cache_hit"):
+        raise RuntimeError(
+            f"destination preflight rebuilt instead of reusing the copied cache: "
+            f"{task['instance_id']}"
+        )
+    return record
+
+
 def execute_plan(
     plan: list[dict[str, str]],
     namespace: str,
     cache_root: str,
     binary: str,
     user: str,
+    remote_dataset: str,
 ) -> None:
     for index, task in enumerate(plan, 1):
         key = task["cache_key"]
@@ -350,9 +421,18 @@ def execute_plan(
         validate_cache(destination_state, task, namespace, destination_binary_sha)
         if destination_state["manifest_sha256"] != source_state["manifest_sha256"]:
             raise ValueError(f"promoted manifest mismatch for {task['instance_id']}")
+        proof = verify_destination_task(
+            task,
+            namespace,
+            cache_root,
+            binary,
+            user,
+            remote_dataset,
+        )
         print(
             f"[{index}/{len(plan)}] {task['instance_id']} -> "
-            f"{task['destination_host']} ({destination_state['file_count']} files)"
+            f"{task['destination_host']} ({destination_state['file_count']} files, "
+            f"cache_hit={proof['cache']['cache_hit']}, mcp=PASS)"
         )
 
 
@@ -365,6 +445,10 @@ def main() -> None:
     parser.add_argument("--cache-namespace", required=True)
     parser.add_argument("--cache-root", default=DEFAULT_CACHE_ROOT)
     parser.add_argument("--memtrace-binary", default=DEFAULT_BINARY)
+    parser.add_argument(
+        "--remote-dataset",
+        default="/srv/contextbench/contextbench/data/full.parquet",
+    )
     parser.add_argument("--ssh-user", default="ubuntu")
     parser.add_argument("--execute", action="store_true")
     args = parser.parse_args()
@@ -390,6 +474,7 @@ def main() -> None:
         args.cache_root,
         args.memtrace_binary,
         args.ssh_user,
+        args.remote_dataset,
     )
 
 

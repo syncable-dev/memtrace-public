@@ -1,7 +1,10 @@
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from subprocess import CompletedProcess
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -34,6 +37,7 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
                 "shards": {
                     "shard-00": {
                         "public_ip": "repair",
+                        "preflight_run_id": "repair-run",
                         "task_ids": ["task-a"],
                     }
                 },
@@ -42,6 +46,7 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
                 "shards": {
                     "shard-03": {
                         "public_ip": "original",
+                        "preflight_run_id": "original-run",
                         "task_ids": ["task-a"],
                     }
                 }
@@ -55,6 +60,9 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
             )
             self.assertEqual(plan[0]["source_host"], "repair")
             self.assertEqual(plan[0]["destination_host"], "original")
+            self.assertEqual(
+                plan[0]["destination_preflight_run_id"], "original-run"
+            )
             self.assertEqual(len(plan[0]["cache_key"]), 64)
 
     def test_build_plan_rejects_non_successful_repair(self):
@@ -74,6 +82,7 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
                 "shards": {
                     "shard-00": {
                         "public_ip": "host",
+                        "preflight_run_id": "run",
                         "task_ids": ["task-a"],
                     }
                 },
@@ -110,6 +119,67 @@ class RepatriatePreflightCacheTests(unittest.TestCase):
         state["manifest"]["memtrace_binary_sha256"] = "wrong"
         with self.assertRaisesRegex(ValueError, "identity mismatch"):
             REPATRIATE.validate_cache(state, task, "cache-v1", "binary")
+
+    def test_destination_proof_requires_cache_hit_and_passed_mcp(self):
+        task = {
+            "instance_id": "task-a",
+            "destination_host": "original",
+            "destination_preflight_run_id": "original-run",
+        }
+        record = {
+            "status": "success",
+            "cache": {"cache_hit": True},
+            "stages": {
+                "checkout": {"status": "PASS"},
+                "index_embeddings": {"status": "PASS"},
+                "cache_sealed": {"status": "PASS"},
+                "mcp": {"status": "PASS"},
+            },
+        }
+        responses = [
+            CompletedProcess([], 0, "", ""),
+            CompletedProcess([], 0, json.dumps(record), ""),
+        ]
+        with patch.object(REPATRIATE, "remote_run", side_effect=responses) as remote:
+            proof = REPATRIATE.verify_destination_task(
+                task,
+                "cache-v1",
+                "/cache",
+                "/memtrace",
+                "ubuntu",
+                "/data/full.parquet",
+            )
+        self.assertTrue(proof["cache"]["cache_hit"])
+        command = remote.call_args_list[0].args[2]
+        self.assertIn("--child", command)
+        self.assertIn("--cache-namespace", command)
+        self.assertIn("task-a", command)
+
+    def test_destination_proof_rejects_rebuilt_cache(self):
+        task = {
+            "instance_id": "task-a",
+            "destination_host": "original",
+            "destination_preflight_run_id": "original-run",
+        }
+        record = {
+            "status": "success",
+            "cache": {"cache_hit": False},
+            "stages": {"mcp": {"status": "PASS"}},
+        }
+        responses = [
+            CompletedProcess([], 0, "", ""),
+            CompletedProcess([], 0, json.dumps(record), ""),
+        ]
+        with patch.object(REPATRIATE, "remote_run", side_effect=responses):
+            with self.assertRaisesRegex(RuntimeError, "rebuilt"):
+                REPATRIATE.verify_destination_task(
+                    task,
+                    "cache-v1",
+                    "/cache",
+                    "/memtrace",
+                    "ubuntu",
+                    "/data/full.parquet",
+                )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 ---
 name: memtrace-fleet-first
-description: "Coordinate fleets of coding agents sharing one repo+branch: declare typed intents, classify edit episodes, and resolve conflicts before they collide. Use FIRST when more than one coding agent works the same repo+branch at once (a 'fleet'), before reading code, planning a refactor, or making an edit — triggered by 'I'm about to edit X', 'rename Y across the codebase', joining a running fleet/session branch, coordinating with other agents, or prose hand-offs. Do not grep for 'who else is touching this' and do not skip fleet_publish_intent because 'it's a small change'. Fleet coordination is branch-scoped: pass your session branch so your fleet coordinates and stays isolated from agents on other branches. Skip ONLY for genuinely solo sessions or pure docs-only edits where coordination has zero value."
+description: "Coordinate fleets of coding agents sharing one repo+branch: publish typed intents, classify edit episodes, and resolve conflicts before they collide. Use FIRST when multiple agents work the same repo+branch, before reading/planning/editing, when joining a fleet or handing work off, and when the user says two agents are changing the same thing, asks who should proceed, has a decision waiting, or asks you to mediate a Class C conflict. Covers branch-scoped publish-edit-record plus verdict, human-resolution, and directive polling. Do not grep for who else is touching a symbol or skip coordination because a change looks small. Skip only genuinely solo sessions or docs-only edits with no coordination value."
 ---
 
 # Fleet First
@@ -115,6 +115,8 @@ degrades to "a human reviews a suggestion," never a silent bad merge.
 | Finish an edit | `fleet_record_episode` (get A/B/C) |
 | Got a Class C as the judge | `fleet_submit_verdict` (reconcile/recommend/defer) |
 | Blocked on a Class C | poll `fleet_get_escalation` until `your_directive ≠ wait` |
+| A human chose the outcome | `fleet_resolve_escalation` (record the decision) |
+| See the needs-human queue | `fleet_list_escalations` |
 | See who's in the fleet | `fleet_status` (active_agents, pending decisions) |
 | Inspect a symbol's coordination state | `fleet_get_node_state` |
 

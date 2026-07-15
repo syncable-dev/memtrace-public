@@ -1,6 +1,6 @@
 ---
 name: memtrace-docs
-description: "Route Memtrace product documentation questions to the hosted docs MCP tools before guessing, searching the web, or reading stale local copies. Use when the user asks how Memtrace works, how to install/configure CLI/MCP/fleet/Cortex/enterprise MemDB, what tools or skills exist, what a command does, or wants the agent to read up on official docs. Calls search_docs, ask_docs, or read_doc on memtrace.io (override with MEMTRACE_DOCS_API_URL). Do not hallucinate Memtrace behavior — query docs first. Separate from memtrace-first (your repo's code graph)."
+description: "Use official hosted Memtrace documentation before guessing, web search, or stale local copies. Trigger when the user asks how Memtrace works; how to install, configure, or deploy CLI, MCP, fleet, Cortex, or enterprise MemDB; what tools, skills, or commands exist; wants to find or locate official docs for a topic; or provides/asks to read a full docs page or slug. Routes internally across ask_docs for cited natural-language answers, search_docs for page discovery, and read_doc for complete page text. Separate from memtrace-first, which searches the user's indexed source code."
 ---
 
 # Memtrace Docs First
@@ -37,15 +37,15 @@ Override API host: `MEMTRACE_DOCS_API_URL` (default `https://memtrace.io`).
 
 ## The decision rule
 
-| User is asking | Right tool | Sub-skill |
+| User is asking | Right tool |
 |---|---|---|
-| "How do I install / configure / deploy X in Memtrace?" | `ask_docs(question=…)` | `memtrace-docs-ask` |
-| "What MCP tools / skills / CLI commands exist?" | `ask_docs` or `search_docs` then `read_doc` on hit slugs | `memtrace-docs-ask` / `memtrace-docs-search` |
-| "What does `memtrace rail enable` do?" | `ask_docs` | `memtrace-docs-ask` |
-| "Find docs about fleet coordination" | `search_docs(query=…)` | `memtrace-docs-search` |
-| "Read the full getting-started page" | `read_doc(slug="getting-started")` | `memtrace-docs-read` |
-| "Read enterprise MemDB deploy guide" | `read_doc(slug="enterprise/memdb-deploy")` | `memtrace-docs-read` |
-| Need several related sections | `search_docs` → `read_doc` on top slugs | `memtrace-docs-search` + `memtrace-docs-read` |
+| "How do I install / configure / deploy X in Memtrace?" | `ask_docs(question=…)` |
+| "What MCP tools / skills / CLI commands exist?" | `ask_docs` or `search_docs` then `read_doc` on hit slugs |
+| "What does `memtrace rail enable` do?" | `ask_docs` |
+| "Find docs about fleet coordination" | `search_docs(query=…)` |
+| "Read the full getting-started page" | `read_doc(slug="getting-started")` |
+| "Read enterprise MemDB deploy guide" | `read_doc(slug="enterprise/memdb-deploy")` |
+| Need several related sections | `search_docs` → `read_doc` on top slugs |
 
 **Default for natural-language questions:** `ask_docs` — it retrieves context and
 returns a cited answer in one call.
@@ -80,6 +80,41 @@ if you need the full page.
 2. Follow-up `read_doc(slug="enterprise/memdb-deploy")` for operator steps
 3. Engineer connect → `read_doc(slug="enterprise/connect")` or `cli/connect`
 
+## Tool procedures
+
+### ask_docs — cited answers
+
+Pass the user's question verbatim when it is already clear:
+
+```json
+{ "question": "How do I deploy MemDB with Docker Compose?" }
+```
+
+The response is `{ ok, answer, citations[], refused, refusalReason? }`. If
+`refused: true` with `no_context`, retry `search_docs` with shorter keywords and
+then `read_doc` on the best slug. `ask_docs` sends only the question string to
+memtrace.io's hosted RAG service; do not include secrets or repo source.
+
+### search_docs — page discovery
+
+```json
+{ "query": "deploy MemDB helm azure", "limit": 8 }
+```
+
+Results are ranked chunks with `slug`, `pageTitle`, `h2Title`, `excerpt`, and
+`distance` (lower is a better match). They are not full pages. Follow with
+`read_doc` when you need the complete reference.
+
+### read_doc — complete page text
+
+```json
+{ "slug": "enterprise/memdb-deploy" }
+```
+
+Use a slug from a user URL, `ask_docs` citations, or `search_docs` results. The
+response is `{ ok, slug, title, body }`. For multi-page topics, read each slug you
+will rely on rather than extrapolating from one page.
+
 ## Red flags — STOP, use docs tools
 
 | Thought | Reality |
@@ -113,9 +148,3 @@ read_doc → { ok: true, slug, title, body }
 
 When `refused: true`, tell the user the docs did not cover it and suggest browsing
 https://memtrace.io/docs or rephrasing.
-
-## Sub-skills
-
-- Discovery / chunk search → `memtrace-docs-search`
-- Grounded Q&A → `memtrace-docs-ask`
-- Full page read → `memtrace-docs-read`

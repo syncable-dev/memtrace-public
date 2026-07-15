@@ -1,11 +1,13 @@
 ---
 name: memtrace-change-impact-analysis
-description: "Compute what a planned source-code change will break — blast radius, affected processes, cross-repo callers, temporal stability, and Cortex decision-memory constraints — and produce a risk-rated change plan. Use before edits, refactors, API changes, renames, removals, PR reviews, or risk assessments, especially when changing established behavior or deleting code. Do not manually grep references or browse files for impact; use Memtrace graph context, change history, and decision recall/provenance."
+description: "Compute what a planned source-code change will break — blast radius, affected processes, cross-repo callers, temporal stability, and Cortex decision-memory constraints — and produce a risk-rated change plan. Use for multi-symbol or multi-part edits, refactors, API changes, renames, removals, PR reviews, or risk assessments that need a plan; for one symbol's raw blast radius, call get_impact directly. Do not manually grep references or browse files for impact; use Memtrace graph context, change history, and decision recall/provenance."
 ---
 
 ## Overview
 
 Pre-change risk assessment workflow. Before modifying code, this workflow maps the full blast radius, identifies affected processes, checks recent change history for instability signals, checks Cortex decision memory for recorded decisions/bans/contracts, and produces a risk-rated change plan.
+
+Use this workflow when the change spans multiple symbols or needs a risk-rated plan. For a quick raw upstream/downstream radius around one known symbol, call `get_impact` directly.
 
 ## Steps
 

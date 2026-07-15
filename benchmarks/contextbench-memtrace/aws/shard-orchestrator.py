@@ -585,6 +585,8 @@ def cmd_provision(args):
     )
     fleet["dataset_kind"] = dataset_kind(args.dataset)
     fleet["dataset_path_local"] = str(Path(args.dataset).resolve())
+    if fleet["dataset_kind"] == "full":
+        ensure_full_tracker_dataset(Path(args.dataset))
     fleet["source_manifest"] = source_manifest
     fleet["source_manifest_sha256"] = (
         hashlib.sha256(Path(args.manifest).read_bytes()).hexdigest()
@@ -1449,6 +1451,39 @@ def dataset_task_count(dataset_path):
     return len(pd.read_parquet(dataset_path, columns=["instance_id"]))
 
 
+def ensure_full_tracker_dataset(dataset_path, durable_path=None):
+    """Persist the full tracker dataset outside purge-prone temporary storage."""
+    source = Path(dataset_path)
+    if source.name != "full.parquet":
+        raise ValueError(f"tracker dataset must be full.parquet, got {source}")
+    durable = Path(
+        durable_path
+        or AWS_DIR / "state" / "preflight" / "full-1136" / "full.parquet"
+    )
+    if source.exists():
+        if durable.exists():
+            if sha256_file(source) != sha256_file(durable):
+                raise RuntimeError(
+                    f"full tracker dataset mismatch: {source} differs from {durable}"
+                )
+        else:
+            durable.parent.mkdir(parents=True, exist_ok=True)
+            temporary = durable.with_name(
+                f"{durable.name}.{os.getpid()}.{time.time_ns()}.tmp"
+            )
+            try:
+                shutil.copy2(source, temporary)
+                temporary.replace(durable)
+            finally:
+                temporary.unlink(missing_ok=True)
+    if not durable.exists():
+        raise RuntimeError(
+            "full ContextBench tracker dataset is missing from both "
+            f"{source} and durable snapshot {durable}"
+        )
+    return durable
+
+
 def cmd_collect_preflight(args):
     fleet = load_fleet(args.run_tag)
     aggregate = FLEET_STATE_DIR / args.run_tag / "aggregate-preflight"
@@ -1525,7 +1560,8 @@ def cmd_collect_preflight(args):
     tracker_dataset = Path(fleet.get("dataset_path_local") or args.dataset)
     tracker_state = AWS_DIR / "state" / "preflight" / "full-1136" / "task-status.jsonl"
     tracker = ADAPTER_DIR / "TRACKER.md"
-    if tracker_dataset.name == "full.parquet" and tracker_dataset.exists():
+    if tracker_dataset.name == "full.parquet":
+        tracker_dataset = ensure_full_tracker_dataset(tracker_dataset)
         sh(
             [
                 sys.executable,

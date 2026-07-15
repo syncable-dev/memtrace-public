@@ -93,6 +93,46 @@ class ShardOrchestratorTests(unittest.TestCase):
             ).to_parquet(dataset)
             self.assertEqual(ORCHESTRATOR.dataset_task_count(dataset), 3)
 
+    def test_full_tracker_dataset_survives_temporary_source_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "temporary" / "full.parquet"
+            durable = root / "state" / "full.parquet"
+            source.parent.mkdir()
+            source.write_bytes(b"sealed-full-dataset")
+
+            self.assertEqual(
+                ORCHESTRATOR.ensure_full_tracker_dataset(source, durable), durable
+            )
+            self.assertEqual(durable.read_bytes(), b"sealed-full-dataset")
+
+            source.unlink()
+            self.assertEqual(
+                ORCHESTRATOR.ensure_full_tracker_dataset(source, durable), durable
+            )
+
+    def test_full_tracker_dataset_fails_closed_when_all_copies_are_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(RuntimeError, "missing from both"):
+                ORCHESTRATOR.ensure_full_tracker_dataset(
+                    root / "temporary" / "full.parquet",
+                    root / "state" / "full.parquet",
+                )
+
+    def test_full_tracker_dataset_rejects_snapshot_mismatch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "temporary" / "full.parquet"
+            durable = root / "state" / "full.parquet"
+            source.parent.mkdir()
+            durable.parent.mkdir()
+            source.write_bytes(b"new-dataset")
+            durable.write_bytes(b"sealed-dataset")
+
+            with self.assertRaisesRegex(RuntimeError, "dataset mismatch"):
+                ORCHESTRATOR.ensure_full_tracker_dataset(source, durable)
+
     def test_full_run_gate_requires_every_task_and_stage(self):
         with tempfile.TemporaryDirectory() as directory:
             aggregate = Path(directory)

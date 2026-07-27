@@ -10,16 +10,15 @@ Version reference: Memtrace v0.4.62 (current at time of writing). The pipeline h
 
 ## 1. Executive summary
 
-Memtrace runs entirely on the customer's machine. Source code, file contents, embeddings, repository paths, branch names, commit data, and search queries are never transmitted off the machine under any configuration. Symbol names are likewise never transmitted *except* in one explicit case: the customer opts into the Weekly Memtrace Receipt feature on the memtrace.io account dashboard (off by default; see §6.4).
+Memtrace's code graph runs on the customer's machine. Source code, file contents, embeddings, search queries, and symbol names are never transmitted as product data. The authenticated heartbeat carries only the account metadata and aggregate counters listed in §6.2. Product telemetry can include sanitised error and crash text; the path-handling limits are documented in §4.1.
 
-The product makes four categories of network call:
+The product makes three categories of network call:
 
-1. **License validation + usage heartbeat** — required, no customer content (license token, device hash, aggregate integer counts).
-2. **Product telemetry** — on by default, can be disabled with one environment variable. Contains sanitised crash, error, and lightweight usage events. No customer content.
-3. **Weekly Memtrace Receipt** — off by default, opt-in via memtrace.io account settings. When enabled, the heartbeat carries a small symbol-name surface used to render the weekly email. One environment variable kills this stream specifically while leaving other telemetry behaviour unchanged.
-4. **One-time model download** — inbound only, first run, from HuggingFace.
+1. **License validation + usage heartbeat** — required account metadata and aggregate usage only. No source content.
+2. **Product telemetry** — on by default, can be disabled with one environment variable. Contains sanitised crash, error, and lightweight usage events. No source or query content.
+3. **One-time model download** — inbound only, first run, from HuggingFace.
 
-For a regulated environment, the recommendation is: keep product telemetry enabled, leave the Weekly Memtrace Receipt off (its default), and add `MEMTRACE_TELEMETRY=off` + `MEMTRACE_NO_REMOTE_RECEIPT=1` if the organisation's policy prohibits any outbound diagnostic data regardless of content.
+For a regulated environment, the recommendation is to keep product telemetry enabled unless the organisation's policy prohibits outbound diagnostic data. In that case, set `MEMTRACE_TELEMETRY=off`.
 
 ---
 
@@ -73,15 +72,30 @@ One row per discrete signal the binary emits. The complete list of event types:
 
 | Event name | When it fires | Fields beyond §3.1 identity |
 |---|---|---|
-| `start` | Every `memtrace start` / `memtrace mcp` invocation | `subcommand` (string, e.g. `start`, `mcp`), `transport` (string, e.g. `stdio`, `streamable-http`) |
-| `index_complete` | After Phase-1 indexing finishes | `duration_ms` (integer), `repo_count` (integer, number of repos indexed — not names) |
-| `embed_complete` | After Phase-2 embedding finishes | `duration_ms` (integer), `embedding_count` (integer, number of embeddings produced — not content) |
-| `pr_review_completed` | After `memtrace code-review` completes a GitHub PR review run | `posted` (boolean), `watch` (boolean), `comment_count` (integer), `finding_count` (integer), `graph_mode` (string, e.g. `strict`/`off`), `min_severity` (string), `severity_counts` (JSON object with `low`/`medium`/`high`/`critical` integer buckets), `source_counts` (JSON object of numeric source buckets only) |
+| `start` | Every `memtrace start` / `memtrace mcp` boot that establishes a license session | `subcommand` (string, e.g. `start`, `mcp`), `transport` (string, e.g. `stdio`, `streamable-http`; `mcp` path only) |
+| `start_degraded` | A boot that proceeded without a license session (expired install token, network failure, headless host) | `subcommand` (string), `transport` (string, `mcp` path only), `reason_class` (string enum from a fixed table, e.g. `session_expired`, `enterprise_enrollment`, `offline_license_expired` — the auth error is classified on the client and its display message discarded; see §3.2.1) |
+| `mcp_call` | Every MCP tool call, on both the success and error paths | `tool` (string — the **name of the Memtrace tool invoked**, from a fixed Memtrace-owned set, e.g. `find_code`, `get_impact`), `status` (string enum: `ok` / `degraded` / `error`), `rid_count` (integer — number of results returned, never their identifiers), `tone` (string enum: `cyan` / `magenta` / `lime` / `amber` / `slate`, the tool's function-class), `duration_ms` (integer) |
+| `rest_tool_call` | Every tool call served over the local REST/HTTP tool surface | Same fields as `mcp_call` |
+| `pr_review_completed` | After `memtrace code-review` completes a GitHub PR review run | `posted` (boolean), `watch` (boolean), `comment_count` (integer), `finding_count` (integer), `graph_mode` (string, e.g. `strict`/`off`), `review_mode` (string), `min_severity` (string), `severity_counts` (JSON object with `low`/`medium`/`high`/`critical` integer buckets), `source_counts` (JSON object of numeric source buckets only) |
+| `code_review_completed` | After a local `memtrace code-review` run with no PR post (diff file, stdin, or git range) | `input_kind` (string enum: `github_pr` / `diff` / `git_range`), `posted` (boolean, always `false`), `watch` (boolean, always `false`), plus the same count and mode fields as `pr_review_completed` |
 | `pr_watch_registered` | When `memtrace code-review --post --watch` registers a local PR watch | `comment_count` (integer), `graph_mode` (string), `status` (string enum, initially `awaiting_response`) |
 | `pr_watch_synced` | When watched PRs are polled by `memtrace start`, `memtrace mcp`, or `memtrace pr sync` | `watch_count`, `changed_count`, `awaiting_response_count`, `human_replied_count`, `approved_count`, `changes_requested_count`, `stale_after_push_count`, `merged_count`, `closed_count`, `poll_error_count` (all integers) |
-| `pr_watch_poll_error` | When polling one watched PR fails | `error_kind` (string enum: `rate_limited`, `token`, `github`, `parse`, `unknown`) |
+| `pr_watch_poll_error` | The first time polling one watched PR fails, and again when the failure kind changes | `error_kind` (string enum: `rate_limited`, `token`, `github`, `parse`, `unknown`) |
+| `drift_fallback` | When the incremental indexing path falls back to a full re-index | `site` (string enum: `live_pull` / `live_save` / `startup_drift` / `startup_reconcile` / `hosted_push`), `reason_class` (string enum from a fixed table, e.g. `dirty_tree`, `cold_start`, `oversize_commit_range` — the raw reason string is classified on the client and discarded), `changed_files` (integer, optional), `propagation_count` / `propagation_cap` (integers, optional) |
 
-No event payload contains file paths, symbol names, repository names, PR URLs, owner names, branch names, commit hashes, reviewer identities, comment bodies, discussion text, query content, or any other customer-derived data. Counts are integers only, except for low-cardinality mode/status/error enums.
+`duration_ms` is populated only for `mcp_call` and `rest_tool_call`; all other event types record it as null.
+
+No event payload contains file paths, symbol names, repository names, PR URLs, owner names, branch names, commit hashes, reviewer identities, comment bodies, discussion text, query content, or any other customer-derived data. Counts are integers only, except for low-cardinality mode/status/error enums and the `tool` field described below.
+
+**Tool names are collected.** The `tool` field on `mcp_call` and `rest_tool_call` records which Memtrace tool was invoked. Its value space is a fixed, finite set of Memtrace-owned identifiers compiled into the binary — it is not derived from customer code, repositories, or queries. It does constitute feature-usage data about the operator: it reveals *which* Memtrace capabilities an install exercises and how frequently. It does not reveal tool arguments, tool results, or the identity of any code the tool operated on.
+
+#### 3.2.1 Sanitiser scope for usage events
+
+The sanitiser in §4 applies to error rows (§3.3) and crash rows (§3.4). Usage-event properties are not passed through it, because they are constructed field-by-field from enums, booleans, and integers rather than from free-form strings — there is no free text to strip.
+
+This holds for every usage-event field without exception. It is a structural property of the emit sites, not a claim about their current contents: each property is either a literal, a counter, or a value from a closed enum compiled into the binary.
+
+The one historical exception was `start_degraded.reason`, which carried the display string of the underlying license/auth error verbatim. Some of those strings interpolate text the binary does not control — notably the absolute path of the offline license file and the text of an underlying io error. It has been replaced by `reason_class`, a value from a fixed table (`no_credentials`, `session_expired`, `invalid_license_key`, `enterprise_enrollment`, `external_memdb_denied`, and ten `offline_license_*` classes). Classification happens on the client by matching the error's **type variant** rather than its rendered message, so no part of the original string is transmitted, and a newly added failure mode fails to compile until it is assigned a class.
 
 PR watch state is persisted locally at `~/.memtrace/pr-watches.json` so the local daemon can poll GitHub for the PRs Memtrace reviewed. That local file may contain PR coordinates and the local repo root. It is not uploaded through telemetry.
 
@@ -173,7 +187,7 @@ If your data classification policy treats *any* path component below `$HOME` as 
 The telemetry pipeline schema on the receiving end has no column for the following — collecting them would require a new product release. None of these ever leave the customer machine via the product-telemetry endpoint:
 
 - Source code or file contents
-- Symbol names extracted from customer code *(but see §6.4 — symbol names can cross the network via the heartbeat *only* when the customer opts into the Weekly Memtrace Receipt feature)*
+- Symbol names extracted from customer code
 - Embeddings, BM25 indices, or any derived data
 - Repository names, paths, or remote URLs
 - GitHub PR URLs, pull request discussion text, issue/review/comment bodies, or reviewer identities
@@ -183,11 +197,13 @@ The telemetry pipeline schema on the receiving end has no column for the followi
 - Environment variable values (the sanitiser strips token-shaped strings; the binary does not read environment values directly into telemetry payloads)
 - IP addresses on the server side (standard request logs are retained for 7 days for abuse mitigation only and are not joined to telemetry tables)
 
+For the avoidance of doubt, the exclusion of search queries above covers the query *string* only. The fact that a tool ran — its name, status, duration, and result count — is recorded as a usage event (`mcp_call` / `rest_tool_call`, §3.2). An install's telemetry therefore shows that `find_code` was invoked 40 times and returned results, but not what was searched for or what matched.
+
 ---
 
 ## 6. Required network calls (non-telemetry)
 
-For completeness, two additional categories of network traffic exist. Neither contains customer content.
+For completeness, three non-telemetry call types exist. None carries source code or query content.
 
 ### 6.1 License authentication
 
@@ -206,7 +222,7 @@ For completeness, two additional categories of network traffic exist. Neither co
 |---|---|
 | Endpoint | `POST https://www.memtrace.io/api/device/heartbeat` |
 | Transport | HTTPS, TLS 1.3 |
-| Payload | Aggregate integer counts only: `{ "totalNodes": <int>, "totalEdges": <int>, "totalEpisodes": <int>, "totalRepositories": <int> }`. No symbol names, no paths, no code. |
+| Payload | Aggregate node, edge, and episode counts; billable query usage since the previous heartbeat; organization and seat identity for organization installs; MemDB endpoint, deployment mode, and an aggregate record count for MemDB deployments. No repository names, paths, symbol names, query text, or code. |
 | Frequency | Every 15 minutes while the daemon is running |
 | Purpose | Usage metering, entitlement checks |
 
@@ -220,22 +236,6 @@ For completeness, two additional categories of network traffic exist. Neither co
 | Frequency | Once on first run, cached at `~/.cache/fastembed/` thereafter |
 | Customer content sent | None |
 
-### 6.4 Weekly Memtrace Receipt (opt-in, off by default)
-
-A separate opt-in feature that turns the usage heartbeat into the source data for a weekly summary email sent to the customer's registered memtrace.io email address. This is the only configuration under which symbol names can leave the customer machine.
-
-| | |
-|---|---|
-| Endpoint | The existing heartbeat endpoint (`POST https://www.memtrace.io/api/device/heartbeat`); receipt payload is attached when this feature is enabled |
-| How to opt in | Toggled on the memtrace.io account dashboard — off by default for every new account |
-| Payload | A small symbol-name surface (the symbols the weekly email needs to render) in addition to the standard heartbeat counts |
-| Frequency | Same as the standard heartbeat — every 15 minutes while the daemon is running, aggregated server-side into one weekly email |
-| Per-machine kill switch | `MEMTRACE_NO_REMOTE_RECEIPT=1`. Set this on a specific machine and the heartbeat from that machine carries no symbol-name surface even if the account toggle is on — the server then has no concrete content to anchor the email and skips that week's send. |
-
-For a regulated environment, the recommended posture is:
-
-- Leave the Weekly Memtrace Receipt toggle **off** at the account level (its default).
-- As defence in depth, set `MEMTRACE_NO_REMOTE_RECEIPT=1` in the developer-machine environment so a future account-level toggle change cannot silently start shipping symbol names from regulated machines.
 
 ---
 
@@ -355,13 +355,12 @@ If the queue file is present and growing, telemetry is still on. If it's empty o
 
 For an audit, financial-services, healthcare, or other regulated context, the following configuration is appropriate **with product telemetry enabled**:
 
-- Leave the Weekly Memtrace Receipt toggle **off** at the memtrace.io account level (its default). As defence in depth, set `MEMTRACE_NO_REMOTE_RECEIPT=1` in the developer-machine environment so symbol names cannot leave the machine even if the account toggle is later changed.
 - Keep `MEMTRACE_TELEMETRY` at its default (on) and use the queue inspection procedure (§9) periodically to confirm no client-identifying paths appear in errors.
 - If the engagement involves hostnames that encode client identity, override the licensing hostname label so it doesn't surface in your account dashboard.
 - Add `*.memtrace.io` and `huggingface.co` to the egress allowlist.
 - Retain a copy of this datasheet and the linked source files in the project's compliance record.
 
-If the organisation's policy prohibits *any* outbound diagnostic data regardless of content classification, set both `MEMTRACE_TELEMETRY=off` and `MEMTRACE_NO_REMOTE_RECEIPT=1` permanently. The product remains fully functional in that mode — only license validation and the heartbeat (aggregate integer counts, no content) continue to run.
+If the organisation's policy prohibits *any* outbound diagnostic data regardless of content classification, set `MEMTRACE_TELEMETRY=off` permanently. The product remains fully functional in that mode. License validation and the authenticated heartbeat continue to run because they are account operations, not product telemetry.
 
 ---
 

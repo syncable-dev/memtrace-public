@@ -204,7 +204,6 @@ default.
 |---|---|---|
 | `MEMTRACE_TELEMETRY` | (unset, treated as on) | The user-facing kill switch. Set to `off` / `0` / `false` / `disabled` / `no` to disable product telemetry. See [`TELEMETRY.md`](../TELEMETRY.md) and [`privacy-and-telemetry.md`](privacy-and-telemetry.md#2-product-telemetry-on-by-default--opt-out). |
 | `MEMTRACE_TELEMETRY_DISABLED` | (unset) | Hard override. Set to `1` to block telemetry unconditionally — takes precedence over `MEMTRACE_TELEMETRY` and any other state. Recommended for CI / locked-down environments. |
-| `MEMTRACE_NO_REMOTE_RECEIPT` | (unset) | Set to `1` to omit the weekly-receipt symbol-name surface from heartbeats. Even if the user opted in to weekly emails on memtrace.io, this env var ensures no symbol names cross the network from this machine. The cloud then has nothing concrete to anchor an email and skips the send for that week. See [`privacy-and-telemetry.md`](privacy-and-telemetry.md) §3 and [`telemetry-compliance-datasheet.md`](telemetry-compliance-datasheet.md) §6.4. |
 | `MEMTRACE_LICENSE_KEY` | (unset) | Optional bearer-style license key for non-interactive (CI / server) authentication. Most users authenticate via device flow on first run instead. |
 
 ## Redis / pub-sub (multi-process deployments)

@@ -15,11 +15,11 @@ Memtrace builds a structural knowledge graph from your codebase's AST. Every ste
 | **Git history analysis** | Local (libgit2, vendored) | Commit history → bi-temporal graph |
 | **MCP tool queries** | Local (graph traversal + search) | Results returned to your local MCP client |
 
-**No source code, file contents, symbol names, embeddings, file paths, or AST data is ever transmitted to any external server.**
+**No source code, file contents, symbol names, embeddings, or AST data is ever transmitted to any external server.** Sanitised error and crash telemetry can include path fragments; its limits are documented below and in the compliance datasheet.
 
 ## What Leaves Your Machine
 
-Memtrace makes exactly three types of network calls:
+Memtrace makes exactly four types of network calls:
 
 ### 1. License Authentication
 
@@ -35,13 +35,11 @@ Memtrace makes exactly three types of network calls:
 | | |
 |:--|:--|
 | **Endpoint** | `POST https://www.memtrace.io/api/device/heartbeat` |
-| **Data sent** | Aggregate integer counts only: total nodes, edges, episodes, repositories |
+| **Data sent** | Aggregate node, edge, and episode counters; billable query usage; organization and seat identity for organization installs; MemDB endpoint, deployment mode, and aggregate record count for MemDB deployments |
 | **Purpose** | Usage metering and entitlement checks |
 | **Frequency** | Every 15 minutes while running |
 
-By default the heartbeat payload contains **no symbol names, no file paths, no code, and no embeddings** — only integer totals like `{ "totalNodes": 4022, "totalEdges": 18441 }`.
-
-The one exception is the **Weekly Memtrace Receipt** feature (off by default, opt-in via the memtrace.io account dashboard). When that toggle is on, the heartbeat additionally carries a small symbol-name surface that powers the weekly summary email. Set `MEMTRACE_NO_REMOTE_RECEIPT=1` on a specific machine to keep the receipt feature off regardless of the account-level toggle. Full breakdown: [`docs/telemetry-compliance-datasheet.md`](docs/telemetry-compliance-datasheet.md) §6.4.
+The heartbeat payload contains **no repository names, repository paths, remote URLs, branches, source code, file or symbol names, query text, decision content, or activity-event feed**. The account dashboard can therefore show aggregate usage and authenticated install status, but it cannot reconstruct named codebase activity.
 
 ### 3. Embedding Model Download (One-Time)
 

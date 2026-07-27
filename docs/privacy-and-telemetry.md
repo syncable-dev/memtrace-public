@@ -25,10 +25,9 @@ doc is the user-friendly explainer.
 
 ## What does cross the network
 
-Four categories. License validation is required for the product to
-work; product telemetry is on by default with a one-env-var kill
-switch; the weekly receipt is off by default and opt-in; the model
-download is inbound only on first run.
+Four categories. License validation and the authenticated usage heartbeat
+are required for account operation; product telemetry is on by default with
+a one-env-var kill switch; the model download is inbound only on first run.
 
 ### 1. License validation (required)
 
@@ -109,16 +108,18 @@ for the full discussion of the sanitiser's limits.
 - IP addresses on the server side (request logs kept 7 days for
   abuse mitigation only)
 
-### 3. Weekly Memtrace Receipt (off by default — opt-in on memtrace.io)
+### 3. Authenticated usage heartbeat (required)
 
-Separate from product telemetry. If you opt into weekly summary emails on your memtrace.io account dashboard, the usage heartbeat starts attaching a small symbol-name surface (the symbols the email needs to render). This is the **only** configuration under which symbol names ever cross the network from your machine. Off by default for every new account.
+While Memtrace is running, an authenticated heartbeat keeps license and quota
+state current. It sends aggregate node, edge, and episode counts plus billable
+query usage. Organization installs also send their organization and seat
+identity. MemDB deployments can send the configured endpoint, deployment mode,
+and an aggregate record count.
 
-Two ways to turn it off:
-
-- **Account toggle** on memtrace.io — flip it off and the heartbeat stops attaching symbol names server-wide for your account.
-- **Per-machine env var** — `export MEMTRACE_NO_REMOTE_RECEIPT=1` on a specific machine. The heartbeat from that machine carries no symbol-name surface even if the account toggle is on, and the server skips that week's email send.
-
-For regulated environments (financial, healthcare, audit) the recommended posture is to leave the account toggle off **and** set `MEMTRACE_NO_REMOTE_RECEIPT=1` on the developer machine as defence in depth.
+The heartbeat does not send repository names, paths, remote URLs, branches,
+source code, file or symbol names, query text, decision content, or an activity
+feed. It is an account operation, so `MEMTRACE_TELEMETRY=off` does not disable
+it.
 
 ### 4. Embedding model download (first run only, inbound)
 

@@ -12,8 +12,10 @@ and how to turn it off.
 > **TL;DR**
 > - We never collect source code, file contents, file paths beyond what's
 >   needed for crash fingerprints, symbol names, or embeddings.
-> - We collect: app starts, indexing/embedding durations, panic reports,
->   PR workflow counters, and `WARN`/`ERROR` log lines from our own crates.
+> - We collect: app starts, **the name and duration of each Memtrace tool
+>   call** (which tool you invoked — never its arguments or results), PR
+>   workflow counters, panic reports, and `WARN`/`ERROR` log lines from our
+>   own crates.
 > - We also collect content-free **Rail routing-quality** buckets (was the
 >   result relevant — never the search text or matched files), measured
 >   **asynchronously** by the background daemon so it never slows a search.
@@ -22,6 +24,26 @@ and how to turn it off.
 > - Default is **on for crashes, errors, usage events, and the content-free
 >   Rail routing-quality buckets**. Opt-out is one env var or one config-file
 >   line.
+
+---
+
+## Authenticated Account Heartbeat
+
+The account heartbeat is separate from the opt-out telemetry streams below.
+It keeps an authenticated install connected to its license and quota. Because
+it is part of account operation, `MEMTRACE_TELEMETRY=off` does not disable it.
+
+The heartbeat currently sends:
+
+- Aggregate node, edge, and episode counters
+- Billable query usage since the previous heartbeat
+- The authenticated organization and seat identity for organization installs
+- For MemDB deployments, the configured endpoint, deployment mode, and an
+  aggregate record count
+
+It does not send repository names, repository paths, remote URLs, branch
+names, source code, file or symbol names, query text, decision content, or an
+activity-event feed.
 
 ---
 
@@ -34,27 +56,41 @@ the same Bearer session token your install already uses for the heartbeat.
 
 ### 1. Usage events (`telemetry_events`)
 
-One row per discrete signal the binary emits. Today the supported events are:
+One row per discrete signal the binary emits. The complete list of events:
 
 | Event | When it fires | Data attached |
 |---|---|---|
-| `start` | Every `memtrace start` / `memtrace mcp` invocation | subcommand, transport mode |
-| `index_complete` | After Phase-1 indexing finishes | duration_ms, repo count |
-| `embed_complete` | After Phase-2 embedding finishes | duration_ms, embedding count |
-| `pr_review_completed` | After `memtrace code-review` finishes a PR review run | posted/dry-run boolean, watch boolean, comment count, finding count, graph mode, minimum severity, severity-count buckets, source-count buckets |
+| `start` | Every `memtrace start` / `memtrace mcp` boot that establishes a license session | subcommand (`start` / `mcp`); transport mode on the `mcp` path |
+| `start_degraded` | A boot that continued *without* a license session (expired install token, network blip, headless box) | subcommand, transport mode, and a failure **class** from a fixed enum (e.g. `session_expired`, `offline_license_expired`) — the auth error's message is classified on your machine and the original string discarded |
+| `mcp_call` | **Every MCP tool call**, on both the success and the error path | the **name** of the Memtrace tool invoked (e.g. `find_code`); status (`ok` / `degraded` / `error`); result count (how many results, never which); the tool's function-class tone (`cyan` discovery, `magenta` inspection, `lime` analysis, `amber` history, `slate` generic); and duration |
+| `rest_tool_call` | Every tool call over the local REST surface (the dashboard's HTTP API) | Same fields as `mcp_call` |
+| `pr_review_completed` | After `memtrace code-review` finishes a PR review run | posted/dry-run boolean, watch boolean, comment count, finding count, graph mode, review mode, minimum severity, severity-count buckets, source-count buckets |
+| `code_review_completed` | After a local `memtrace code-review` run (diff, stdin, or git range — nothing posted) | input kind (`github_pr` / `diff` / `git_range`) plus the same count and mode fields as above |
 | `pr_watch_registered` | When `memtrace code-review --post --watch` registers a local PR watch | comment count, graph mode, local watch status |
 | `pr_watch_synced` | When `memtrace start`, `memtrace mcp`, or `memtrace pr sync` polls watched PRs | aggregate watch counts by status: awaiting response, human replied, approved, changes requested, stale after push, merged, closed, poll errors |
-| `pr_watch_poll_error` | When a watched PR poll fails | coarse error kind only: `rate_limited`, `token`, `github`, `parse`, or `unknown` |
+| `pr_watch_poll_error` | The first time a watched PR poll fails, and again whenever the failure kind changes | coarse error kind only: `rate_limited`, `token`, `github`, `parse`, or `unknown` |
+| `drift_fallback` | When the incremental watcher path gives up and falls back to a full re-index | the call site (`live_pull` / `live_save` / `startup_drift` / `startup_reconcile` / `hosted_push`), a reason **class** from a fixed enum (the raw reason is classified on your machine and the original string discarded), plus optional changed-file and propagation counts |
+
+Duration is only recorded for `mcp_call` and `rest_tool_call`; every other
+event leaves it null.
 
 Each row also carries: a stable per-machine `device_id` (the same one you
 see in your `~/.memtrace/credentials.json`), the binary version (e.g.
 `0.3.17`), the OS string (e.g. `macos-aarch64`), and the host-tier score
 the resource detector picked. Nothing else.
 
-**What this lets us see:** how many people run Memtrace each day, whether
-indexing got slower in a recent release, and whether the auto-tuned
-`light/standard/heavy` tiers are landing in the right buckets on real
-hardware. It's the telemetry equivalent of a daily check-in graph.
+**What this lets us see:** how many people run Memtrace each day, which
+tools actually get used, whether a specific tool got slower or started
+failing in a recent release, how often incremental indexing falls back to a
+full rebuild, and whether the auto-tuned `light/standard/heavy` tiers are
+landing in the right buckets on real hardware.
+
+**What it deliberately doesn't tell us:** what you asked a tool *for*, or
+what it gave back. `find_code` and `get_impact` report only that they ran,
+how long they took, and how many results they returned — never the query,
+the matched symbols, or the repo. The result IDs behind that count go to
+the local dashboard over your machine's own WebSocket; only the count
+leaves.
 
 For PR review telemetry, the local watcher may store PR coordinates in
 `~/.memtrace/pr-watches.json` so it can poll GitHub later, but the telemetry
@@ -169,6 +205,23 @@ data model on the receiving end has no column to put them in.
   but we never read env values directly into telemetry payloads)
 - ❌ IP addresses (we don't log them server-side; standard request logs
   are kept for 7 days for abuse mitigation only)
+
+**One thing that *is* collected and worth stating plainly:** the `mcp_call`
+and `rest_tool_call` events record the **name of each Memtrace tool you
+invoke**, along with its status, duration, and result count. That name comes
+from a fixed set of Memtrace-owned identifiers (`find_code`, `get_impact`,
+…) and is not derived from your code — but it does mean we can see *which
+Memtrace features you use and how often*. What we cannot see is what you
+asked for or what came back.
+
+Note also that the sanitiser above runs over `WARN`/`ERROR` log lines and
+panic reports. Usage-event properties are **not** passed through it — they
+are built field-by-field from enums, booleans and counters, so there is no
+free text to strip. That is enforced rather than assumed: the last
+free-form string in the stream was `start_degraded`'s reason, which carried
+the license/auth error's display text verbatim. It is gone, replaced by a
+`reason_class` from a fixed enum, derived on your machine by matching on
+the error *variant* rather than its message.
 
 If a panic backtrace happens to include a path inside one of your
 repositories — say a tree-sitter library hit an assertion while parsing

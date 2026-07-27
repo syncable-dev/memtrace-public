@@ -23,6 +23,8 @@ memtrace --help
 | `memtrace doctor [--fix] [--repair-install] [--purge-legacy]` | Diagnose runtime, stale locks, process conflicts, agent skills, and MCP registration. With flags, clean stale runtime state and reinstall local skills/MCP config. |
 | `memtrace mcp` | Run the MCP server for Claude, Cursor, Codex, and other MCP-compatible agents. It attaches to an existing workspace owner or becomes the owner if none is running. |
 | `memtrace index <path>` | Index a repository or workspace into MemDB, then exit. |
+| `memtrace govern <path|glob> [--accept-all]` | Classify governance candidates for review. With `--accept-all`, persist the classifier's recommendation for each governance candidate shown in the preview; `NotGovernance` rows are omitted. |
+| `memtrace govern add|edit <path> ...` | Manually assert or replace one governance document in Cortex decision memory. |
 | `memtrace code-review setup` | Choose the default headless agent for `@memtrace fix this`. |
 | `memtrace code-review --pr <url>` | Review a GitHub pull request using local Memtrace context. |
 | `memtrace pr status` | Show local PR watches registered by `memtrace code-review --post --watch`. |
@@ -57,6 +59,43 @@ same local `.memdb` store, but they have different lifetimes:
 Memtrace keeps an owner lock in the resolved `.memdb` directory, so
 multiple agent sessions should not open duplicate embedded MemDB
 owners for the same workspace.
+
+Cortex uses a separate decision store. `memtrace index`, `--clear`,
+`memtrace reset`, and MCP `index_directory(clear_existing=true)` only
+affect the MemDB code graph; there is no normal Cortex reindex flag.
+See [`cortex.md`](cortex.md).
+
+## Governance intake
+
+The sweep command classifies matched files and shows the governance candidates
+it recognizes. It does not persist a preview unless you confirm candidates in
+the Cortex Governance view or pass `--accept-all`:
+
+```bash
+memtrace start
+memtrace govern docs/adr
+memtrace govern docs/adr --accept-all
+```
+
+`--accept-all` accepts the classifier's recommendation for each governance
+candidate shown in the preview. Effective ADRs, agent rules, and included
+standing rules are persisted as `include`; ineffective ADRs and excluded
+standing rules are persisted as `exclude`. Rows classified as `NotGovernance`
+are omitted.
+
+Use `add` or `edit` to make an exact manual assertion about one file:
+
+```bash
+memtrace govern add docs/adr/0007-use-postgres.md \
+  --type adr \
+  --guidance "Use Postgres for durable application state" \
+  --scope 'path:apps/api/**'
+```
+
+Valid `--type` values are `adr`, `agent_rule`, and `standing_rule`.
+`--scope` is optional and accepts comma-separated path selectors. `--ban`
+marks a hard constraint. `edit` replaces the full assertion rather than
+merging omitted fields from the previous one.
 
 ## Doctor and repair
 

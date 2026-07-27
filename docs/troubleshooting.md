@@ -11,6 +11,7 @@ find your symptom, follow the fix.
 - [Claude Code hook JSON validation failed](#claude-code-hook-json-validation-failed)
 - [Agent says "Memtrace index is empty"](#agent-says-memtrace-index-is-empty-0-nodes-0-edges-at-session-start)
 - [Agent isn't using the MCP](#agent-isnt-using-the-mcp)
+- [Cortex recall is missing, unavailable, or empty](#cortex-recall-is-missing-unavailable-or-empty)
 - [Dashboard graph or timeline looks partial after cold start](#dashboard-graph-or-timeline-looks-partial-after-cold-start)
 - [`MEMTRACE_TRANSPORT=sse` hangs](#memtrace_transportsse-hangs)
 - [Indexing hangs / never finishes](#indexing-hangs--never-finishes)
@@ -316,6 +317,57 @@ If those directories are empty, repair the local skills/MCP install:
 ```bash
 memtrace doctor --fix --repair-install
 ```
+
+## Cortex recall is missing, unavailable, or empty
+
+First, check the MCP configuration. Cortex tools come through the normal
+Memtrace server:
+
+```json
+{
+  "mcpServers": {
+    "memtrace": {
+      "command": "memtrace",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Do not configure `memcortex-mcp`, a package-internal Node path, a Unix
+socket, or a Windows named pipe. Remove any second Cortex MCP entry.
+
+Then check the runtime and Cortex's own status:
+
+```bash
+memtrace start
+curl -s http://localhost:3030/api/cortex/status
+```
+
+Windows PowerShell:
+
+```powershell
+memtrace start
+Invoke-RestMethod http://localhost:3030/api/cortex/status
+```
+
+Wait until `snapshotState` is `fresh`. Restart or reconnect the MCP client
+after Memtrace starts so it reloads the tool list.
+
+| Symptom | Likely cause | Action |
+|---|---|---|
+| Cortex tools are absent | Wrong/stale MCP registration | Keep only `command: "memtrace"`, `args: ["mcp"]`; run `memtrace doctor --fix --repair-install`; restart the client. |
+| Tool reports Cortex unavailable or the local transport closed | Runtime or sidecar is not ready | Run `memtrace stop`, `memtrace doctor --fix`, then `memtrace start`; poll `/api/cortex/status`. |
+| Status is healthy but recall returns `CannotProve` | No evidence matched the query | Try a short distinctive phrase from a known decision. Check that governance candidates were confirmed. |
+| `memtrace govern` lists files but the Cortex index/count does not change | A sweep is classification/review, not persistence | Confirm in the dashboard, use `--accept-all`, or use `govern add/edit` for one exact assertion. |
+| `memtrace index --clear` or `memtrace reset` did not change Cortex | Expected: those commands only affect the MemDB code graph | Use the Cortex runtime and governance flow; do not repeat source reindexing. |
+
+There is no supported full Cortex reindex command or MCP flag. Do not
+delete `~/.memtrace/cortex-store`. If recovery still fails, save the
+output of `/api/cortex/status`, `memtrace status --json`,
+`memtrace --version`, your OS, and the exact `recall_decision` request.
+
+See [`cortex.md`](cortex.md) for parameter details and governance examples.
 
 ## Dashboard graph or timeline looks partial after cold start
 

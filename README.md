@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fsyncable-dev%2Fmemtrace-public.svg)](https://mcptoplist.com/server/glama%2Fsyncable-dev%2Fmemtrace-public)
+
 <p align="center">
   <img src="docs/memtrace-hero.svg" alt="Memtrace — structural memory for AI coding agents" width="100%"/>
 </p>

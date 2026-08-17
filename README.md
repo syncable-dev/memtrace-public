@@ -40,10 +40,10 @@
 
 ## DeepSeek Harness
 
-Memtrace runs as a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. One command mounts the graph tools and the agent skills into your Harness profile:
+Memtrace runs as a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. Install Harness first (`npm install -g @deepseek-ai/dsh` — that is the `dsh` command), then add Memtrace:
 
 ```sh
-dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
+npx -y @deepseek-ai/dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
 ```
 
 Then ask the agent to index the workspace and pull blast radius, evolution, or an architecture briefing. Details: [syncable-dev/dsh-plugin-memtrace](https://github.com/syncable-dev/dsh-plugin-memtrace).
@@ -249,7 +249,7 @@ Uses **Structural Significance Budgeting** to surface the minimum set of changes
 |---|---|---|---|
 | Claude Code | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Claude Desktop | ✅ | ✅ | Automatic — shared with Claude Code |
-| DeepSeek Harness | ✅ | ✅ | `dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace` |
+| DeepSeek Harness | ✅ | ✅ | `npx -y @deepseek-ai/dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace` |
 | Cursor (v2.4+) | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Codex CLI | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Windsurf | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
@@ -268,8 +268,17 @@ Skills are workflow prompts that teach the agent how to chain tools. Kiro does n
 
 ### DeepSeek Harness
 
+`dsh` comes from `@deepseek-ai/dsh`, not from Memtrace.
+
 ```sh
+npm install -g @deepseek-ai/dsh
 dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
+```
+
+Or without a global CLI:
+
+```sh
+npx -y @deepseek-ai/dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
 ```
 
 That bundle registers Memtrace's skills and starts `memtrace mcp` inside the Harness profile. First launch may fetch the Memtrace binary via `npx`; pin a local install with `npm install -g memtrace` and `MEMTRACE_BIN=memtrace`.

@@ -32,8 +32,21 @@
   <img src="https://img.shields.io/badge/MCP-native-00d4b8?style=flat-square" alt="MCP"/>
   <img src="https://img.shields.io/badge/languages-20%2B-22d3ee?style=flat-square" alt="Languages"/>
   <a href="https://discord.gg/gzedUSNbna"><img src="https://img.shields.io/badge/Discord-join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" /></a>
+  <a href="https://github.com/syncable-dev/dsh-plugin-memtrace"><img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-4D6BFE?style=flat-square" alt="DeepSeek Harness" /></a>
   <img src="https://img.shields.io/badge/private%20beta-active-f59e0b?style=flat-square" alt="Private Beta"/>
 </p>
+
+---
+
+## DeepSeek Harness
+
+Memtrace runs as a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. One command mounts the graph tools and the agent skills into your Harness profile:
+
+```sh
+dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
+```
+
+Then ask the agent to index the workspace and pull blast radius, evolution, or an architecture briefing. Details: [syncable-dev/dsh-plugin-memtrace](https://github.com/syncable-dev/dsh-plugin-memtrace).
 
 ---
 
@@ -236,6 +249,7 @@ Uses **Structural Significance Budgeting** to surface the minimum set of changes
 |---|---|---|---|
 | Claude Code | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Claude Desktop | ✅ | ✅ | Automatic — shared with Claude Code |
+| DeepSeek Harness | ✅ | ✅ | `dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace` |
 | Cursor (v2.4+) | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Codex CLI | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
 | Windsurf | ✅ | ✅ | `npm install -g memtrace` — fully automatic |
@@ -251,6 +265,14 @@ Skills are workflow prompts that teach the agent how to chain tools. Kiro does n
 ---
 
 ## Setup
+
+### DeepSeek Harness
+
+```sh
+dsh plugin --profile web add github:syncable-dev/dsh-plugin-memtrace
+```
+
+That bundle registers Memtrace's skills and starts `memtrace mcp` inside the Harness profile. First launch may fetch the Memtrace binary via `npx`; pin a local install with `npm install -g memtrace` and `MEMTRACE_BIN=memtrace`.
 
 ### Claude Code + Claude Desktop
 

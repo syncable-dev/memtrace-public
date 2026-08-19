@@ -91,11 +91,11 @@ Detailed breakdowns: [BENCHMARKS-v0.3.22.md](BENCHMARKS-v0.3.22.md) · [BENCHMAR
 
 ## GitHub Star Growth
 
-<a href="https://www.star-history.com/syncable-dev/memtrace-public">
+<a href="https://star-history.dera.page/#syncable-dev/memtrace-public&type=date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
-    <img alt="Memtrace GitHub star growth over time" src="https://api.star-history.com/chart?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=syncable-dev/memtrace-public&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
+    <img alt="Memtrace GitHub star growth over time" src="https://star-history.dera.page/svg?repos=syncable-dev/memtrace-public&type=date&legend=top-left" />
   </picture>
 </a>
 

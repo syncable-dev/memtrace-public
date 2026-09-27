@@ -6,3 +6,7 @@
 /benchmarks/swebench-retrieval/**/__pycache__/
 /benchmarks/contextbench-memtrace/aws/state/
 /benchmarks/contextbench-memtrace/aws/config.env
+
+.memdb/
+.memtrace/
+

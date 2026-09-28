@@ -1,5 +1,14 @@
 [
   {
+    "tag_name": "v1.2.9-nightly.20260928.99279c5",
+    "published_at": "2026-09-28T14:06:31.448Z",
+    "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.9-nightly.20260928.99279c5",
+    "name": "Memtrace 1.2.9-nightly.20260928.99279c5",
+    "body": "More dependable agent queries and decision memory, shaped by Magalz's feedback\n\n### New\n- Agents can use get_query_revision to wait for an indexed source revision and detect changes across a report's queries, including saved edits and branch switches.\n- Decision recall includes source documents, content hashes, decision revisions, category, scope and lifecycle information, with missing metadata identified explicitly.\n\n### Fixed\n- Ignored files stay outside current analysis after edits, reconnects, restarts, full indexing and history replay. Ignore negation and removal of stale indexed results work consistently.\n- Accepted architecture decisions retain their workspace scope for reliable recall on Windows and Linux, including concurrent clients and owner restarts.\n- Numeric review catches the supplied integral and decimal narrowing cases, including a declaration change supplied as an unapplied diff with matching base source. Unrelated changes remain quiet.\n- Symbol context distinguishes available, empty and unavailable annotation metadata, while full related-symbol results preserve annotation arguments.\n\n### Improved\n- The quality skill now explicitly uses the existing find_hotspots MCP tool and explains how change frequency, complexity and fallback results affect its findings.\n- Thanks to Magalz for the detailed feedback, reproducible fixtures and acceptance criteria that drove these improvements. The supplied workflows were checked on Windows and Linux.\n\nInstall: npm install -g memtrace@nightly",
+    "prerelease": true,
+    "draft": false
+  },
+  {
     "tag_name": "v1.2.8",
     "published_at": "2026-09-25T12:17:20Z",
     "html_url": "https://github.com/syncable-dev/memtrace-public/releases/tag/v1.2.8",

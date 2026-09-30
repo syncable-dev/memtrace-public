@@ -1,5 +1,14 @@
 [
   {
+    "tag_name": "v1.2.9-nightly.20260930.38f3184",
+    "published_at": "2026-09-30T12:42:37.074Z",
+    "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.9-nightly.20260930.38f3184",
+    "name": "Memtrace 1.2.9-nightly.20260930.38f3184",
+    "body": "Saved refactor runs, clearer background work, and fixes from public reports\n\n### New\n- Quality now opens saved guided refactor runs. An agent can record a diagnosis, plan bounded edits, and submit compiler, test, and API checks between steps. Failed checks pause the run, and its history survives a restart. The first workflow supports test capture and helper extraction; the recorded checks are evidence, not a proof of equivalent behavior.\n\n### Fixed\n- Python named imports now connect importing files to the class or function they import, including aliases and imports inside functions. Exporter queries can find those files after full indexing, incremental edits, and history replay.\n- OpenCode routing recognizes repository roots and nested folders, and accepts workspace selectors with JSON supplied on stdin. Installation leaves one managed plugin instead of loading it twice.\n- Standalone dashboards no longer index the current directory or claim workspace ownership. They connect to an existing engine and remain open when stdin closes.\n- Starting with --allow-non-git now discovers the selected plain folder, indexes it, and watches subsequent edits while preserving ignore rules.\n- MCP sessions shut down on SIGTERM, SIGHUP, and incomplete-handshake disconnects. Linux stop commands also recognize exited children that have not yet been reaped.\n- Heartbeat retries no longer burst through missed intervals after a computer resumes from sleep. An offline period reports one network warning and a recovery message.\n- Stop keeps incomplete cleanup and unconfirmed persistence sync visible in its final summary instead of ending with an unconditional Done.\n- An owned engine exiting now makes the wrapper report an unhealthy backend and shut down its listeners. Windows watcher hashes and symbol path selectors use consistent path spellings.\n\n### Improved\n- Background replay and semantic-index repair appear in the job list. Paged embedding shows how many symbols it has examined and leaves the total unknown until the scan finishes, instead of displaying a percentage against a growing denominator.\n- Related skills explain when to use each entry point, and a guided refactor skill walks agents through the saved workflow and its checks.\n\nInstall: npm install -g memtrace@nightly",
+    "prerelease": true,
+    "draft": false
+  },
+  {
     "tag_name": "v1.2.9-nightly.20260928.99279c5",
     "published_at": "2026-09-28T14:06:31.448Z",
     "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.9-nightly.20260928.99279c5",

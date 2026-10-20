@@ -1,5 +1,14 @@
 [
   {
+    "tag_name": "v1.2.9",
+    "published_at": "2026-10-20T10:39:13Z",
+    "html_url": "https://github.com/syncable-dev/memtrace-public/releases/tag/v1.2.9",
+    "name": "Memtrace v1.2.9",
+    "body": "## Memtrace v1.2.9\n\nRepository activity reaches your Memtrace account\n\n### Fixed\n\n- Authenticated workspace reports now include each indexed repository and its latest branch, node and edge counts, episode count and index time, so the account dashboard can show actual repository activity.\n- A successful one-shot memtrace index publishes its workspace snapshot before exiting. Repository rows are scoped to the selected workspace and use the latest index stamp.\n- Workspace reporting respects telemetry opt-out and offline mode. Collection and delivery have time limits, and a reporting failure does not fail a completed index.\n\n### Install\n\n```bash\nnpm install -g memtrace\n```\n",
+    "prerelease": false,
+    "draft": false
+  },
+  {
     "tag_name": "v1.2.9-nightly.20261001.5048949",
     "published_at": "2026-10-01T13:55:35.314Z",
     "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.9-nightly.20261001.5048949",

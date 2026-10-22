@@ -1,5 +1,14 @@
 [
   {
+    "tag_name": "v1.2.10-nightly.20261022.12ea8ec",
+    "published_at": "2026-10-22T14:31:27.997Z",
+    "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.10-nightly.20261022.12ea8ec",
+    "name": "Memtrace 1.2.10-nightly.20261022.12ea8ec",
+    "body": "### Fixed\n- Graph redraws keep one GPU draw in flight, retain the latest pending camera or selection update, and skip nodes and edges outside the visible viewport. Enlarged selected nodes and edges crossing the viewport stay visible. Closing or replacing a canvas releases its GPU resources, including when setup is still running. Thanks to the user who reported slow graph interactions.\n\nInstall: npm install -g memtrace@nightly",
+    "prerelease": true,
+    "draft": false
+  },
+  {
     "tag_name": "v1.2.10-nightly.20261022.e1a25d6",
     "published_at": "2026-10-22T09:18:59.417Z",
     "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.10-nightly.20261022.e1a25d6",

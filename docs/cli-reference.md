@@ -30,7 +30,7 @@ memtrace --help
 | `memtrace pr status` | Show local PR watches registered by `memtrace code-review --post --watch`. |
 | `memtrace pr sync` | Poll watched PRs once via the installed GitHub App. |
 | `memtrace reset [repoId]` | Reset graph data. With no argument, wipes the local `.memdb`; with a repo id, removes only that repo's records and embedding cache. |
-| `memtrace install` | Upgrade to the latest npm package. `memtrace install start` upgrades and then starts. |
+| `memtrace install` | Upgrade to the latest npm package (requires `sudo` if npm prefix is system-owned). `memtrace install start` upgrades and then starts. |
 | `memtrace install-rtk` | Run the optional RTK install/init flow. |
 | `memtrace insight-card [repoId]` | Print the Codebase Insight Card for one or more indexed repos. |
 | `memtrace install-hooks [--pre-commit] [--pre-push] [path]` | Install Memtrace-managed git hook blocks. Default installs pre-push only. |

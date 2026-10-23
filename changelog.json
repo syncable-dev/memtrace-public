@@ -1,5 +1,23 @@
 [
   {
+    "tag_name": "v1.2.11-nightly.20261023.148e177",
+    "published_at": "2026-10-23T13:18:48.825Z",
+    "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.11-nightly.20261023.148e177",
+    "name": "Memtrace 1.2.11-nightly.20261023.148e177",
+    "body": "No new customer-facing notes this soak.\n\nInstall: npm install -g memtrace@nightly",
+    "prerelease": true,
+    "draft": false
+  },
+  {
+    "tag_name": "v1.2.11",
+    "published_at": "2026-10-23T13:16:33Z",
+    "html_url": "https://github.com/syncable-dev/memtrace-public/releases/tag/v1.2.11",
+    "name": "Memtrace v1.2.11",
+    "body": "## Memtrace v1.2.11\n\nGraph context by default, with your workflow in control\n\n### Improved\n\n- With memtrace start running for the indexed workspace, Memtrace adds relevant, bounded graph context to code searches by default in supported agent integrations, while keeping ordinary search and editing tools available.\n- Agent guidance follows useful search results with caller, consumer and impact relationships when they answer the task, then verifies current source and tests.\n- Claude Code receives context after ordinary searches. OpenCode appends context through its tool completion hook. Empty results, unavailable graphs and out-of-scope searches preserve ordinary tool output.\n- Explicit strict workflows, observation mode, disabled hooks and enrichment opt-outs remain under your control. Upgrades refresh known stock guidance while preserving customized skills, project instructions and user assets.\n\n### Fixed\n\n- Resolve more JavaScript relationships through CommonJS class values, constructor-injected fields and resource callbacks, while preserving the owning module and receiver.\n- Keep callback handoffs, component renders and inline invocations distinct in the graph and downstream navigation.\n- Resolve Python packages from configured source roots and attribute decorator and default-expression calls to the scope that executes them.\n- Preserve Go named-type and alias relationships, and parse YAML documents with large row counts.\n- Report graph coverage per section and preserve exact symbol and process identities in follow-up actions.\n\n### Install\n\n```bash\nnpm install -g memtrace\n```\n",
+    "prerelease": false,
+    "draft": false
+  },
+  {
     "tag_name": "v1.2.11-nightly.20261023.31b5fcf",
     "published_at": "2026-10-23T11:44:14.643Z",
     "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.11-nightly.20261023.31b5fcf",

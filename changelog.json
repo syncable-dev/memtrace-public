@@ -1,5 +1,18 @@
 [
   {
+    "tag_name": "v1.2.17",
+    "published_at": "2026-11-04T09:34:07.686Z",
+    "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.17",
+    "name": "Memtrace 1.2.17",
+    "body": "Branch switches on Windows with mixed line endings\n\n### Changed\n- On very large repositories, a save can still remain pending while the watcher retries a memory-limited update, particularly during embedding. The previous graph stays available.\n\n### Fixed\n- Switching branches on Windows no longer fails to link the new branch to its parent when a file was saved with LF line endings while Git converts line endings on checkout.\n\nInstall: npm install -g memtrace",
+    "draft": false,
+    "prerelease": false,
+    "channels": [
+      "latest",
+      "nightly"
+    ]
+  },
+  {
     "tag_name": "v1.2.16",
     "published_at": "2026-11-04T05:06:30.764Z",
     "html_url": "https://www.npmjs.com/package/memtrace/v/1.2.16",
